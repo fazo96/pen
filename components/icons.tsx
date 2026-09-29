@@ -177,3 +177,15 @@ export const IconExpand = (p: P) => (
     <path d="M11 4h5v5M16 4l-7 7M14 12v3.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5H8" />
   </svg>
 );
+
+export const IconUp = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="m5 12.5 5-5 5 5" />
+  </svg>
+);
+
+export const IconDown = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="m5 7.5 5 5 5-5" />
+  </svg>
+);

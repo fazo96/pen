@@ -1370,6 +1370,67 @@ button {
 .prose.is-preview {
   caret-color: transparent;
 }
+.preview-actions .btn.is-on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Changes since a version: removed text struck through, added text underlined. */
+.preview-changes {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px 12px;
+  padding-top: 6px;
+  border-top: 1px solid var(--rule);
+}
+.diff-count {
+  font-family: var(--font-ui);
+  font-size: 12px;
+}
+.diff-count-ins {
+  color: var(--signal);
+}
+.diff-count-del {
+  color: var(--accent);
+}
+.preview-nav {
+  display: flex;
+  margin: -4px -6px -4px auto;
+}
+.prose del.diff-del {
+  color: var(--ink-faint);
+  text-decoration: line-through;
+  text-decoration-color: var(--accent);
+  background: var(--accent-wash);
+}
+.prose ins.diff-ins {
+  color: var(--signal);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--signal) 55%, transparent);
+  text-underline-offset: 0.2em;
+  background: color-mix(in srgb, var(--signal) 9%, transparent);
+}
+.prose ins.diff-ins.is-replacing {
+  margin-left: 0.3em;
+}
+.prose .diff-del-block,
+.prose ins.diff-ins-block {
+  display: block;
+  margin-left: -14px;
+  padding-left: 12px;
+  border-left: 2px solid var(--accent);
+}
+.prose .diff-del-block {
+  color: var(--ink-faint);
+  text-decoration: line-through;
+  text-decoration-color: var(--accent);
+}
+.prose ins.diff-ins-block {
+  border-left-color: var(--signal);
+  color: var(--signal);
+  text-decoration: none;
+}
 
 /* ─── Lock ─────────────────────────────────────────────────── */
 .lock {

@@ -502,6 +502,7 @@ export default function Pen({ projectId, kind, initial, initialEntry }: Props) {
             key={preview.meta.id}
             meta={preview.meta}
             content={preview.content}
+            draft={editor?.state.doc ?? null}
             onRestore={restore}
             onClose={closePreview}
           />
