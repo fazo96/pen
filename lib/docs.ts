@@ -353,3 +353,61 @@ export function renameEntry(id: string, eid: string, newEid: string): Promise<bo
     }
   });
 }
+
+// ─── Construct chats ─────────────────────────────────────────
+// Conversations with Construct: <project>/construct/<chat>.json, written by
+// lib/construct/session.ts. Opaque JSON here.
+
+const chatsDir = (id: string) => path.join(dirOf(id), "construct");
+function chatFile(id: string, cid: string) {
+  if (!isValidId(cid)) throw new Error(`invalid chat id: ${cid}`);
+  return path.join(chatsDir(id), `${cid}.json`);
+}
+
+/** Every stored chat of a project, parsed; unreadable files are skipped. */
+export async function readChats(id: string): Promise<unknown[]> {
+  if (!isValidId(id)) return [];
+  await ready();
+  let names: string[];
+  try {
+    names = await readdir(chatsDir(id));
+  } catch (err) {
+    if (isMissing(err)) return [];
+    throw err;
+  }
+  const chats = await Promise.all(
+    names
+      .filter((n) => n.endsWith(".json") && isValidId(n.slice(0, -5)))
+      .map(async (n) => {
+        try {
+          return JSON.parse(await readFile(chatFile(id, n.slice(0, -5)), "utf8")) as unknown;
+        } catch {
+          return null;
+        }
+      }),
+  );
+  return chats.filter((c) => c !== null);
+}
+
+/** Save a chat. False if the project no longer exists. */
+export function writeChat(id: string, cid: string, data: unknown): Promise<boolean> {
+  return serialize(async () => {
+    if (!(await projectExists(id))) return false;
+    await atomicWrite(chatFile(id, cid), JSON.stringify(data));
+    return true;
+  });
+}
+
+export function trashChat(id: string, cid: string): Promise<boolean> {
+  return serialize(async () => {
+    await mkdir(TRASH_DIR, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    try {
+      await rename(chatFile(id, cid), path.join(TRASH_DIR, `${id}--construct--${cid}--${stamp}.json`));
+      return true;
+    } catch (err) {
+      if (isMissing(err)) return false;
+      throw err;
+    }
+  });
+}

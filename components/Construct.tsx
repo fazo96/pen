@@ -4,7 +4,7 @@ import { Marked } from "marked";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ChatItem, ConstructEvent, PromptContext } from "@/lib/construct/types";
 import { useConstruct } from "@/lib/useConstruct";
-import { IconClose, IconPlus, IconSend, IconStop } from "./icons";
+import { IconChats, IconClose, IconPlus, IconSend, IconStop, IconTrash } from "./icons";
 
 type CodexChange = Extract<ConstructEvent, { t: "codex" }>["change"];
 
@@ -80,12 +80,22 @@ function describeTool(item: Extract<ChatItem, { type: "tool" }>): { text: string
   }
 }
 
+function when(t: number) {
+  const d = new Date(t);
+  const today = new Date().toDateString() === d.toDateString();
+  return today
+    ? d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
 const isTouch = () => typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
 
 export default function Construct({ projectId, open, onClose, getContext, beforeSend, onCodexChange, onOpen }: Props) {
   const c = useConstruct(projectId, open, onCodexChange);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [showChats, setShowChats] = useState(false);
+  const [confirming, setConfirming] = useState<string | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const stick = useRef(true);
@@ -136,8 +146,25 @@ export default function Construct({ projectId, open, onClose, getContext, before
           <div className="construct-head-actions">
             <button
               type="button"
+              className={`icon-btn ${showChats ? "is-on" : ""}`}
+              onClick={() => {
+                setShowChats((s) => !s);
+                setConfirming(null);
+              }}
+              disabled={!c.state?.chats?.length}
+              aria-label="Chats"
+              aria-pressed={showChats}
+              title="Chats"
+            >
+              <IconChats />
+            </button>
+            <button
+              type="button"
               className="icon-btn"
-              onClick={() => void c.reset()}
+              onClick={() => {
+                setShowChats(false);
+                void c.reset();
+              }}
               disabled={!c.items.length}
               aria-label="New chat"
               title="New chat"
@@ -173,8 +200,61 @@ export default function Construct({ projectId, open, onClose, getContext, before
           </div>
         )}
 
+        {showChats && (
+          <ol className="construct-chats" aria-label="Chats">
+            {(c.state?.chats ?? []).map((chat) => (
+              <li key={chat.id} className={chat.id === c.state?.chatId ? "is-current" : ""}>
+                {confirming === chat.id ? (
+                  <div className="construct-chat-confirm">
+                    <span>Delete this chat?</span>
+                    <button type="button" onClick={() => setConfirming(null)}>
+                      Keep
+                    </button>
+                    <button
+                      type="button"
+                      className="is-danger"
+                      onClick={() => {
+                        setConfirming(null);
+                        void c.deleteChat(chat.id);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      className="construct-chat"
+                      disabled={busy}
+                      onClick={() => {
+                        setShowChats(false);
+                        stick.current = true;
+                        void c.openChat(chat.id);
+                      }}
+                    >
+                      <span className="construct-chat-title">{chat.title}</span>
+                      <span className="label">{when(chat.updated)}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn construct-chat-delete"
+                      disabled={busy && chat.id === c.state?.chatId}
+                      onClick={() => setConfirming(chat.id)}
+                      aria-label={`Delete “${chat.title}”`}
+                    >
+                      <IconTrash />
+                    </button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+
         <div
           className="construct-log"
+          hidden={showChats}
           ref={scroller}
           onScroll={(e) => {
             const el = e.currentTarget;

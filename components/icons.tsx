@@ -134,3 +134,9 @@ export const IconStop = (p: P) => (
     <rect x="5.5" y="5.5" width="9" height="9" rx="1.5" />
   </svg>
 );
+
+export const IconChats = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M3.5 10a6.5 6.5 0 1 0 1.9-4.6M3.5 3.5v2.4h2.4M10 6.5V10l2.5 1.5" />
+  </svg>
+);

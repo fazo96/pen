@@ -15,19 +15,34 @@ import {
   type SessionConfigOption,
   type SessionNotification,
 } from "@agentclientprotocol/sdk";
-import { readDoc } from "../docs";
+import { readChats, readDoc, trashChat, writeChat } from "../docs";
 import { titleOf } from "../text";
 import type { CodexChange, ToolContext } from "./tools";
 import { type AgentId, type AgentPreset, AGENTS, systemPrompt } from "./agents";
-import type { ChatItem, ConstructEvent, ConstructState, PromptContext } from "./types";
+import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, PromptContext } from "./types";
 
-// One Construct conversation per project, driving an ACP agent over stdio.
-// Lives in the server process (on globalThis, so dev reloads keep it); the
-// browser watches it through /api/docs/[id]/construct.
+// One Construct conversation at a time per project, driving an ACP agent over
+// stdio. Lives in the server process (on globalThis, so dev reloads keep it);
+// the browser watches it through /api/docs/[id]/construct. Every chat is also
+// stored in the project folder, with the agent's session id, so it can be
+// picked up again after a restart (ACP session/resume).
 
 const MCP_NAME = "pen";
 const TOOL_PREFIX = `mcp__${MCP_NAME}__`;
 const MAX_ITEMS = 400;
+const SAVE_EVERY_MS = 1500;
+
+/** A chat as stored in <project>/construct/<id>.json. */
+type StoredChat = ChatMeta & { v: 1; agent: string; sessionId: string | null; seq: number; items: ChatItem[] };
+
+const newChatId = () => `${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`;
+
+function isStoredChat(x: unknown): x is StoredChat {
+  const c = x as StoredChat;
+  return !!c && typeof c === "object" && c.v === 1 && typeof c.id === "string" && Array.isArray(c.items);
+}
+
+const metaOf = ({ id, title, created, updated }: ChatMeta): ChatMeta => ({ id, title, created, updated });
 
 /** Keep only the small, displayable bits of a tool call's input. */
 function brief(input: unknown): Record<string, string> | undefined {
@@ -54,12 +69,133 @@ class ConstructSession {
   private running = false;
   /** The message or thought currently streaming, to append chunks to. */
   private streaming: { id: string; type: "agent" | "thought" } | null = null;
+  /** The chat shown; `sessionId` is the agent's, kept to resume it later. */
+  private chat: { id: string; created: number; sessionId: string | null };
+  private canResume = false;
+  private saveTimer: ReturnType<typeof setTimeout> | null = null;
+  readonly loaded: Promise<void>;
 
   constructor(
     readonly projectId: string,
     private baseUrl: string,
   ) {
-    this.state = { agent: "claude", status: "idle", config: [] };
+    this.chat = { id: newChatId(), created: Date.now(), sessionId: null };
+    this.state = { agent: "claude", chatId: this.chat.id, chats: [], status: "idle", config: [] };
+    this.loaded = this.load().catch((err) => console.error("construct: couldn't load chats", err));
+  }
+
+  // ─── Stored chats ───────────────────────────────────────────
+
+  private async stored(): Promise<StoredChat[]> {
+    const chats = (await readChats(this.projectId)).filter(isStoredChat);
+    return chats.sort((a, b) => b.updated - a.updated);
+  }
+
+  /** Pick up where the newest stored chat left off. */
+  private async load() {
+    const chats = await this.stored();
+    this.state = { ...this.state, chats: chats.map(metaOf) };
+    if (chats[0]) this.adopt(chats[0]);
+  }
+
+  private adopt(c: StoredChat) {
+    this.chat = { id: c.id, created: c.created, sessionId: c.sessionId };
+    this.seq = c.seq;
+    // A turn cut short by a restart leaves tools that will never finish.
+    this.items = c.items.map((i) =>
+      i.type === "tool" && (i.status === "pending" || i.status === "in_progress") ? { ...i, status: "failed" } : i,
+    );
+    this.streaming = null;
+    this.state = { ...this.state, chatId: c.id };
+  }
+
+  private title() {
+    const first = this.items.find((i) => i.type === "user");
+    const text = first?.type === "user" ? first.text.replace(/\s+/g, " ").trim() : "";
+    return text.length > 60 ? `${text.slice(0, 57).trimEnd()}…` : text || "New chat";
+  }
+
+  /** Note a change: refresh the chat list now, write the file shortly. */
+  private persist() {
+    if (!this.items.length) return;
+    const meta: ChatMeta = { id: this.chat.id, title: this.title(), created: this.chat.created, updated: Date.now() };
+    const others = this.state.chats.filter((c) => c.id !== meta.id);
+    const prev = this.state.chats.find((c) => c.id === meta.id);
+    if (!prev || prev.title !== meta.title || this.state.chats[0]?.id !== meta.id) {
+      this.setState({ chats: [meta, ...others] });
+    } else {
+      this.state.chats[0] = meta; // same order and title: no need to tell anyone
+    }
+    this.saveTimer ??= setTimeout(() => void this.save(), SAVE_EVERY_MS);
+  }
+
+  /** Write the current chat now (if it has anything in it). */
+  private async save() {
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = null;
+    if (!this.items.length) return;
+    const data: StoredChat = {
+      v: 1,
+      id: this.chat.id,
+      title: this.title(),
+      created: this.chat.created,
+      updated: this.state.chats.find((c) => c.id === this.chat.id)?.updated ?? Date.now(),
+      agent: this.state.agent,
+      sessionId: this.chat.sessionId,
+      seq: this.seq,
+      items: this.items,
+    };
+    try {
+      await writeChat(this.projectId, this.chat.id, data);
+    } catch (err) {
+      console.error("construct: couldn't save chat", err);
+    }
+  }
+
+  /** Show a different conversation: an empty new one, or a stored one. */
+  private async show(next: StoredChat | null) {
+    if (this.running) throw new Error("Wait for Construct to finish, or stop it first.");
+    await this.save();
+    if (next) this.adopt(next);
+    else {
+      this.chat = { id: newChatId(), created: Date.now(), sessionId: null };
+      this.items = [];
+      this.streaming = null;
+      this.state = { ...this.state, chatId: this.chat.id };
+    }
+    this.emit({ t: "snapshot", items: this.items, state: this.state });
+    if (this.conn) {
+      this.setState({ status: "starting" });
+      try {
+        await this.openSession();
+      } catch (err) {
+        this.stop();
+        this.setState({ status: "error", error: (err as Error).message });
+      }
+    }
+  }
+
+  /** Start a fresh conversation; the current one stays stored. */
+  async reset() {
+    await this.cancel().catch(() => {});
+    for (let i = 0; this.running && i < 100; i++) await new Promise((r) => setTimeout(r, 50));
+    await this.show(null);
+  }
+
+  async openChat(chatId: string) {
+    if (chatId === this.chat.id) return;
+    const found = (await this.stored()).find((c) => c.id === chatId);
+    if (!found) throw new Error("That chat is gone.");
+    await this.show(found);
+  }
+
+  async deleteChat(chatId: string) {
+    if (chatId === this.chat.id) {
+      await this.show(null);
+      this.state.chats = this.state.chats.filter((c) => c.id !== chatId);
+    }
+    await trashChat(this.projectId, chatId);
+    this.setState({ chats: this.state.chats.filter((c) => c.id !== chatId) });
   }
 
   toolContext(): ToolContext {
@@ -100,6 +236,7 @@ class ConstructSession {
       if (this.items.length > MAX_ITEMS) this.items.splice(0, this.items.length - MAX_ITEMS);
     }
     this.emit({ t: "item", item });
+    this.persist();
   }
 
   private notice(text: string, tone: "info" | "error" = "info") {
@@ -113,8 +250,12 @@ class ConstructSession {
   start(agent: AgentId = this.state.agent as AgentId, baseUrl = this.baseUrl): Promise<void> {
     this.baseUrl = baseUrl;
     if (agent !== this.state.agent) {
+      // Another agent can't resume this one's session: start a new chat.
       this.stop();
+      void this.save();
+      this.chat = { id: newChatId(), created: Date.now(), sessionId: null };
       this.items = [];
+      this.state = { ...this.state, chatId: this.chat.id };
       this.emit({ t: "snapshot", items: this.items, state: this.state });
     }
     if (this.conn && this.sessionId) return Promise.resolve();
@@ -174,6 +315,7 @@ class ConstructSession {
       if (init.agentCapabilities?.mcpCapabilities?.http !== true) {
         throw new Error(`${preset.name} can't use pen's tools (no HTTP MCP support).`);
       }
+      this.canResume = !!init.agentCapabilities?.sessionCapabilities?.resume;
       await this.openSession();
     } catch (err) {
       this.stop();
@@ -187,19 +329,41 @@ class ConstructSession {
     const conn = this.conn!;
     const doc = await readDoc(this.projectId);
     const title = doc ? titleOf(doc.content, this.projectId) : this.projectId;
-    const res = await conn.newSession({
+    const params = {
       cwd: path.join(os.tmpdir(), "pen-construct", this.projectId),
       mcpServers: [
         {
-          type: "http",
+          type: "http" as const,
           name: MCP_NAME,
           url: `${this.baseUrl}/api/construct/mcp`,
           headers: [{ name: "Authorization", value: `Bearer ${this.token}` }],
         },
       ],
       _meta: AGENTS[this.state.agent as AgentId].sessionMeta(systemPrompt(title), MCP_NAME),
-    });
+    };
+    const chat = this.chat;
+
+    // A stored chat continues the agent's own session, memory and all.
+    if (chat.sessionId && this.canResume) {
+      try {
+        const res = await conn.resumeSession({ ...params, sessionId: chat.sessionId });
+        if (this.chat !== chat) return; // switched meanwhile
+        this.sessionId = chat.sessionId;
+        this.setState({ status: "ready", config: visibleConfig(res.configOptions) });
+        return;
+      } catch (err) {
+        console.error("construct: couldn't resume session", chat.sessionId, err);
+        if (this.chat === chat && this.items.length) {
+          this.notice("Construct couldn’t pick up this conversation where it left off: it won’t remember the messages above.");
+        }
+      }
+    }
+
+    const res = await conn.newSession(params);
+    if (this.chat !== chat) return;
     this.sessionId = res.sessionId;
+    chat.sessionId = res.sessionId;
+    if (this.items.length) void this.save();
     this.setState({ status: "ready", config: visibleConfig(res.configOptions) });
   }
 
@@ -250,28 +414,12 @@ class ConstructSession {
       this.notice((err as Error).message || "Construct failed.", "error");
     } finally {
       this.running = false;
+      await this.save();
     }
   }
 
   async cancel() {
     if (this.conn && this.sessionId) await this.conn.cancel({ sessionId: this.sessionId });
-  }
-
-  /** Forget the conversation and start a fresh one. */
-  async reset() {
-    await this.cancel().catch(() => {});
-    this.items = [];
-    this.streaming = null;
-    this.emit({ t: "snapshot", items: this.items, state: this.state });
-    if (this.conn) {
-      this.setState({ status: "starting" });
-      try {
-        await this.openSession();
-      } catch (err) {
-        this.stop();
-        this.setState({ status: "error", error: (err as Error).message });
-      }
-    }
   }
 
   async setConfig(configId: string, value: string) {
@@ -312,6 +460,7 @@ class ConstructSession {
           if (item && (item.type === "agent" || item.type === "thought")) {
             item.text += u.content.text;
             this.emit({ t: "append", id: item.id, text: u.content.text });
+            this.persist();
             return;
           }
         }
@@ -389,12 +538,14 @@ if (!(g as { __penConstructExit?: boolean }).__penConstructExit) {
   });
 }
 
-export function getSession(projectId: string, baseUrl: string): ConstructSession {
+/** The project's session, with its stored chats loaded. */
+export async function getSession(projectId: string, baseUrl: string): Promise<ConstructSession> {
   let s = sessions.get(projectId);
   if (!s) {
     s = new ConstructSession(projectId, baseUrl);
     sessions.set(projectId, s);
   }
+  await s.loaded;
   return s;
 }
 

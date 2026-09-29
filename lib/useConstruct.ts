@@ -88,6 +88,8 @@ export function useConstruct(projectId: string, enabled: boolean, onCodexChange:
     send: (text: string, context: PromptContext) => post({ action: "prompt", text, context }),
     cancel: () => post({ action: "cancel" }),
     reset: () => post({ action: "reset" }),
+    openChat: (chatId: string) => post({ action: "open-chat", chatId }),
+    deleteChat: (chatId: string) => post({ action: "delete-chat", chatId }),
     setConfig: (configId: string, value: string) => post({ action: "config", configId, value }),
   };
 }

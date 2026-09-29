@@ -28,7 +28,7 @@ export async function GET(req: Request, { params }: Ctx) {
   if (!(await hasSession())) return lockedResponse();
   const id = await project(params);
   if (!id) return notFound();
-  const session = getSession(id, internalUrl(req));
+  const session = await getSession(id, internalUrl(req));
 
   const enc = new TextEncoder();
   let cleanup = () => {};
@@ -62,6 +62,8 @@ type Action =
   | { action: "prompt"; text: string; context?: PromptContext }
   | { action: "cancel" }
   | { action: "reset" }
+  | { action: "open-chat"; chatId: string }
+  | { action: "delete-chat"; chatId: string }
   | { action: "config"; configId: string; value: string };
 
 /** Drive the conversation. Replies come back over the event stream. */
@@ -71,7 +73,7 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!id) return notFound();
   const body = (await req.json().catch(() => null)) as Action | null;
   if (!body || typeof body !== "object") return bad("invalid json");
-  const session = getSession(id, internalUrl(req));
+  const session = await getSession(id, internalUrl(req));
 
   try {
     switch (body.action) {
@@ -98,6 +100,11 @@ export async function POST(req: Request, { params }: Ctx) {
         break;
       case "reset":
         await session.reset();
+        break;
+      case "open-chat":
+      case "delete-chat":
+        if (typeof body.chatId !== "string" || !isValidId(body.chatId)) return bad("chatId required");
+        await (body.action === "open-chat" ? session.openChat(body.chatId) : session.deleteChat(body.chatId));
         break;
       case "config":
         if (typeof body.configId !== "string" || typeof body.value !== "string") return bad("configId and value required");

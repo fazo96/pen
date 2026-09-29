@@ -1877,6 +1877,82 @@ a.status {
   pointer-events: none;
 }
 
+.construct-log[hidden] {
+  display: none;
+}
+.construct-head-actions .icon-btn.is-on {
+  color: var(--accent);
+}
+
+.construct-chats {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  margin: 0;
+  padding: 8px 0;
+}
+.construct-chats li {
+  display: flex;
+  align-items: center;
+  padding-right: 8px;
+}
+.construct-chat {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px 10px 20px;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+.construct-chat:hover {
+  background: var(--accent-wash);
+}
+.construct-chat:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.construct-chat-title {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.construct-chats .is-current .construct-chat-title {
+  color: var(--accent);
+}
+.construct-chat-delete {
+  flex: none;
+  opacity: 0.5;
+}
+.construct-chat-delete:hover {
+  opacity: 1;
+}
+.construct-chat-confirm {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 12px 20px;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  color: var(--ink-soft);
+}
+.construct-chat-confirm span {
+  flex: 1;
+}
+.construct-chat-confirm button {
+  color: var(--ink);
+  border-bottom: 1px solid currentColor;
+}
+.construct-chat-confirm .is-danger {
+  color: var(--accent);
+}
+
 :root[data-focus] .app-editor .construct {
   visibility: hidden;
 }

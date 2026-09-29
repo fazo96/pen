@@ -24,8 +24,13 @@ export type ChatItem =
   | { id: string; type: "plan"; entries: { content: string; status: string }[] }
   | { id: string; type: "notice"; text: string; tone: "info" | "error" };
 
+export type ChatMeta = { id: string; title: string; created: number; updated: number };
+
 export type ConstructState = {
   agent: string;
+  /** The conversation shown, and the stored ones (newest first). */
+  chatId: string;
+  chats: ChatMeta[];
   status: "idle" | "starting" | "ready" | "busy" | "error";
   error?: string;
   /** Model / effort pickers the agent offers. */
