@@ -56,6 +56,8 @@ Beside each manuscript is a Codex: notes on characters, places, timeline and res
 
 Construct is a side panel where you can talk to an AI about your book. It can read the manuscript, search it, look through its history, and keep the Codex up to date. It **cannot change the manuscript**, and it **doesn't write prose unless you explicitly ask it to**. When it gives feedback, it points at a passage and tells you what isn't working. The words stay yours.
 
+![Construct reviewing a chapter: each note links to the passage it's about](docs/screenshots/construct-feedback.webp)
+
 ### Private by default
 
 Pen runs on your own machine, and your books are plain files in a folder. You can lock the whole desk with a password from **Settings**; each new device then has to unlock it once.
