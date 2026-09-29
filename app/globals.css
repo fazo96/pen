@@ -587,12 +587,16 @@ button {
   border-bottom: 1px solid var(--rule);
 }
 
+.outline-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .outline-list {
   list-style: none;
   margin: 0;
   padding: 12px 0;
-  overflow-y: auto;
-  flex: 1;
 }
 
 .outline-item {
@@ -664,6 +668,272 @@ button {
 .outline-foot {
   padding: 12px 20px 0;
   border-top: 1px solid var(--rule);
+}
+
+/* Drawer header controls */
+.drawer-back,
+.drawer-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 10px 0 4px;
+  margin-left: -6px;
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  transition: color 0.2s, background-color 0.2s;
+}
+.drawer-action {
+  margin-left: auto;
+  margin-right: 4px;
+  padding: 0 10px 0 6px;
+  color: var(--accent);
+}
+.drawer-back:hover,
+.drawer-action:hover {
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+.drawer-back svg,
+.drawer-action svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ─── Library ──────────────────────────────────────────────── */
+.library-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.library-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 4px 10px 20px;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background-color 0.2s, color 0.2s;
+}
+.library-row:hover {
+  background: var(--accent-wash);
+}
+.library-item:hover .library-title {
+  color: var(--accent);
+}
+.library-title {
+  font-size: 16px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+.library-meta {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.library-delete {
+  flex: none;
+  margin-right: 8px;
+  color: var(--ink-faint);
+}
+.library-delete:hover {
+  color: var(--accent);
+}
+@media (hover: hover) {
+  .library-delete {
+    opacity: 0;
+  }
+  .library-row:hover .library-delete,
+  .library-delete:focus-visible {
+    opacity: 1;
+  }
+}
+
+.library-confirm {
+  width: 100%;
+  padding: 10px 12px 10px 20px;
+  font-size: 15px;
+  line-height: 1.35;
+  border-left: 2px solid var(--accent);
+}
+.library-confirm em {
+  color: var(--accent);
+}
+.library-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 8px;
+}
+.library-confirm-actions button,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--rule);
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+.library-confirm-actions button:hover,
+.btn:hover {
+  border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+}
+.library-confirm-actions button.danger {
+  color: var(--paper);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ─── Welcome ──────────────────────────────────────────────── */
+.welcome {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding-top: 8vh;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.welcome-title {
+  margin: 1.4rem 0 0.8rem;
+  font-size: clamp(2.4rem, 9vw, 3.4rem);
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.welcome-title::after {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 1px;
+  margin-top: 1.4rem;
+  background: var(--accent);
+}
+.welcome-lede {
+  margin: 0.4rem 0 2.2rem;
+  font-size: 1.125rem;
+  line-height: 1.65;
+  color: var(--ink-soft);
+  max-width: 28em;
+}
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.btn {
+  min-height: 46px;
+  padding: 0 18px 0 14px;
+  border-radius: 10px;
+}
+.btn svg {
+  width: 18px;
+  height: 18px;
+}
+.btn-primary {
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.btn-primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+.welcome-library {
+  margin-top: 1.6rem;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 2px;
+}
+.welcome-error {
+  margin: 1.4rem 0 0;
+  padding-left: 12px;
+  border-left: 2px solid var(--accent);
+  color: var(--accent);
+  font-style: italic;
+}
+.welcome-hint {
+  margin-top: 3rem;
+}
+@media (hover: none) {
+  .welcome-hint {
+    display: none;
+  }
+}
+
+/* ─── Drop to import ───────────────────────────────────────── */
+.dropzone {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.dropzone.is-over {
+  opacity: 1;
+}
+.dropzone-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 26rem);
+  padding: 48px 24px;
+  border: 1px dashed var(--accent);
+  border-radius: 14px;
+}
+.dropzone-text {
+  font-size: 1.3rem;
+  font-style: italic;
+}
+
+.toast {
+  position: fixed;
+  z-index: 25;
+  left: 50%;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top) + 12px);
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+  padding: 10px 14px;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  font-style: italic;
+  cursor: pointer;
 }
 
 /* ─── Conflict notice ──────────────────────────────────────── */
@@ -773,6 +1043,7 @@ button {
   }
   .outline-close,
   .outline-toggle,
+  .welcome-library,
   .scrim {
     display: none;
   }

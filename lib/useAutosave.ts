@@ -3,27 +3,26 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export type SaveStatus = "saved" | "unsaved" | "saving" | "offline" | "conflict";
-export type Story = { content: string; version: string };
+export type Story = { id: string; content: string; version: string };
 
 const IDLE_MS = 1200;
 const RETRY_MS = 5000;
-const BACKUP_KEY = "pen:backup";
 
 type Backup = { content: string; baseVersion: string };
 
-function readBackup(): Backup | null {
+function readBackup(key: string): Backup | null {
   try {
-    const raw = localStorage.getItem(BACKUP_KEY);
+    const raw = localStorage.getItem(key);
     return raw ? (JSON.parse(raw) as Backup) : null;
   } catch {
     return null;
   }
 }
 
-function writeBackup(b: Backup | null) {
+function writeBackup(key: string, b: Backup | null) {
   try {
-    if (b) localStorage.setItem(BACKUP_KEY, JSON.stringify(b));
-    else localStorage.removeItem(BACKUP_KEY);
+    if (b) localStorage.setItem(key, JSON.stringify(b));
+    else localStorage.removeItem(key);
   } catch {}
 }
 
@@ -43,6 +42,10 @@ type Options = {
  * between, the server answers 409 and we stop and ask instead of overwriting.
  */
 export function useAutosave({ initial, getContent, setContent, ready }: Options) {
+  const url = `/api/docs/${initial.id}`;
+  const backupKey = `pen:backup:${initial.id}`;
+  const backup = (b: Backup | null) => writeBackup(backupKey, b);
+
   const [status, setStatus] = useState<SaveStatus>("saved");
   const [conflict, setConflict] = useState<Story | null>(null);
 
@@ -65,17 +68,17 @@ export function useAutosave({ initial, getContent, setContent, ready }: Options)
     if (content === null) return;
     if (content === saved.current && !force) {
       dirty.current = false;
-      writeBackup(null);
+      backup(null);
       setStatus("saved");
       return;
     }
 
-    writeBackup({ content, baseVersion: version.current });
+    backup({ content, baseVersion: version.current });
     inFlight.current = true;
     dirty.current = false;
     setStatus("saving");
     try {
-      const res = await fetch("/api/story", {
+      const res = await fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content, baseVersion: version.current, force }),
@@ -98,7 +101,7 @@ export function useAutosave({ initial, getContent, setContent, ready }: Options)
         setStatus("unsaved");
         timer.current = setTimeout(() => void flush(), IDLE_MS);
       } else {
-        writeBackup(null);
+        backup(null);
         setStatus("saved");
       }
     } catch {
@@ -123,7 +126,7 @@ export function useAutosave({ initial, getContent, setContent, ready }: Options)
   const pull = useCallback(async () => {
     if (dirty.current || inFlight.current || blocked.current) return;
     try {
-      const res = await fetch("/api/story", { cache: "no-store" });
+      const res = await fetch(url, { cache: "no-store" });
       if (!res.ok) return;
       const remote = (await res.json()) as Story;
       if (remote.version === version.current || dirty.current) return;
@@ -142,7 +145,7 @@ export function useAutosave({ initial, getContent, setContent, ready }: Options)
         saved.current = conflict.content;
         dirty.current = false;
         blocked.current = false;
-        writeBackup(null);
+        backup(null);
         setContent(conflict.content);
         setConflict(null);
         setStatus("saved");
@@ -157,14 +160,14 @@ export function useAutosave({ initial, getContent, setContent, ready }: Options)
   // On first load, recover work that never reached the server.
   useEffect(() => {
     if (!ready) return;
-    const backup = readBackup();
-    if (!backup || backup.content === initial.content) {
-      writeBackup(null);
+    const stash = readBackup(backupKey);
+    if (!stash || stash.content === initial.content) {
+      backup(null);
       return;
     }
-    setContent(backup.content);
+    setContent(stash.content);
     dirty.current = true;
-    if (backup.baseVersion === initial.version) {
+    if (stash.baseVersion === initial.version) {
       // Server hasn't moved; just finish the interrupted save.
       void flush();
     } else {
@@ -189,9 +192,9 @@ export function useAutosave({ initial, getContent, setContent, ready }: Options)
       if (!dirty.current || blocked.current) return;
       const content = getContent();
       if (content === null) return;
-      writeBackup({ content, baseVersion: version.current });
+      backup({ content, baseVersion: version.current });
       navigator.sendBeacon(
-        "/api/story",
+        url,
         new Blob([JSON.stringify({ content, baseVersion: version.current })], {
           type: "application/json",
         }),
@@ -209,5 +212,13 @@ export function useAutosave({ initial, getContent, setContent, ready }: Options)
 
   useEffect(() => clearTimer, []);
 
-  return { status, conflict, touch, flush, resolveConflict };
+  /** Save anything pending before navigating away from this document. */
+  const leave = useCallback(async () => {
+    if (!dirty.current || blocked.current) return;
+    // Wait out a save already in flight, then send what's left.
+    while (inFlight.current) await new Promise((r) => setTimeout(r, 50));
+    await flush();
+  }, [flush]);
+
+  return { status, conflict, touch, flush, leave, resolveConflict };
 }

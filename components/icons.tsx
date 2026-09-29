@@ -70,3 +70,27 @@ export const IconClose = (p: P) => (
     <path d="m5 5 10 10M15 5 5 15" />
   </svg>
 );
+
+export const IconTrash = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M4.5 6h11M8 6V4.5h4V6M6 6l.7 9.5h6.6L14 6M8.7 8.5v4.5M11.3 8.5v4.5" />
+  </svg>
+);
+
+export const IconImport = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M10 12.5v-9M6.5 7 10 3.5 13.5 7M4 16.5h12" />
+  </svg>
+);
+
+export const IconPlus = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M10 4v12M4 10h12" />
+  </svg>
+);
+
+export const IconBack = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M12 5 7 10l5 5" />
+  </svg>
+);

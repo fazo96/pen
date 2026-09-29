@@ -5,10 +5,16 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Typography from "@tiptap/extension-typography";
 import { Placeholder } from "@tiptap/extensions";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { slugify, wordCount } from "@/lib/text";
 import { type SaveStatus, type Story, useAutosave } from "@/lib/useAutosave";
-import { IconExport, IconOutline, IconTheme } from "./icons";
+import { useLibrary } from "@/lib/useLibrary";
+import Drawer from "./Drawer";
+import DropImport from "./DropImport";
+import { IconBack, IconExport, IconOutline } from "./icons";
 import Outline, { type Heading } from "./Outline";
+import ThemeButton from "./ThemeButton";
 import Toolbar from "./Toolbar";
 
 const STATUS_LABEL: Record<SaveStatus, string> = {
@@ -19,33 +25,14 @@ const STATUS_LABEL: Record<SaveStatus, string> = {
   conflict: "Conflict",
 };
 
-type Theme = "auto" | "light" | "dark";
-const THEME_LABEL: Record<Theme, string> = { auto: "Auto", light: "Paper", dark: "Night" };
-
-function countWords(text: string) {
-  const m = text.match(/[\p{L}\p{N}’'-]+/gu);
-  return m ? m.length : 0;
-}
-
-function slugify(s: string) {
-  return (
-    s
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 60) || "story"
-  );
-}
-
 export default function Pen({ initial }: { initial: Story }) {
+  const router = useRouter();
+  const lib = useLibrary();
   const [headings, setHeadings] = useState<Heading[]>([]);
   const [active, setActive] = useState<number | null>(null);
   const [words, setWords] = useState(0);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [typing, setTyping] = useState(false);
-  const [theme, setTheme] = useState<Theme>("auto");
   const [progress, setProgress] = useState(0);
   const touchRef = useRef<() => void>(() => {});
 
@@ -99,7 +86,7 @@ export default function Pen({ initial }: { initial: Story }) {
     (md: string) => editor?.commands.setContent(md, { contentType: "markdown", emitUpdate: false }),
     [editor],
   );
-  const { status, conflict, touch, resolveConflict } = useAutosave({
+  const { status, conflict, touch, leave, resolveConflict } = useAutosave({
     initial,
     getContent,
     setContent,
@@ -119,7 +106,7 @@ export default function Pen({ initial }: { initial: Story }) {
         }
       });
       setHeadings(hs);
-      setWords(countWords(editor.state.doc.textBetween(0, editor.state.doc.content.size, " ", " ")));
+      setWords(wordCount(editor.state.doc.textBetween(0, editor.state.doc.content.size, " ", " ")));
     };
     const onTx = ({ transaction }: { transaction: { docChanged: boolean } }) => {
       if (!transaction.docChanged) return;
@@ -187,26 +174,6 @@ export default function Pen({ initial }: { initial: Story }) {
     return () => window.removeEventListener("mousemove", wake);
   }, []);
 
-  useEffect(() => {
-    const t = document.documentElement.dataset.theme;
-    setTheme(t === "light" || t === "dark" ? t : "auto");
-  }, []);
-
-  const cycleTheme = () => {
-    const next: Theme = theme === "auto" ? "light" : theme === "light" ? "dark" : "auto";
-    setTheme(next);
-    const root = document.documentElement;
-    try {
-      if (next === "auto") {
-        delete root.dataset.theme;
-        localStorage.removeItem("pen:theme");
-      } else {
-        root.dataset.theme = next;
-        localStorage.setItem("pen:theme", next);
-      }
-    } catch {}
-  };
-
   const title = headings.find((h) => h.level === 1)?.text || "Untitled";
 
   const exportMarkdown = () => {
@@ -215,7 +182,7 @@ export default function Pen({ initial }: { initial: Story }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${slugify(title)}.md`;
+    a.download = `${slugify(title) || initial.id}.md`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -229,6 +196,20 @@ export default function Pen({ initial }: { initial: Story }) {
     editor.commands.setTextSelection(h.pos + 1);
     setOutlineOpen(false);
   };
+
+  // Save before leaving this document, whichever way we leave.
+  const goLibrary = async () => {
+    await leave();
+    router.push("/?library");
+  };
+  const { importFile: importDoc } = lib;
+  const importFile = useCallback(
+    async (file: File) => {
+      await leave();
+      await importDoc(file);
+    },
+    [leave, importDoc],
+  );
 
   return (
     <div className={`app ${typing ? "is-typing" : ""}`}>
@@ -245,7 +226,9 @@ export default function Pen({ initial }: { initial: Story }) {
           >
             <IconOutline />
           </button>
-          <span className="wordmark">pen</span>
+          <button type="button" className="wordmark" onClick={goLibrary} title="Library">
+            pen
+          </button>
           <span className="topbar-title" title={title}>
             {title}
           </span>
@@ -256,15 +239,7 @@ export default function Pen({ initial }: { initial: Story }) {
             <span className="status-label">{STATUS_LABEL[status]}</span>
           </span>
           <span className="words label">{words.toLocaleString()} w</span>
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={cycleTheme}
-            aria-label={`Theme: ${THEME_LABEL[theme]}`}
-            title={`Theme: ${THEME_LABEL[theme]}`}
-          >
-            <IconTheme />
-          </button>
+          <ThemeButton />
           <button type="button" className="icon-btn" onClick={exportMarkdown} aria-label="Export markdown" title="Export .md">
             <IconExport />
           </button>
@@ -275,7 +250,7 @@ export default function Pen({ initial }: { initial: Story }) {
         <div className="conflict" role="alert">
           <p>
             <span className="label">Conflict</span>
-            This story was changed on another device.
+            This manuscript was changed on another device.
           </p>
           <div className="conflict-actions">
             <button type="button" onClick={() => resolveConflict("theirs")}>
@@ -288,20 +263,32 @@ export default function Pen({ initial }: { initial: Story }) {
         </div>
       )}
 
-      <Outline
-        headings={headings}
-        active={active}
+      <Drawer
         open={outlineOpen}
-        words={words}
-        onJump={jump}
         onClose={() => setOutlineOpen(false)}
-      />
+        label="Outline"
+        head={
+          <button type="button" className="drawer-back" onClick={goLibrary}>
+            <IconBack /> Library
+          </button>
+        }
+        foot={`${words.toLocaleString()} words · ${Math.max(1, Math.round(words / 230))} min read`}
+      >
+        <Outline headings={headings} active={active} onJump={jump} />
+      </Drawer>
 
       <main className="page">
         {editor ? <EditorContent editor={editor} /> : <div className="prose loading" aria-busy />}
       </main>
 
       {editor && <Toolbar editor={editor} />}
+
+      {lib.error && (
+        <div className="toast" role="alert" onClick={lib.clearError}>
+          {lib.error}
+        </div>
+      )}
+      <DropImport onFile={importFile} />
     </div>
   );
 }
