@@ -25,6 +25,7 @@ A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Ti
 
 - **Never write to `data/`.** It holds the user's real manuscripts, and they often write in the running dev server while you work. Test against a throwaway library instead: `next build`, then `PEN_DIR=<scratch dir> next start -p 3001`.
 - Node isn't on PATH (NixOS): `nix develop` gives a shell with Node 24 and `node_modules/.bin` on PATH (or one-off: `nix develop --command npx ...`).
+- Docker: `Dockerfile` builds with `PEN_STANDALONE=1`, which turns on `output: "standalone"` in `next.config.ts` (left off otherwise, since `next start` warns about it). The image keeps everything, Construct's agent state included (`CLAUDE_CONFIG_DIR=/data/.claude`), in the `/data` volume.
 - The dev server usually runs on port 3000 bound to `0.0.0.0` (`next dev -H 0.0.0.0 -p 3000`) so the user can test on their phone. Leave it running.
 - For browser tests, install `puppeteer-core` in a scratch directory (not in this project) and launch the Chromium from `nix shell nixpkgs#chromium`. The Tiptap instance is reachable in tests as `document.querySelector(".ProseMirror").editor`.
 - When stopping a background server with `pkill -f`, pick a pattern that won't also match the shell running the `pkill` command.
