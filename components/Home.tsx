@@ -5,7 +5,7 @@ import { useRef } from "react";
 import type { DocMeta } from "@/lib/docs";
 import { IMPORT_ACCEPT, useLibrary } from "@/lib/useLibrary";
 import DropImport from "./DropImport";
-import { IconImport, IconPlus, IconSettings } from "./icons";
+import { IconGithub, IconImport, IconPlus, IconSettings } from "./icons";
 import Logo from "./Logo";
 import Shelf from "./Shelf";
 import ThemeButton from "./ThemeButton";
@@ -28,6 +28,16 @@ export default function Home({ docs }: { docs: DocMeta[] }) {
         </div>
         <div className="topbar-right">
           <ThemeButton />
+          <a
+            href="https://github.com/fazo96/pen"
+            className="icon-btn"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Pen on GitHub"
+            title="Pen on GitHub"
+          >
+            <IconGithub />
+          </a>
         </div>
       </header>
 
