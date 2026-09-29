@@ -74,6 +74,15 @@
   box-sizing: border-box;
 }
 
+/* Chromium's default scrollbars are wide and grey; Firefox draws thin
+   overlay ones already, so leave it alone. */
+@supports not (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ink-faint) transparent;
+  }
+}
+
 html {
   -webkit-text-size-adjust: 100%;
   scroll-padding-top: calc(var(--topbar-h) + 32px);
