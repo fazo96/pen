@@ -18,5 +18,8 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   // api/construct/mcp is called by the Construct agent process, with its own token.
-  matcher: ["/((?!_next/|unlock(?:$|/)|api/auth(?:$|/)|api/construct/mcp$|favicon\\.ico$|icon\\.svg$).*)"],
+  // The manifest is fetched without cookies, so it and the icons stay public.
+  matcher: [
+    "/((?!_next/|unlock(?:$|/)|api/auth(?:$|/)|api/construct/mcp$|favicon\\.ico$|icon\\.svg$|icon-[a-z0-9-]+\\.png$|apple-icon\\.png$|manifest\\.webmanifest$).*)",
+  ],
 };

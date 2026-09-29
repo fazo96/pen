@@ -19,6 +19,7 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "pen",
   description: "A quiet place to write.",
+  appleWebApp: { capable: true, title: "pen", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
