@@ -298,6 +298,14 @@ export function saveVersion(id: string, label: string) {
   });
 }
 
+/** Add an older draft from elsewhere as a named version, dated `created`. Null if the project is missing. */
+export function importVersion(id: string, content: string, label: string, created: number) {
+  return serialize(async () => {
+    if (!(await projectExists(id))) return null;
+    return versions.addVersion(dirOf(id), content, "named", label, created);
+  });
+}
+
 /** Replace the manuscript with a version, snapshotting the current text first. */
 export function restoreVersion(id: string, vid: string): Promise<Doc | null> {
   return serialize(async () => {

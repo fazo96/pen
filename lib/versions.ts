@@ -52,25 +52,27 @@ export async function readVersion(projectDir: string, vid: string): Promise<stri
 }
 
 /**
- * Snapshot `content`. Automatic snapshots are skipped when identical to the
- * newest version, and only the newest MAX_AUTO of them are kept.
+ * Snapshot `content`, dated now unless `created` says otherwise (an imported
+ * draft). Automatic snapshots are skipped when identical to the newest
+ * version, and only the newest MAX_AUTO of them are kept.
  */
 export async function addVersion(
   projectDir: string,
   content: string,
   kind: VersionKind,
   label: string,
+  created = Date.now(),
 ): Promise<VersionMeta | null> {
   const list = await listVersions(projectDir);
   if (kind === "auto" && list[0] && (await readVersion(projectDir, list[0].id)) === content) return null;
 
   await mkdir(dirOf(projectDir), { recursive: true });
-  const base = new Date().toISOString().replace(/[:.]/g, "-");
+  const base = new Date(created).toISOString().replace(/[:.]/g, "-");
   let id = base;
   for (let i = 2; list.some((v) => v.id === id); i++) id = `${base}-${i}`;
 
   await writeAtomic(fileOf(projectDir, id), content);
-  const meta: VersionMeta = { id, kind, label, created: Date.now(), words: wordCount(content) };
+  const meta: VersionMeta = { id, kind, label, created, words: wordCount(content) };
   const next = [meta, ...list];
 
   const autos = next.filter((v) => v.kind === "auto");
@@ -88,3 +90,4 @@ export async function deleteVersion(projectDir: string, vid: string): Promise<bo
   await saveIndex(projectDir, list.filter((v) => v.id !== vid));
   return true;
 }
+

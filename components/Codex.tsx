@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { EntryMeta } from "@/lib/docs";
+import { useDropZone } from "@/lib/useDropZone";
 import { IMPORT_ACCEPT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";
 import { IconTrash } from "./icons";
 
@@ -23,7 +24,6 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [dropping, setDropping] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   const base = `/api/docs/${projectId}/codex`;
 
@@ -97,6 +97,9 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     if (imported.length) setNotice(`Imported ${imported.length} ${imported.length === 1 ? "entry" : "entries"}.`);
     if (skipped.length) setError(`Skipped ${skipped.join("; ")}.`);
   };
+  const drop = useDropZone((files) => {
+    if (!busy) void importFiles(files);
+  });
 
   const remove = async (eid: string) => {
     setConfirming(null);
@@ -109,28 +112,13 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
   };
 
   return (
-    <div
-      className={`codex ${dropping ? "is-drop" : ""}`}
-      data-drop-zone
-      onDragOver={(e) => {
-        if (!e.dataTransfer.types.includes("Files")) return;
-        e.preventDefault();
-        setDropping(true);
-      }}
-      onDragLeave={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropping(false);
-      }}
-      onDrop={(e) => {
-        setDropping(false);
-        if (!busy) void importFiles([...e.dataTransfer.files]);
-      }}
-    >
-      {dropping && (
-        <p className="codex-drop-hint" aria-hidden>
+    <div className={`codex drop-panel ${drop.dropping ? "is-drop" : ""}`} {...drop.props}>
+      {drop.dropping && (
+        <p className="drop-hint" aria-hidden>
           Drop to add to the Codex
         </p>
       )}
-      <div className="codex-actions">
+      <div className="panel-actions">
         <button type="button" className="history-new" onClick={create} disabled={busy}>
           + New entry
         </button>
@@ -152,7 +140,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
       />
 
       {notice && (
-        <p className="outline-empty codex-notice" role="status">
+        <p className="outline-empty panel-notice" role="status">
           {notice}
         </p>
       )}

@@ -1,6 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useDropZone } from "@/lib/useDropZone";
+import { IMPORT_ACCEPT, IMPORT_EXT, importProblem } from "@/lib/useLibrary";
 import type { VersionMeta } from "@/lib/versions";
 import { IconTrash } from "./icons";
 
@@ -8,7 +10,10 @@ function when(ms: number) {
   const d = new Date(ms);
   const sameDay = d.toDateString() === new Date().toDateString();
   const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-  return sameDay ? `Today ${time}` : `${d.toLocaleDateString(undefined, { day: "numeric", month: "short" })} ${time}`;
+  if (sameDay) return `Today ${time}`;
+  // Imported drafts can be years old: say which year.
+  const year = d.getFullYear() === new Date().getFullYear() ? undefined : "numeric";
+  return `${d.toLocaleDateString(undefined, { day: "numeric", month: "short", year })} ${time}`;
 }
 
 function delta(n: number) {
@@ -33,6 +38,8 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -69,6 +76,53 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
     setBusy(false);
   };
 
+  /**
+   * Older drafts kept elsewhere become named versions, placed in the timeline
+   * by the file's own date. The manuscript isn't touched; one file opens its
+   * preview, from where it can be restored.
+   */
+  const importFiles = async (files: File[]) => {
+    if (!files.length) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    const imported: VersionMeta[] = [];
+    const skipped: string[] = [];
+    for (const file of files) {
+      const problem = importProblem(file);
+      if (problem) {
+        skipped.push(problem);
+        continue;
+      }
+      try {
+        const res = await fetch(`/api/docs/${docId}/versions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            content: (await file.text()).replace(/^\uFEFF/, ""),
+            label: file.name.replace(IMPORT_EXT, ""),
+            created: file.lastModified,
+          }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? `request failed (${res.status})`);
+        }
+        imported.push((await res.json()) as VersionMeta);
+      } catch (e) {
+        skipped.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    await load();
+    setBusy(false);
+    if (imported.length) setNotice(`Imported ${imported.length} ${imported.length === 1 ? "version" : "versions"}.`);
+    if (skipped.length) setError(`Skipped ${skipped.join("; ")}.`);
+    if (files.length === 1 && imported.length === 1) onPreview(imported[0]);
+  };
+  const drop = useDropZone((files) => {
+    if (!busy) void importFiles(files);
+  });
+
   const remove = async (vid: string) => {
     setConfirming(null);
     await fetch(`/api/docs/${docId}/versions/${vid}`, { method: "DELETE" });
@@ -76,7 +130,12 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
   };
 
   return (
-    <div className="history">
+    <div className={`history drop-panel ${drop.dropping ? "is-drop" : ""}`} {...drop.props}>
+      {drop.dropping && (
+        <p className="drop-hint" aria-hidden>
+          Drop to add to History
+        </p>
+      )}
       {naming ? (
         <form className="history-save" onSubmit={save}>
           <input
@@ -97,12 +156,38 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
           </div>
         </form>
       ) : (
-        <button type="button" className="history-new" onClick={() => setNaming(true)}>
-          + Save a version
-        </button>
+        <div className="panel-actions">
+          <button type="button" className="history-new" onClick={() => setNaming(true)} disabled={busy}>
+            + Save a version
+          </button>
+          <button type="button" className="history-new" onClick={() => picker.current?.click()} disabled={busy}>
+            Import…
+          </button>
+        </div>
       )}
+      <input
+        ref={picker}
+        type="file"
+        accept={IMPORT_ACCEPT}
+        multiple
+        hidden
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])];
+          e.target.value = "";
+          void importFiles(files);
+        }}
+      />
 
-      {error && <p className="outline-empty">{error}</p>}
+      {notice && (
+        <p className="outline-empty panel-notice" role="status">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <p className="outline-empty" role="alert">
+          {error}
+        </p>
+      )}
 
       {list && list.length === 0 && (
         <p className="outline-empty">
