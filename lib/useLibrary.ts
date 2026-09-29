@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { isImage, prepareCover } from "./cover";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 export const IMPORT_ACCEPT = ".md,.markdown,.mdown,.txt,text/markdown,text/plain";
@@ -12,7 +13,7 @@ async function fail(res: Response): Promise<never> {
   throw new Error((body as { error?: string }).error ?? `request failed (${res.status})`);
 }
 
-/** Create, import and delete documents, then navigate accordingly. */
+/** Create, import and delete documents and set their covers, then navigate or refresh. */
 export function useLibrary() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -75,5 +76,26 @@ export function useLibrary() {
     [router, run],
   );
 
-  return { busy, error, clearError: () => setError(null), createNew, importFile, remove };
+  const setCover = useCallback(
+    (id: string, file: File) =>
+      run(async () => {
+        if (!isImage(file)) throw new Error(`${file.name} isn't an image`);
+        const res = await fetch(`/api/docs/${id}/cover`, { method: "PUT", body: await prepareCover(file) });
+        if (!res.ok) await fail(res);
+        router.refresh();
+      }),
+    [router, run],
+  );
+
+  const removeCover = useCallback(
+    (id: string) =>
+      run(async () => {
+        const res = await fetch(`/api/docs/${id}/cover`, { method: "DELETE" });
+        if (!res.ok && res.status !== 404) await fail(res);
+        router.refresh();
+      }),
+    [router, run],
+  );
+
+  return { busy, error, clearError: () => setError(null), createNew, importFile, remove, setCover, removeCover };
 }

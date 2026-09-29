@@ -140,3 +140,27 @@ export const IconChats = (p: P) => (
     <path d="M3.5 10a6.5 6.5 0 1 0 1.9-4.6M3.5 3.5v2.4h2.4M10 6.5V10l2.5 1.5" />
   </svg>
 );
+
+export const IconSettings = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M3.5 6h8M15 6h1.5M3.5 14H5M8.5 14h8" />
+    <circle cx="13.2" cy="6" r="1.8" />
+    <circle cx="6.8" cy="14" r="1.8" />
+  </svg>
+);
+
+export const IconMore = (p: P) => (
+  <svg {...base} {...p}>
+    <circle cx="5" cy="10" r=".7" fill="currentColor" />
+    <circle cx="10" cy="10" r=".7" fill="currentColor" />
+    <circle cx="15" cy="10" r=".7" fill="currentColor" />
+  </svg>
+);
+
+export const IconImage = (p: P) => (
+  <svg {...base} {...p}>
+    <rect x="3.5" y="4.5" width="13" height="11" rx="1.5" />
+    <circle cx="7.5" cy="8.5" r="1.2" />
+    <path d="m4 14.5 4-4 3 3 2-2 3.5 3.5" />
+  </svg>
+);

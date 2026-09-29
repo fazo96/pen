@@ -1,83 +1,55 @@
 "use client";
 
-import { useRef, useState } from "react";
+import Link from "next/link";
+import { useRef } from "react";
 import type { DocMeta } from "@/lib/docs";
 import { IMPORT_ACCEPT, useLibrary } from "@/lib/useLibrary";
-import Drawer from "./Drawer";
 import DropImport from "./DropImport";
-import { IconImport, IconLock, IconOutline, IconPlus } from "./icons";
-import Library from "./Library";
-import LockSettings from "./LockSettings";
+import { IconImport, IconPlus, IconSettings } from "./icons";
+import Shelf from "./Shelf";
 import ThemeButton from "./ThemeButton";
 
-/** Nothing selected: the rail is the library, the page is a welcome. */
+/** The welcome page, and the library as a shelf once there's something on it. */
 export default function Home({ docs, locked }: { docs: DocMeta[]; locked: boolean }) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   const lib = useLibrary();
   const total = docs.reduce((n, d) => n + d.words, 0);
+  const shelved = docs.length > 0;
 
   return (
     <div className="app">
       <header className="topbar">
         <div className="topbar-left">
-          <button
-            type="button"
-            className="icon-btn outline-toggle"
-            onClick={() => setDrawerOpen((o) => !o)}
-            aria-label="Library"
-            aria-expanded={drawerOpen}
-          >
-            <IconOutline />
-          </button>
           <span className="wordmark">pen</span>
           <span className="topbar-title">Library</span>
         </div>
         <div className="topbar-right">
-          <button
-            type="button"
+          <Link
+            href="/settings"
             className={`icon-btn ${locked ? "is-on" : ""}`}
-            onClick={() => document.getElementById("lock")?.scrollIntoView({ behavior: "smooth", block: "center" })}
-            aria-label={locked ? "Lock: on" : "Lock: off"}
-            title={locked ? "Lock: on" : "Lock: off"}
+            aria-label={locked ? "Settings (lock on)" : "Settings"}
+            title={locked ? "Settings · lock on" : "Settings"}
           >
-            <IconLock />
-          </button>
+            <IconSettings />
+          </Link>
           <ThemeButton />
         </div>
       </header>
 
-      <Drawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        label="Library"
-        head={
-          <>
-            <span className="label">Library</span>
-            <button type="button" className="drawer-action" onClick={lib.createNew} disabled={lib.busy}>
-              <IconPlus /> New
-            </button>
-          </>
-        }
-        foot={`${docs.length} ${docs.length === 1 ? "manuscript" : "manuscripts"} · ${total.toLocaleString()} words`}
-      >
-        <Library docs={docs} onDelete={lib.remove} busy={lib.busy} />
-      </Drawer>
-
-      <main className="page">
-        <section className="welcome">
+      <main className="page page-bare">
+        <section className={`welcome ${shelved ? "is-shelved" : ""}`}>
           <span className="label">pen · a quiet place to write</span>
-          <h1 className="welcome-title">{docs.length ? "Welcome back." : "A blank desk."}</h1>
+          <h1 className="welcome-title">{shelved ? "Welcome back." : "A blank desk."}</h1>
           <p className="welcome-lede">
-            {docs.length
-              ? "Choose a manuscript from the library, begin a new one, or bring one in from elsewhere."
+            {shelved
+              ? `${docs.length} ${docs.length === 1 ? "manuscript" : "manuscripts"} on the shelf, ${total.toLocaleString()} words between them.`
               : "Bring in a manuscript you’ve already started, or begin a new one."}
           </p>
 
           <div className="welcome-actions">
             <button
               type="button"
-              className="btn btn-primary"
+              className={`btn ${shelved ? "" : "btn-primary"}`}
               onClick={() => picker.current?.click()}
               disabled={lib.busy}
             >
@@ -99,24 +71,31 @@ export default function Home({ docs, locked }: { docs: DocMeta[]; locked: boolea
             }}
           />
 
-          {docs.length > 0 && (
-            <button type="button" className="welcome-library" onClick={() => setDrawerOpen(true)}>
-              Open library · {docs.length}
-            </button>
-          )}
-
           {lib.error && (
             <p className="welcome-error" role="alert">
               {lib.error}
             </p>
           )}
-          <p className="welcome-hint label">.md · .markdown · .txt — or drop a file anywhere</p>
 
-          <LockSettings locked={locked} />
+          {shelved && (
+            <Shelf
+              docs={docs}
+              busy={lib.busy}
+              onDelete={lib.remove}
+              onCover={lib.setCover}
+              onRemoveCover={lib.removeCover}
+            />
+          )}
+
+          <p className="welcome-hint label">
+            {shelved
+              ? "Drop a manuscript anywhere to import it, or an image on a book for its cover"
+              : ".md · .markdown · .txt — or drop a file anywhere"}
+          </p>
         </section>
       </main>
 
-      <DropImport onFile={lib.importFile} />
+      <DropImport onFile={lib.importFile} passImages />
     </div>
   );
 }
