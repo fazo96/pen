@@ -900,6 +900,7 @@ button {
   min-height: 46px;
   padding: 0 18px 0 14px;
   border-radius: 10px;
+  color: inherit;
 }
 .btn svg {
   width: 18px;
@@ -1432,7 +1433,8 @@ button {
 }
 a.status,
 a.wordmark,
-a.icon-btn {
+a.icon-btn,
+a.btn {
   text-decoration: none;
 }
 .status-locked {

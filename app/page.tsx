@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import Home from "@/components/Home";
-import { isLocked } from "@/lib/auth";
 import { listDocs } from "@/lib/docs";
 import { requirePageSession } from "@/lib/session";
 
@@ -17,5 +16,5 @@ export default async function Page({
   // On boot, a library of one opens straight into it. In-app links to the
   // library pass ?library so it stays reachable.
   if (docs.length === 1 && !library) redirect(`/d/${docs[0].id}`);
-  return <Home docs={docs} locked={await isLocked()} />;
+  return <Home docs={docs} />;
 }

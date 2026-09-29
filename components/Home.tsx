@@ -10,7 +10,7 @@ import Shelf from "./Shelf";
 import ThemeButton from "./ThemeButton";
 
 /** The welcome page, and the library as a shelf once there's something on it. */
-export default function Home({ docs, locked }: { docs: DocMeta[]; locked: boolean }) {
+export default function Home({ docs }: { docs: DocMeta[] }) {
   const picker = useRef<HTMLInputElement>(null);
   const lib = useLibrary();
   const total = docs.reduce((n, d) => n + d.words, 0);
@@ -24,14 +24,6 @@ export default function Home({ docs, locked }: { docs: DocMeta[]; locked: boolea
           <span className="topbar-title">Library</span>
         </div>
         <div className="topbar-right">
-          <Link
-            href="/settings"
-            className={`icon-btn ${locked ? "is-on" : ""}`}
-            aria-label={locked ? "Settings (lock on)" : "Settings"}
-            title={locked ? "Settings · lock on" : "Settings"}
-          >
-            <IconSettings />
-          </Link>
           <ThemeButton />
         </div>
       </header>
@@ -58,6 +50,9 @@ export default function Home({ docs, locked }: { docs: DocMeta[]; locked: boolea
             <button type="button" className="btn" onClick={lib.createNew} disabled={lib.busy}>
               <IconPlus /> New manuscript
             </button>
+            <Link href="/settings" className="btn">
+              <IconSettings /> Settings
+            </Link>
           </div>
           <input
             ref={picker}
