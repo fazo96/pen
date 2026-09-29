@@ -17,6 +17,7 @@ import Codex from "./Codex";
 import Construct from "./Construct";
 import Drawer from "./Drawer";
 import DropImport from "./DropImport";
+import EditorMenu from "./EditorMenu";
 import FocusControls from "./FocusControls";
 import { IconBack, IconConstruct, IconExport, IconFocus, IconOutline } from "./icons";
 import History from "./History";
@@ -300,6 +301,16 @@ export default function Pen({ projectId, kind, initial }: Props) {
     [leave, importDoc],
   );
 
+  const toggleFocus = () => {
+    setOutlineOpen(false);
+    setConstructOpen(false);
+    focusMode.toggle();
+  };
+  const toggleConstruct = () => {
+    setOutlineOpen(false);
+    setConstructOpen((o) => !o);
+  };
+
   return (
     <div
       className={`app app-editor ${typing ? "is-typing" : ""} ${focusMode.toolbarShown ? "toolbar-shown" : ""} ${constructOpen ? "construct-open" : ""}`}
@@ -341,37 +352,41 @@ export default function Pen({ projectId, kind, initial }: Props) {
               <span className="status-label">{STATUS_LABEL[status]}</span>
             </span>
           )}
-          <span className="words label">{words.toLocaleString()} w</span>
-          <button
-            type="button"
-            className="icon-btn"
-            onClick={() => {
-              setOutlineOpen(false);
-              setConstructOpen(false);
-              focusMode.toggle();
-            }}
-            aria-label="Focus mode"
-            title="Focus mode (Ctrl+Shift+F)"
-          >
-            <IconFocus />
-          </button>
-          <ThemeButton />
-          <button type="button" className="icon-btn" onClick={exportMarkdown} aria-label="Export markdown" title="Export .md">
-            <IconExport />
-          </button>
-          <button
-            type="button"
-            className={`icon-btn construct-toggle ${constructOpen ? "is-on" : ""}`}
-            onClick={() => {
-              setOutlineOpen(false);
-              setConstructOpen((o) => !o);
-            }}
-            aria-label="Construct"
-            aria-expanded={constructOpen}
-            title="Construct"
-          >
-            <IconConstruct />
-          </button>
+          {/* Inline on wider screens; folded into EditorMenu on phones (CSS picks one). */}
+          <div className="topbar-tools">
+            <span className="words label">{words.toLocaleString()} w</span>
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={toggleFocus}
+              aria-label="Focus mode"
+              title="Focus mode (Ctrl+Shift+F)"
+            >
+              <IconFocus />
+            </button>
+            <ThemeButton />
+            <button type="button" className="icon-btn" onClick={exportMarkdown} aria-label="Export markdown" title="Export .md">
+              <IconExport />
+            </button>
+            <button
+              type="button"
+              className={`icon-btn construct-toggle ${constructOpen ? "is-on" : ""}`}
+              onClick={toggleConstruct}
+              aria-label="Construct"
+              aria-expanded={constructOpen}
+              title="Construct"
+            >
+              <IconConstruct />
+            </button>
+          </div>
+          <EditorMenu
+            status={STATUS_LABEL[status]}
+            words={words}
+            constructOpen={constructOpen}
+            onFocus={toggleFocus}
+            onExport={exportMarkdown}
+            onConstruct={toggleConstruct}
+          />
         </div>
       </header>
 

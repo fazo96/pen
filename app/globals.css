@@ -1096,12 +1096,10 @@ button {
   width: 18px;
   height: 18px;
 }
-.book-menu {
+/* Dropdown menus: a book's options, the editor's tools on phones */
+.popover-menu {
   position: absolute;
-  z-index: 20;
-  top: 40%;
-  left: -4px;
-  right: -4px;
+  z-index: 25;
   display: flex;
   flex-direction: column;
   padding: 6px;
@@ -1110,7 +1108,7 @@ button {
   border-radius: 10px;
   box-shadow: var(--shadow);
 }
-.book-menu > button {
+.popover-menu > button {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1123,21 +1121,27 @@ button {
   text-align: left;
   color: var(--ink-soft);
 }
-.book-menu > button:hover {
+.popover-menu > button:hover {
   color: var(--ink);
   background: var(--accent-wash);
 }
-.book-menu > button.danger {
+.popover-menu > button.danger,
+.popover-menu > button.is-on {
   color: var(--accent);
 }
-.book-menu > button:disabled {
+.popover-menu > button:disabled {
   opacity: 0.5;
   cursor: progress;
 }
-.book-menu svg {
+.popover-menu svg {
   width: 16px;
   height: 16px;
   flex: none;
+}
+.book-menu {
+  top: 40%;
+  left: -4px;
+  right: -4px;
 }
 .book-confirm {
   padding: 8px 8px 4px;
@@ -1615,10 +1619,41 @@ a.btn {
   }
 }
 
-/* ─── Small phones ─────────────────────────────────────────── */
-@media (max-width: 420px) {
-  .words,
+/* ─── Editor tools ─────────────────────────────────────────────
+   Phones: just the save dot and a "⋯" menu. Wider: the tools inline. */
+.topbar-tools {
+  display: none;
+  align-items: center;
+  gap: 4px;
+}
+.editor-menu {
+  position: relative;
+}
+.editor-menu-list {
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 232px;
+}
+.editor-menu-head {
+  margin: 4px 12px 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--rule);
+}
+.editor-menu-value {
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--ink-faint);
+}
+@media (max-width: 719px) {
   .status-label {
+    display: none;
+  }
+}
+@media (min-width: 720px) {
+  .topbar-tools {
+    display: flex;
+  }
+  .editor-menu {
     display: none;
   }
 }

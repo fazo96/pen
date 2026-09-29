@@ -122,7 +122,7 @@ export default function Shelf({ docs, busy, onDelete, onCover, onRemoveCover }: 
             </button>
 
             {menu === d.id && (
-              <div className="book-menu" role="menu">
+              <div className="popover-menu book-menu" role="menu">
                 {confirming === d.id ? (
                   <div className="book-confirm">
                     <span>
