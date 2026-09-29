@@ -7,6 +7,7 @@ import Typography from "@tiptap/extension-typography";
 import { Placeholder } from "@tiptap/extensions";
 import { useRef } from "react";
 import { CommentExtensions } from "./comments";
+import { StraightQuotes } from "./quotes";
 
 // Heading names: the manuscript is structured (title, parts, chapters);
 // codex entries are plain notes.
@@ -32,7 +33,12 @@ export function usePenEditor(kind: "manuscript" | "entry", content: string, onCh
       Markdown,
       ...CommentExtensions,
       Typography.configure({
-        // Keep the literary substitutions; drop the ones that ambush prose.
+        // Keep dashes and ellipses; drop the ones that ambush prose. Quotes stay
+        // straight (see StraightQuotes).
+        openDoubleQuote: false,
+        closeDoubleQuote: false,
+        openSingleQuote: false,
+        closeSingleQuote: false,
         oneHalf: false,
         oneQuarter: false,
         threeQuarters: false,
@@ -50,6 +56,7 @@ export function usePenEditor(kind: "manuscript" | "entry", content: string, onCh
         laquo: false,
         raquo: false,
       }),
+      StraightQuotes,
       Placeholder.configure({
         placeholder: ({ node }) =>
           node.type.name === "commentBlock"

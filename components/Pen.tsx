@@ -4,6 +4,7 @@ import { type Editor, EditorContent } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { textWithoutComments } from "@/lib/comments";
+import { hasCurlyQuotes, straightenQuotes } from "@/lib/quotes";
 import { slugify, wordCount } from "@/lib/text";
 import { STATUS_LABEL, type Story, useAutosave } from "@/lib/useAutosave";
 import { useFocusMode } from "@/lib/useFocusMode";
@@ -90,6 +91,26 @@ export default function Pen({ projectId, kind, initial, initialEntry }: Props) {
     ready: !!editor,
   });
   touchRef.current = touch;
+
+  // Curly quotes from imports or older text are straightened on open (and saved
+  // by autosave). A manuscript gets a version first, so nothing is lost.
+  useEffect(() => {
+    if (!editor || !hasCurlyQuotes(editor.state.doc)) return;
+    void (async () => {
+      if (!isEntry) {
+        const res = await fetch(`/api/docs/${projectId}/versions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ label: "Before straightening quotes" }),
+        }).catch(() => null);
+        if (!res?.ok) return; // try again next time it opens
+        setHistoryKey((k) => k + 1);
+      }
+      const tr = straightenQuotes(editor.state);
+      if (tr) editor.view.dispatch(tr);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
 
   // Derive outline + word count from the document, lightly debounced.
   useEffect(() => {

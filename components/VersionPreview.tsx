@@ -10,6 +10,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef, useState } from "react";
 import { CommentExtensions } from "@/lib/comments";
 import type { DocDiff } from "@/lib/diff";
+import { straightenQuotes } from "@/lib/quotes";
 import type { VersionMeta } from "@/lib/versions";
 import { IconDown, IconUp } from "./icons";
 
@@ -70,6 +71,13 @@ export default function VersionPreview({ meta, content, draft, onRestore, onClos
       else localStorage.removeItem(CHANGES_KEY);
     } catch {}
   };
+
+  // Shown with straight quotes, like the draft, so they don't all read as changes.
+  // Display only: Restore still brings back the stored text.
+  useEffect(() => {
+    const tr = viewer ? straightenQuotes(viewer.state) : null;
+    if (tr) viewer!.view.dispatch(tr);
+  }, [viewer]);
 
   useEffect(() => {
     if (!viewer) return;

@@ -3,6 +3,7 @@
 import { type Editor, EditorContent } from "@tiptap/react";
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { textWithoutComments } from "@/lib/comments";
+import { straightenQuotes } from "@/lib/quotes";
 import { STATUS_LABEL, type Story, useAutosave } from "@/lib/useAutosave";
 import { usePenEditor } from "@/lib/usePenEditor";
 import { IconClose, IconExpand } from "./icons";
@@ -109,6 +110,12 @@ function EntryEditor({
   touchRef.current = autosave.touch;
 
   useImperativeHandle(handle, () => ({ leave, pull }), [leave, pull]);
+
+  // Curly quotes from imports or older text are straightened on open (saved by autosave).
+  useEffect(() => {
+    const tr = editor ? straightenQuotes(editor.state) : null;
+    if (tr) editor!.view.dispatch(tr);
+  }, [editor]);
 
   useEffect(() => {
     onEditor(editor);
