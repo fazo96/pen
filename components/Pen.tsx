@@ -177,8 +177,9 @@ export default function Pen({ projectId, kind, initial }: Props) {
       setProgress(max > 0 ? Math.min(1, window.scrollY / max) : 0);
       let current: number | null = headings[0]?.pos ?? null;
       for (const h of headings) {
-        const el = editor.view.nodeDOM(h.pos) as HTMLElement | null;
-        if (el && el.getBoundingClientRect().top < window.innerHeight * 0.3) current = h.pos;
+        // Positions lag the doc until the debounced rescan and may land on a text node meanwhile.
+        const el = editor.view.nodeDOM(h.pos);
+        if (el instanceof HTMLElement && el.getBoundingClientRect().top < window.innerHeight * 0.3) current = h.pos;
       }
       setActive(current);
     };
