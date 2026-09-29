@@ -297,7 +297,7 @@ button {
   -webkit-hyphens: auto;
   overflow-wrap: break-word;
   caret-color: var(--accent);
-  counter-reset: chapter;
+  counter-reset: part chapter;
 }
 
 .prose.loading {
@@ -341,12 +341,41 @@ button {
   background: var(--accent);
 }
 
+/* Part: a quiet title page inside the book. */
 .prose h2 {
+  counter-increment: part;
+  font-size: 1.75rem;
+  font-weight: 400;
+  text-align: center;
+  margin: 5rem 0 3.25rem;
+}
+.prose h2:not(.is-empty)::before {
+  content: "Part " counter(part, upper-roman);
+  display: block;
+  margin-bottom: 0.8rem;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.prose h2::after {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 1px;
+  margin: 1.1rem auto 0;
+  background: var(--rule);
+}
+
+/* Chapter: numbered straight through the book. */
+.prose h3 {
   counter-increment: chapter;
   font-size: 1.5rem;
   margin: 3.5rem 0 1.4rem;
 }
-.prose h2:not(.is-empty)::before {
+.prose h3:not(.is-empty)::before {
   content: counter(chapter, decimal-leading-zero) " —";
   display: block;
   margin-bottom: 0.55rem;
@@ -356,15 +385,13 @@ button {
   letter-spacing: 0.2em;
   color: var(--accent);
 }
-
-.prose h3 {
-  font-size: 1.15rem;
-  font-style: italic;
-  margin: 2.5rem 0 1rem;
+.prose h2 + h3 {
+  margin-top: 0;
 }
 
 .prose h1:first-child,
-.prose h2:first-child {
+.prose h2:first-child,
+.prose h3:first-child {
   margin-top: 0.5rem;
 }
 
@@ -619,13 +646,22 @@ button {
   color: var(--ink);
   background: var(--accent-wash);
 }
-.outline-item.lvl-0 {
+.outline-item.is-title {
   color: var(--ink);
 }
-.outline-item.lvl-2 .outline-text {
-  padding-left: 1em;
+.outline-item.is-part {
+  grid-template-columns: 1fr;
+  gap: 2px;
+  margin-top: 10px;
+  color: var(--ink);
+}
+.outline-item.is-part .outline-num {
+  color: var(--accent);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.outline-item.is-part .outline-text {
   font-style: italic;
-  font-size: 14px;
 }
 .outline-item.is-active {
   color: var(--accent);

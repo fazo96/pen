@@ -36,6 +36,7 @@ export default function Toolbar({ editor }: { editor: Editor }) {
     selector: ({ editor: e }) => ({
       h1: e.isActive("heading", { level: 1 }),
       h2: e.isActive("heading", { level: 2 }),
+      h3: e.isActive("heading", { level: 3 }),
       bold: e.isActive("bold"),
       italic: e.isActive("italic"),
       strike: e.isActive("strike"),
@@ -52,11 +53,14 @@ export default function Toolbar({ editor }: { editor: Editor }) {
   return (
     <div className="toolbar" role="toolbar" aria-label="Formatting">
       <div className="toolbar-scroll">
-        <Button label="Title heading" active={s.h1} onPress={() => run().toggleHeading({ level: 1 }).run()}>
+        <Button label="Title" active={s.h1} onPress={() => run().toggleHeading({ level: 1 }).run()}>
           <span className="glyph-h">H1</span>
         </Button>
-        <Button label="Chapter heading" active={s.h2} onPress={() => run().toggleHeading({ level: 2 }).run()}>
+        <Button label="Part" active={s.h2} onPress={() => run().toggleHeading({ level: 2 }).run()}>
           <span className="glyph-h">H2</span>
+        </Button>
+        <Button label="Chapter" active={s.h3} onPress={() => run().toggleHeading({ level: 3 }).run()}>
+          <span className="glyph-h">H3</span>
         </Button>
         <span className="tool-sep" aria-hidden />
         <Button label="Bold" active={s.bold} onPress={() => run().toggleBold().run()}>

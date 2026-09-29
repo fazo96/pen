@@ -69,7 +69,9 @@ export default function Pen({ initial }: { initial: Story }) {
       }),
       Placeholder.configure({
         placeholder: ({ node }) =>
-          node.type.name === "heading" ? "Heading" : "Begin anywhere…",
+          node.type.name === "heading"
+            ? (["Title", "Part", "Chapter"][(node.attrs.level as number) - 1] ?? "Heading")
+            : "Begin anywhere…",
       }),
     ],
     content: initial.content,
