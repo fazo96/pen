@@ -30,7 +30,13 @@ function Button({ label, active, disabled, onPress, children, className }: Butto
   );
 }
 
-export default function Toolbar({ editor }: { editor: Editor }) {
+type Props = {
+  editor: Editor;
+  /** Names for heading levels 1–3, shown as tooltips. */
+  headingNames: readonly string[];
+};
+
+export default function Toolbar({ editor, headingNames }: Props) {
   const s = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -53,13 +59,13 @@ export default function Toolbar({ editor }: { editor: Editor }) {
   return (
     <div className="toolbar" role="toolbar" aria-label="Formatting">
       <div className="toolbar-scroll">
-        <Button label="Title" active={s.h1} onPress={() => run().toggleHeading({ level: 1 }).run()}>
+        <Button label={headingNames[0]} active={s.h1} onPress={() => run().toggleHeading({ level: 1 }).run()}>
           <span className="glyph-h">H1</span>
         </Button>
-        <Button label="Part" active={s.h2} onPress={() => run().toggleHeading({ level: 2 }).run()}>
+        <Button label={headingNames[1]} active={s.h2} onPress={() => run().toggleHeading({ level: 2 }).run()}>
           <span className="glyph-h">H2</span>
         </Button>
-        <Button label="Chapter" active={s.h3} onPress={() => run().toggleHeading({ level: 3 }).run()}>
+        <Button label={headingNames[2]} active={s.h3} onPress={() => run().toggleHeading({ level: 3 }).run()}>
           <span className="glyph-h">H3</span>
         </Button>
         <span className="tool-sep" aria-hidden />

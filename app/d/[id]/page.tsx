@@ -12,5 +12,5 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const doc = await readDoc(id);
   if (!doc) notFound();
   // Keyed so switching documents gets a fresh editor and save state.
-  return <Pen key={doc.id} initial={doc} />;
+  return <Pen key={doc.id} projectId={doc.id} kind="manuscript" initial={doc} />;
 }

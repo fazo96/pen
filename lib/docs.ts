@@ -7,7 +7,7 @@ import { slugify, titleOf, wordCount } from "./text";
 import * as versions from "./versions";
 
 // The library: one folder per project, holding manuscript.md (the master
-// copy) and versions/. Room for more per-project files later.
+// copy), versions/ and codex/. Room for more per-project files later.
 const MANUSCRIPT = "manuscript.md";
 const TRASH_DIR = path.join(DOCS_DIR, ".trash");
 
@@ -114,8 +114,11 @@ export async function readDoc(id: string): Promise<Doc | null> {
 }
 
 async function writeAtomic(id: string, content: string) {
-  await mkdir(dirOf(id), { recursive: true });
-  const file = fileOf(id);
+  await atomicWrite(fileOf(id), content);
+}
+
+async function atomicWrite(file: string, content: string) {
+  await mkdir(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
   await writeFile(tmp, content, "utf8");
   await rename(tmp, file);
@@ -221,4 +224,111 @@ export function restoreVersion(id: string, vid: string): Promise<Doc | null> {
 
 export function deleteVersion(id: string, vid: string) {
   return serialize(() => versions.deleteVersion(dirOf(id), vid));
+}
+
+// ─── Codex ───────────────────────────────────────────────────
+// Notes that sit beside the manuscript: <project>/codex/<entry>.md.
+
+export type EntryMeta = { id: string; title: string; words: number; modified: number };
+
+const codexDir = (id: string) => path.join(dirOf(id), "codex");
+function entryFile(id: string, eid: string) {
+  if (!isValidId(eid)) throw new Error(`invalid entry id: ${eid}`);
+  return path.join(codexDir(id), `${eid}.md`);
+}
+
+async function projectExists(id: string) {
+  return (await readDoc(id)) !== null;
+}
+
+/** Entries in alphabetical order of title; null if the project doesn't exist. */
+export async function listCodex(id: string): Promise<EntryMeta[] | null> {
+  if (!isValidId(id) || !(await projectExists(id))) return null;
+  let names: string[];
+  try {
+    names = await readdir(codexDir(id));
+  } catch (err) {
+    if (isMissing(err)) return [];
+    throw err;
+  }
+  const entries = await Promise.all(
+    names
+      .filter((n) => n.endsWith(".md") && isValidId(n.slice(0, -3)))
+      .map(async (n): Promise<EntryMeta | null> => {
+        const eid = n.slice(0, -3);
+        try {
+          const file = entryFile(id, eid);
+          const [content, info] = await Promise.all([readFile(file, "utf8"), stat(file)]);
+          return { id: eid, title: titleOf(content, eid), words: wordCount(content), modified: info.mtimeMs };
+        } catch (err) {
+          if (isMissing(err)) return null;
+          throw err;
+        }
+      }),
+  );
+  return entries
+    .filter((e): e is EntryMeta => e !== null)
+    .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
+}
+
+export async function readEntry(id: string, eid: string): Promise<Doc | null> {
+  if (!isValidId(id) || !isValidId(eid)) return null;
+  await ready();
+  try {
+    const content = await readFile(entryFile(id, eid), "utf8");
+    return { id: eid, content, version: versionOf(content) };
+  } catch (err) {
+    if (isMissing(err)) return null;
+    throw err;
+  }
+}
+
+/** Create an entry named after `name` (or its H1). Null if the project doesn't exist. */
+export function createEntry(id: string, content: string, name?: string): Promise<Doc | null> {
+  return serialize(async () => {
+    if (!(await projectExists(id))) return null;
+    await mkdir(codexDir(id), { recursive: true });
+    const base = slugify(name || titleOf(content, "")) || "entry";
+    for (let i = 1; ; i++) {
+      const eid = `${base.slice(0, 72)}${i > 1 ? `-${i}` : ""}`;
+      try {
+        await writeFile(entryFile(id, eid), content, { encoding: "utf8", flag: "wx" });
+        return { id: eid, content, version: versionOf(content) };
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+      }
+    }
+  });
+}
+
+/** Same contract as writeDoc, for a codex entry (no automatic versions). */
+export function writeEntry(
+  id: string,
+  eid: string,
+  content: string,
+  baseVersion: string | null,
+  force = false,
+): Promise<WriteResult> {
+  return serialize(async () => {
+    const current = await readEntry(id, eid);
+    if (current && !force && baseVersion !== null && baseVersion !== current.version) {
+      return { ok: false, current };
+    }
+    if (current?.content !== content) await atomicWrite(entryFile(id, eid), content);
+    return { ok: true, version: versionOf(content) };
+  });
+}
+
+export function trashEntry(id: string, eid: string): Promise<boolean> {
+  return serialize(async () => {
+    await mkdir(TRASH_DIR, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    try {
+      await rename(entryFile(id, eid), path.join(TRASH_DIR, `${id}--codex--${eid}--${stamp}.md`));
+      return true;
+    } catch (err) {
+      if (isMissing(err)) return false;
+      throw err;
+    }
+  });
 }

@@ -28,6 +28,10 @@ function writeBackup(key: string, b: Backup | null) {
 
 type Options = {
   initial: Story;
+  /** Where this file is read and saved. */
+  url: string;
+  /** localStorage key for the unsent-edits backup. */
+  backupKey: string;
   /** Serialize the editor to markdown; null while the editor isn't ready. */
   getContent: () => string | null;
   /** Replace the editor contents without triggering a save. */
@@ -41,9 +45,7 @@ type Options = {
  * Every save carries the version it was based on. If another device saved in
  * between, the server answers 409 and we stop and ask instead of overwriting.
  */
-export function useAutosave({ initial, getContent, setContent, ready }: Options) {
-  const url = `/api/docs/${initial.id}`;
-  const backupKey = `pen:backup:${initial.id}`;
+export function useAutosave({ initial, url, backupKey, getContent, setContent, ready }: Options) {
   const backup = (b: Backup | null) => writeBackup(backupKey, b);
 
   const [status, setStatus] = useState<SaveStatus>("saved");

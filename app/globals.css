@@ -1000,6 +1000,37 @@ button {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
+.outline-item.is-note.lvl-3 .outline-text {
+  padding-left: 1em;
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* Codex entries are notes: plain headings, no part/chapter furniture. */
+.prose.is-notes h2,
+.prose.is-notes h3 {
+  text-align: left;
+  counter-increment: none;
+  margin: 2.2rem 0 0.8rem;
+}
+.prose.is-notes h2 {
+  font-size: 1.35rem;
+}
+.prose.is-notes h3 {
+  font-size: 1.12rem;
+  font-style: italic;
+}
+.prose.is-notes h2:not(.is-empty)::before,
+.prose.is-notes h3:not(.is-empty)::before,
+.prose.is-notes h2::after {
+  content: none;
+}
+/* Notes read better as spaced paragraphs than as book-style indents. */
+.prose.is-notes p + p {
+  text-indent: 0;
+  margin-top: 0.8em;
+}
+
 /* ─── Version preview ──────────────────────────────────────── */
 .preview-bar {
   position: sticky;

@@ -12,6 +12,7 @@ import { type SaveStatus, type Story, useAutosave } from "@/lib/useAutosave";
 import { useFocusMode } from "@/lib/useFocusMode";
 import { useLibrary } from "@/lib/useLibrary";
 import type { VersionMeta } from "@/lib/versions";
+import Codex from "./Codex";
 import Drawer from "./Drawer";
 import DropImport from "./DropImport";
 import FocusControls from "./FocusControls";
@@ -31,7 +32,25 @@ const STATUS_LABEL: Record<SaveStatus, string> = {
   locked: "Locked",
 };
 
-export default function Pen({ initial }: { initial: Story }) {
+type DrawerTab = "contents" | "codex" | "history";
+
+// Heading names: the manuscript is structured (title, parts, chapters);
+// codex entries are plain notes.
+const HEADINGS = {
+  manuscript: ["Title", "Part", "Chapter"],
+  entry: ["Title", "Heading", "Subheading"],
+} as const;
+
+type Props = {
+  projectId: string;
+  /** The manuscript itself, or one of its codex entries. */
+  kind: "manuscript" | "entry";
+  initial: Story;
+};
+
+export default function Pen({ projectId, kind, initial }: Props) {
+  const isEntry = kind === "entry";
+  const headingNames = HEADINGS[kind];
   const router = useRouter();
   const lib = useLibrary();
   const focusMode = useFocusMode();
@@ -39,7 +58,7 @@ export default function Pen({ initial }: { initial: Story }) {
   const [active, setActive] = useState<number | null>(null);
   const [words, setWords] = useState(0);
   const [outlineOpen, setOutlineOpen] = useState(false);
-  const [drawerTab, setDrawerTab] = useState<"contents" | "history">("contents");
+  const [drawerTab, setDrawerTab] = useState<DrawerTab>(isEntry ? "codex" : "contents");
   const [preview, setPreview] = useState<{ meta: VersionMeta; content: string } | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
   const scrollBeforePreview = useRef(0);
@@ -77,14 +96,18 @@ export default function Pen({ initial }: { initial: Story }) {
       Placeholder.configure({
         placeholder: ({ node }) =>
           node.type.name === "heading"
-            ? (["Title", "Part", "Chapter"][(node.attrs.level as number) - 1] ?? "Heading")
+            ? (headingNames[(node.attrs.level as number) - 1] ?? "Heading")
             : "Begin anywhere…",
       }),
     ],
     content: initial.content,
     contentType: "markdown",
     editorProps: {
-      attributes: { class: "prose", spellcheck: "true", "aria-label": "Manuscript" },
+      attributes: {
+        class: isEntry ? "prose is-notes" : "prose",
+        spellcheck: "true",
+        "aria-label": isEntry ? "Codex entry" : "Manuscript",
+      },
     },
     onUpdate: ({ transaction }) => {
       if (transaction.docChanged) {
@@ -101,6 +124,8 @@ export default function Pen({ initial }: { initial: Story }) {
   );
   const { status, conflict, touch, leave, adopt, resolveConflict } = useAutosave({
     initial,
+    url: isEntry ? `/api/docs/${projectId}/codex/${initial.id}` : `/api/docs/${projectId}`,
+    backupKey: isEntry ? `pen:backup:${projectId}/codex/${initial.id}` : `pen:backup:${projectId}`,
     getContent,
     setContent,
     ready: !!editor,
@@ -237,10 +262,11 @@ export default function Pen({ initial }: { initial: Story }) {
   };
 
   // Save before leaving this document, whichever way we leave.
-  const goLibrary = async () => {
+  const go = async (href: string) => {
     await leave();
-    router.push("/?library");
+    router.push(href);
   };
+  const goLibrary = () => go("/?library");
   const { importFile: importDoc } = lib;
   const importFile = useCallback(
     async (file: File) => {
@@ -271,7 +297,7 @@ export default function Pen({ initial }: { initial: Story }) {
             pen
           </button>
           <span className="topbar-title" title={title}>
-            {title}
+            {isEntry ? `Codex · ${title}` : title}
           </span>
         </div>
         <div className="topbar-right">
@@ -333,33 +359,43 @@ export default function Pen({ initial }: { initial: Story }) {
         onClose={() => setOutlineOpen(false)}
         label="Outline"
         head={
-          <button type="button" className="drawer-back" onClick={goLibrary}>
-            <IconBack /> Library
-          </button>
+          isEntry ? (
+            <button type="button" className="drawer-back" onClick={() => go(`/d/${projectId}`)}>
+              <IconBack /> Manuscript
+            </button>
+          ) : (
+            <button type="button" className="drawer-back" onClick={goLibrary}>
+              <IconBack /> Library
+            </button>
+          )
         }
         foot={`${words.toLocaleString()} words · ${Math.max(1, Math.round(words / 230))} min read`}
       >
         <div className="drawer-tabs" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={drawerTab === "contents"}
-            onClick={() => setDrawerTab("contents")}
-          >
-            Contents
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={drawerTab === "history"}
-            onClick={() => setDrawerTab("history")}
-          >
-            History
-          </button>
+          {(["contents", "codex", ...(isEntry ? [] : ["history"])] as DrawerTab[]).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              aria-selected={drawerTab === tab}
+              onClick={() => setDrawerTab(tab)}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
-        {drawerTab === "contents" ? (
-          <Outline headings={headings} active={active} onJump={jump} />
-        ) : (
+        {drawerTab === "contents" && (
+          <Outline headings={headings} active={active} onJump={jump} plain={isEntry} />
+        )}
+        {drawerTab === "codex" && (
+          <Codex
+            projectId={projectId}
+            activeId={isEntry ? initial.id : null}
+            activeTitle={isEntry ? title : undefined}
+            onOpen={go}
+          />
+        )}
+        {drawerTab === "history" && !isEntry && (
           <History
             docId={initial.id}
             refreshKey={historyKey}
@@ -386,7 +422,7 @@ export default function Pen({ initial }: { initial: Story }) {
         </div>
       </main>
 
-      {editor && !preview && <Toolbar editor={editor} />}
+      {editor && !preview && <Toolbar editor={editor} headingNames={headingNames} />}
 
       {lib.error && (
         <div className="toast" role="alert" onClick={lib.clearError}>
