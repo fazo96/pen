@@ -11,10 +11,12 @@ type Props = {
   activeTitle?: string;
   /** Navigate (saving the current file first). */
   onOpen: (href: string) => void;
+  /** Bump to reload the list (e.g. after Construct changed it). */
+  refreshKey?: number;
 };
 
 /** Plot outlines, character notes and the like: one markdown file each. */
-export default function Codex({ projectId, activeId, activeTitle, onOpen }: Props) {
+export default function Codex({ projectId, activeId, activeTitle, onOpen, refreshKey = 0 }: Props) {
   const [list, setList] = useState<EntryMeta[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen }: Prop
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, refreshKey]);
 
   const create = async () => {
     setBusy(true);

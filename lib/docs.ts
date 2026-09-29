@@ -332,3 +332,24 @@ export function trashEntry(id: string, eid: string): Promise<boolean> {
     }
   });
 }
+
+/** Give an entry a new id (its file name). False if missing or the new id is taken. */
+export function renameEntry(id: string, eid: string, newEid: string): Promise<boolean> {
+  return serialize(async () => {
+    const from = entryFile(id, eid);
+    const to = entryFile(id, newEid);
+    try {
+      await stat(to);
+      return false;
+    } catch (err) {
+      if (!isMissing(err)) throw err;
+    }
+    try {
+      await rename(from, to);
+      return true;
+    } catch (err) {
+      if (isMissing(err)) return false;
+      throw err;
+    }
+  });
+}

@@ -1,5 +1,7 @@
 "use client";
 
+import { roman } from "@/lib/outline";
+
 export type Heading = { pos: number; level: number; text: string };
 
 type Props = {
@@ -9,17 +11,6 @@ type Props = {
   /** Codex entries: no part/chapter numbering, just indentation. */
   plain?: boolean;
 };
-
-const ROMAN: [number, string][] = [
-  [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"],
-  [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"],
-];
-
-function roman(n: number) {
-  let out = "";
-  for (const [v, s] of ROMAN) while (n >= v) (out += s), (n -= v);
-  return out;
-}
 
 // H1 = title, H2 = part, H3 = chapter. Numbering matches the counters drawn
 // in the manuscript: parts in roman numerals, chapters straight through.

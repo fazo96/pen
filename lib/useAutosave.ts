@@ -246,5 +246,5 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
     [setContent],
   );
 
-  return { status, conflict, touch, flush, leave, adopt, resolveConflict };
+  return { status, conflict, touch, flush, leave, adopt, pull, resolveConflict };
 }

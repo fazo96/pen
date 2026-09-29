@@ -14,10 +14,11 @@ import { useFocusMode } from "@/lib/useFocusMode";
 import { useLibrary } from "@/lib/useLibrary";
 import type { VersionMeta } from "@/lib/versions";
 import Codex from "./Codex";
+import Construct from "./Construct";
 import Drawer from "./Drawer";
 import DropImport from "./DropImport";
 import FocusControls from "./FocusControls";
-import { IconBack, IconExport, IconFocus, IconOutline } from "./icons";
+import { IconBack, IconConstruct, IconExport, IconFocus, IconOutline } from "./icons";
 import History from "./History";
 import Outline, { type Heading } from "./Outline";
 import ThemeButton from "./ThemeButton";
@@ -59,6 +60,8 @@ export default function Pen({ projectId, kind, initial }: Props) {
   const [active, setActive] = useState<number | null>(null);
   const [words, setWords] = useState(0);
   const [outlineOpen, setOutlineOpen] = useState(false);
+  const [constructOpen, setConstructOpen] = useState(false);
+  const [codexKey, setCodexKey] = useState(0);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>(isEntry ? "codex" : "contents");
   const [preview, setPreview] = useState<{ meta: VersionMeta; content: string } | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
@@ -126,7 +129,7 @@ export default function Pen({ projectId, kind, initial }: Props) {
     (md: string) => editor?.commands.setContent(md, { contentType: "markdown", emitUpdate: false }),
     [editor],
   );
-  const { status, conflict, touch, leave, adopt, resolveConflict } = useAutosave({
+  const { status, conflict, touch, leave, adopt, pull, resolveConflict } = useAutosave({
     initial,
     url: isEntry ? `/api/docs/${projectId}/codex/${initial.id}` : `/api/docs/${projectId}`,
     backupKey: isEntry ? `pen:backup:${projectId}/codex/${initial.id}` : `pen:backup:${projectId}`,
@@ -271,6 +274,23 @@ export default function Pen({ projectId, kind, initial }: Props) {
     router.push(href);
   };
   const goLibrary = () => go("/?library");
+
+  // ─── Construct ─────────────────────────────────────────────
+  const constructContext = () => {
+    const context: { entry?: string; selection?: string } = isEntry ? { entry: initial.id } : {};
+    if (editor && !editor.state.selection.empty) {
+      const { from, to } = editor.state.selection;
+      const text = editor.state.doc.textBetween(from, to, "\n").trim();
+      if (text) context.selection = text;
+    }
+    return context;
+  };
+  const onCodexChange = ({ entry, action, to }: { entry: string; action: string; to?: string }) => {
+    setCodexKey((k) => k + 1);
+    if (!isEntry || entry !== initial.id) return;
+    if (action === "edited") void pull(); // skipped if we have unsaved typing: the next save then conflicts
+    if (action === "renamed" && to) router.replace(`/d/${projectId}/codex/${to}`);
+  };
   const { importFile: importDoc } = lib;
   const importFile = useCallback(
     async (file: File) => {
@@ -282,7 +302,7 @@ export default function Pen({ projectId, kind, initial }: Props) {
 
   return (
     <div
-      className={`app app-editor ${typing ? "is-typing" : ""} ${focusMode.toolbarShown ? "toolbar-shown" : ""}`}
+      className={`app app-editor ${typing ? "is-typing" : ""} ${focusMode.toolbarShown ? "toolbar-shown" : ""} ${constructOpen ? "construct-open" : ""}`}
     >
       <div className="progress" style={{ transform: `scaleX(${progress})` }} aria-hidden />
 
@@ -327,6 +347,7 @@ export default function Pen({ projectId, kind, initial }: Props) {
             className="icon-btn"
             onClick={() => {
               setOutlineOpen(false);
+              setConstructOpen(false);
               focusMode.toggle();
             }}
             aria-label="Focus mode"
@@ -337,6 +358,19 @@ export default function Pen({ projectId, kind, initial }: Props) {
           <ThemeButton />
           <button type="button" className="icon-btn" onClick={exportMarkdown} aria-label="Export markdown" title="Export .md">
             <IconExport />
+          </button>
+          <button
+            type="button"
+            className={`icon-btn construct-toggle ${constructOpen ? "is-on" : ""}`}
+            onClick={() => {
+              setOutlineOpen(false);
+              setConstructOpen((o) => !o);
+            }}
+            aria-label="Construct"
+            aria-expanded={constructOpen}
+            title="Construct"
+          >
+            <IconConstruct />
           </button>
         </div>
       </header>
@@ -397,6 +431,7 @@ export default function Pen({ projectId, kind, initial }: Props) {
             activeId={isEntry ? initial.id : null}
             activeTitle={isEntry ? title : undefined}
             onOpen={go}
+            refreshKey={codexKey}
           />
         )}
         {drawerTab === "history" && !isEntry && (
@@ -427,6 +462,16 @@ export default function Pen({ projectId, kind, initial }: Props) {
       </main>
 
       {editor && !preview && <Toolbar editor={editor} headingNames={headingNames} />}
+
+      <Construct
+        projectId={projectId}
+        open={constructOpen}
+        onClose={() => setConstructOpen(false)}
+        getContext={constructContext}
+        beforeSend={leave}
+        onCodexChange={onCodexChange}
+        onOpen={go}
+      />
 
       {lib.error && (
         <div className="toast" role="alert" onClick={lib.clearError}>

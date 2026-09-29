@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "^1.5.1",
     "@tiptap/core": "^3.31.3",
     "@tiptap/extension-placeholder": "^3.31.3",
     "@tiptap/extension-typography": "^3.31.3",
@@ -16,6 +17,7 @@
     "@tiptap/pm": "^3.31.3",
     "@tiptap/react": "^3.31.3",
     "@tiptap/starter-kit": "^3.31.3",
+    "marked": "^17.0.6",
     "next": "^16.3.7",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

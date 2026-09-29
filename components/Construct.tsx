@@ -1,0 +1,299 @@
+"use client";
+
+import { Marked } from "marked";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { ChatItem, ConstructEvent, PromptContext } from "@/lib/construct/types";
+import { useConstruct } from "@/lib/useConstruct";
+import { IconClose, IconPlus, IconSend, IconStop } from "./icons";
+
+type CodexChange = Extract<ConstructEvent, { t: "codex" }>["change"];
+
+type Props = {
+  projectId: string;
+  open: boolean;
+  onClose: () => void;
+  /** Where the writer is and what they've selected, sent along with each message. */
+  getContext: () => PromptContext;
+  /** Save the open document first, so Construct reads the latest words. */
+  beforeSend: () => Promise<void>;
+  onCodexChange: (change: CodexChange) => void;
+  /** Navigate (saving first). */
+  onOpen: (href: string) => void;
+};
+
+const AGENT_NAMES: Record<string, string> = { claude: "Claude Code" };
+
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
+// Agent replies are markdown. Raw HTML is shown as text; only web links link.
+const md = new Marked({
+  gfm: true,
+  breaks: true,
+  renderer: {
+    html: ({ text }) => escapeHtml(text),
+    image: ({ text }) => escapeHtml(text),
+    link({ href, tokens }) {
+      const inner = this.parser.parseInline(tokens);
+      return /^https?:\/\//i.test(href)
+        ? `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer noopener">${inner}</a>`
+        : inner;
+    },
+  },
+});
+
+function Markdown({ text }: { text: string }) {
+  const html = useMemo(() => md.parse(text, { async: false }), [text]);
+  return <div className="construct-md" dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+/** What a tool call did, in the writer's terms. */
+function describeTool(item: Extract<ChatItem, { type: "tool" }>): { text: string; entry?: string } {
+  const i = item.input ?? {};
+  const lines = i.from_line || i.to_line ? ` (lines ${i.from_line ?? "1"}–${i.to_line ?? "end"})` : "";
+  switch (item.name) {
+    case "outline":
+      return { text: "Read the outline" };
+    case "read_manuscript":
+      return { text: `Read ${i.heading ?? "the manuscript"}${lines}` };
+    case "search":
+      return { text: i.query ? `Searched for “${i.query}”` : "Searched" };
+    case "list_versions":
+      return { text: "Looked through the history" };
+    case "read_version":
+      return { text: `Read a past version${i.heading ? `: ${i.heading}` : ""}` };
+    case "list_codex":
+      return { text: "Looked through the Codex" };
+    case "read_codex_entry":
+      return { text: `Read Codex · ${i.id ?? ""}`, entry: i.id };
+    case "create_codex_entry":
+      return { text: i.id ? `Created Codex · ${i.id}` : "Created a Codex entry", entry: i.id };
+    case "edit_codex_entry":
+    case "write_codex_entry":
+      return { text: `Edited Codex · ${i.id ?? ""}`, entry: i.id };
+    case "rename_codex_entry":
+      return { text: `Renamed Codex · ${i.id ?? ""} → ${i.new_id ?? ""}`, entry: i.new_id };
+    case "delete_codex_entry":
+      return { text: `Deleted Codex · ${i.id ?? ""}` };
+    default:
+      return { text: item.title };
+  }
+}
+
+const isTouch = () => typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
+
+export default function Construct({ projectId, open, onClose, getContext, beforeSend, onCodexChange, onOpen }: Props) {
+  const c = useConstruct(projectId, open, onCodexChange);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const scroller = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
+  const stick = useRef(true);
+  const status = c.state?.status ?? "idle";
+  const busy = status === "busy" || sending;
+
+  // Wake the agent the first time the panel opens.
+  useEffect(() => {
+    if (open && c.state?.status === "idle") void c.start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, c.state?.status]);
+
+  useEffect(() => {
+    if (open && !isTouch()) input.current?.focus();
+  }, [open]);
+
+  // Follow the conversation unless the writer has scrolled up to reread.
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (el && stick.current) el.scrollTop = el.scrollHeight;
+  }, [c.items]);
+
+  const send = async () => {
+    const text = draft.trim();
+    if (!text || busy) return;
+    setSending(true);
+    const context = getContext();
+    await beforeSend();
+    const ok = await c.send(text, context);
+    setSending(false);
+    if (ok) {
+      setDraft("");
+      stick.current = true;
+    }
+  };
+
+  const config = c.state?.config ?? [];
+
+  return (
+    <>
+      <div className={`scrim construct-scrim ${open ? "is-open" : ""}`} onClick={onClose} aria-hidden />
+      <aside className={`construct ${open ? "is-open" : ""}`} aria-label="Construct" aria-hidden={!open}>
+        <div className="construct-head">
+          <div className="construct-title">
+            <span className="construct-name">Construct</span>
+            <span className="label">{AGENT_NAMES[c.state?.agent ?? "claude"] ?? c.state?.agent}</span>
+          </div>
+          <div className="construct-head-actions">
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={() => void c.reset()}
+              disabled={!c.items.length}
+              aria-label="New chat"
+              title="New chat"
+            >
+              <IconPlus />
+            </button>
+            <button type="button" className="icon-btn" onClick={onClose} aria-label="Close Construct">
+              <IconClose />
+            </button>
+          </div>
+        </div>
+
+        {config.length > 0 && (
+          <div className="construct-config">
+            {config.map((o) =>
+              o.type === "select" ? (
+                <label key={o.id} className="construct-select">
+                  <span className="label">{o.name}</span>
+                  <select
+                    value={o.currentValue}
+                    disabled={busy}
+                    onChange={(e) => void c.setConfig(o.id, e.target.value)}
+                  >
+                    {o.options.flatMap((opt) => ("group" in opt ? opt.options : [opt])).map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null,
+            )}
+          </div>
+        )}
+
+        <div
+          className="construct-log"
+          ref={scroller}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+          }}
+          aria-live="polite"
+        >
+          {c.items.length === 0 && (
+            <div className="construct-empty">
+              <p>
+                Construct reads your manuscript and its history, and keeps the Codex with you: characters, places,
+                threads, timelines.
+              </p>
+              <p>It can’t change the manuscript. Suggestions for the prose come back here, for you to take or leave.</p>
+            </div>
+          )}
+          {c.items.map((item) => {
+            switch (item.type) {
+              case "user":
+                return (
+                  <div key={item.id} className="construct-msg is-user">
+                    {item.context?.selection && (
+                      <blockquote className="construct-quote">{item.context.selection}</blockquote>
+                    )}
+                    <p>{item.text}</p>
+                  </div>
+                );
+              case "agent":
+                return (
+                  <div key={item.id} className="construct-msg is-agent">
+                    <Markdown text={item.text} />
+                  </div>
+                );
+              case "thought":
+                return (
+                  <details key={item.id} className="construct-thought">
+                    <summary className="label">Thinking</summary>
+                    <p>{item.text}</p>
+                  </details>
+                );
+              case "tool": {
+                const { text, entry } = describeTool(item);
+                const done = item.status === "completed";
+                return (
+                  <div key={item.id} className={`construct-tool is-${item.status}`}>
+                    <span className="construct-tool-dot" aria-hidden />
+                    {entry && done && !item.name?.startsWith("delete") ? (
+                      <button type="button" onClick={() => onOpen(`/d/${projectId}/codex/${entry}`)}>
+                        {text}
+                      </button>
+                    ) : (
+                      <span>{text}</span>
+                    )}
+                  </div>
+                );
+              }
+              case "plan":
+                return (
+                  <ol key={item.id} className="construct-plan">
+                    {item.entries.map((e, i) => (
+                      <li key={i} className={`is-${e.status}`}>
+                        {e.content}
+                      </li>
+                    ))}
+                  </ol>
+                );
+              case "notice":
+                return (
+                  <p key={item.id} className={`construct-notice is-${item.tone}`}>
+                    {item.text}
+                  </p>
+                );
+            }
+          })}
+          {status === "busy" && <div className="construct-working" aria-label="Working" />}
+        </div>
+
+        {(c.error || status === "error") && (
+          <p className="construct-error" role="alert">
+            {c.error ?? c.state?.error}{" "}
+            {status === "error" && (
+              <button type="button" onClick={() => void c.start()}>
+                Retry
+              </button>
+            )}
+          </p>
+        )}
+
+        <form
+          className="construct-input"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void send();
+          }}
+        >
+          <textarea
+            ref={input}
+            value={draft}
+            rows={1}
+            placeholder={status === "starting" ? "Waking Construct…" : "Ask Construct"}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !isTouch()) {
+                e.preventDefault();
+                void send();
+              }
+            }}
+          />
+          {status === "busy" ? (
+            <button type="button" className="construct-send" onClick={() => void c.cancel()} aria-label="Stop" title="Stop">
+              <IconStop />
+            </button>
+          ) : (
+            <button type="submit" className="construct-send" disabled={!draft.trim() || busy} aria-label="Send">
+              <IconSend />
+            </button>
+          )}
+        </form>
+      </aside>
+    </>
+  );
+}

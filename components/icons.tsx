@@ -113,3 +113,24 @@ export const IconLock = (p: P) => (
     <path d="M7 9V6.5a3 3 0 0 1 6 0V9M10 12.3v1.8" />
   </svg>
 );
+
+/** Construct: a small armillary, rings around a point. */
+export const IconConstruct = (p: P) => (
+  <svg {...base} {...p}>
+    <circle cx="10" cy="10" r="1.2" fill="currentColor" stroke="none" />
+    <ellipse cx="10" cy="10" rx="7" ry="3" />
+    <ellipse cx="10" cy="10" rx="3" ry="7" />
+  </svg>
+);
+
+export const IconSend = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M10 16V4M5 9l5-5 5 5" />
+  </svg>
+);
+
+export const IconStop = (p: P) => (
+  <svg {...base} {...p}>
+    <rect x="5.5" y="5.5" width="9" height="9" rx="1.5" />
+  </svg>
+);
