@@ -170,3 +170,10 @@ export const IconPencil = (p: P) => (
     <path d="M12.5 4.5l3 3L7.5 15.5l-3.7.7.7-3.7zM11 6l3 3" />
   </svg>
 );
+
+/** Open in full: an arrow leaving a box. */
+export const IconExpand = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M11 4h5v5M16 4l-7 7M14 12v3.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5H8" />
+  </svg>
+);

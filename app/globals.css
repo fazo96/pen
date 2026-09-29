@@ -2281,3 +2281,113 @@ a.btn {
     padding-right: 380px;
   }
 }
+
+/* ─── Codex panel ──────────────────────────────────────────────
+   A codex entry beside the manuscript on wide screens (narrower ones
+   open entries on their own page). It shares the right edge with
+   Construct, one at a time, until there's room for both. */
+.codex-panel {
+  display: none;
+}
+
+@media (min-width: 1180px) {
+  :root {
+    --codex-w: clamp(360px, 30vw, 520px);
+  }
+  .codex-panel {
+    position: fixed;
+    top: calc(var(--topbar-h) + env(safe-area-inset-top));
+    bottom: 0;
+    right: 0;
+    z-index: 15;
+    width: var(--codex-w);
+    display: flex;
+    flex-direction: column;
+    background: var(--paper);
+    border-left: 1px solid var(--rule);
+    transition: opacity 0.6s ease;
+  }
+  .codex-open .page {
+    padding-right: var(--codex-w);
+  }
+  .is-typing .codex-panel:not(:focus-within) {
+    opacity: 0.35;
+  }
+  .is-typing .codex-panel:hover {
+    opacity: 1;
+  }
+}
+
+/* Room for both: Construct keeps the edge, the entry sits beside it. */
+@media (min-width: 1800px) {
+  .construct-open .codex-panel {
+    right: 380px;
+  }
+  .codex-open.construct-open .page {
+    padding-right: calc(380px + var(--codex-w));
+  }
+}
+
+.codex-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 8px 8px 20px;
+  border-bottom: 1px solid var(--rule);
+}
+.codex-panel-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-soft);
+}
+.codex-panel-head .construct-head-actions {
+  align-items: center;
+  flex-shrink: 0;
+}
+.codex-panel-conflict {
+  position: static;
+  margin: 12px;
+}
+.codex-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 36px 28px 40vh;
+}
+.codex-panel-body .prose {
+  font-size: 1.0625rem;
+}
+
+:root[data-focus] .app-editor .codex-panel {
+  visibility: hidden;
+}
+:root[data-focus] .app-editor.codex-open .page {
+  padding-right: 22px;
+}
+
+/* Keep the formatting pill centred over the manuscript between the rails. */
+@media (min-width: 1180px) {
+  .app-editor {
+    --right-rail: 0px;
+  }
+  .app-editor.construct-open {
+    --right-rail: 380px;
+  }
+  .app-editor.codex-open {
+    --right-rail: var(--codex-w);
+  }
+  .app-editor .toolbar {
+    left: calc(50% + (272px - var(--right-rail)) / 2);
+  }
+  :root[data-focus] .app-editor .toolbar {
+    left: 50%;
+  }
+}
+@media (min-width: 1800px) {
+  .app-editor.codex-open.construct-open {
+    --right-rail: calc(380px + var(--codex-w));
+  }
+}

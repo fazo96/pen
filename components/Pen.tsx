@@ -1,19 +1,18 @@
 "use client";
 
-import { Markdown } from "@tiptap/markdown";
-import { EditorContent, useEditor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Typography from "@tiptap/extension-typography";
-import { Placeholder } from "@tiptap/extensions";
+import { type Editor, EditorContent } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CommentExtensions, textWithoutComments } from "@/lib/comments";
+import { textWithoutComments } from "@/lib/comments";
 import { slugify, wordCount } from "@/lib/text";
-import { type SaveStatus, type Story, useAutosave } from "@/lib/useAutosave";
+import { STATUS_LABEL, type Story, useAutosave } from "@/lib/useAutosave";
 import { useFocusMode } from "@/lib/useFocusMode";
 import { useLibrary } from "@/lib/useLibrary";
+import { useMedia } from "@/lib/useMedia";
+import { HEADINGS, usePenEditor } from "@/lib/usePenEditor";
 import type { VersionMeta } from "@/lib/versions";
 import Codex from "./Codex";
+import CodexPanel, { type CodexPanelHandle } from "./CodexPanel";
 import Construct from "./Construct";
 import Drawer from "./Drawer";
 import DropImport from "./DropImport";
@@ -27,103 +26,54 @@ import ThemeButton from "./ThemeButton";
 import Toolbar from "./Toolbar";
 import VersionPreview from "./VersionPreview";
 
-const STATUS_LABEL: Record<SaveStatus, string> = {
-  saved: "Saved",
-  unsaved: "Unsaved",
-  saving: "Saving",
-  offline: "Offline",
-  conflict: "Conflict",
-  locked: "Locked",
-};
-
 type DrawerTab = "contents" | "codex" | "history";
 
-// Heading names: the manuscript is structured (title, parts, chapters);
-// codex entries are plain notes.
-const HEADINGS = {
-  manuscript: ["Title", "Part", "Chapter"],
-  entry: ["Title", "Heading", "Subheading"],
-} as const;
+// Keep in step with the breakpoints in globals.css.
+/** Room for a codex entry beside the manuscript. */
+const WIDE = "(min-width: 1180px)";
+/** Room for the codex entry and Construct at once. */
+const ROOMY = "(min-width: 1800px)";
 
 type Props = {
   projectId: string;
   /** The manuscript itself, or one of its codex entries. */
   kind: "manuscript" | "entry";
   initial: Story;
+  /** Codex entry to open beside the manuscript (from `?entry=`). */
+  initialEntry?: string;
 };
 
-export default function Pen({ projectId, kind, initial }: Props) {
+export default function Pen({ projectId, kind, initial, initialEntry }: Props) {
   const isEntry = kind === "entry";
   const headingNames = HEADINGS[kind];
   const router = useRouter();
   const lib = useLibrary();
   const focusMode = useFocusMode();
+  const wide = useMedia(WIDE);
+  const roomy = useMedia(ROOMY);
   const [headings, setHeadings] = useState<Heading[]>([]);
   const [active, setActive] = useState<number | null>(null);
   const [words, setWords] = useState(0);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [constructOpen, setConstructOpen] = useState(false);
   const [codexKey, setCodexKey] = useState(0);
-  const [drawerTab, setDrawerTab] = useState<DrawerTab>(isEntry ? "codex" : "contents");
+  const [drawerTab, setDrawerTab] = useState<DrawerTab>(isEntry || initialEntry ? "codex" : "contents");
   const [preview, setPreview] = useState<{ meta: VersionMeta; content: string } | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
   const scrollBeforePreview = useRef(0);
   const [typing, setTyping] = useState(false);
   const [progress, setProgress] = useState(0);
   const touchRef = useRef<() => void>(() => {});
+  // The codex entry open beside the manuscript, and which editor the toolbar serves.
+  const [panelEntry, setPanelEntry] = useState<string | null>(isEntry ? null : (initialEntry ?? null));
+  const [panelEditor, setPanelEditor] = useState<Editor | null>(null);
+  const [panelTitle, setPanelTitle] = useState<string | undefined>();
+  const [panelFocused, setPanelFocused] = useState(false);
+  const panel = useRef<CodexPanelHandle>(null);
 
-  const editor = useEditor({
-    immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-        link: { openOnClick: false },
-      }),
-      Markdown,
-      ...CommentExtensions,
-      Typography.configure({
-        // Keep the literary substitutions; drop the ones that ambush prose.
-        oneHalf: false,
-        oneQuarter: false,
-        threeQuarters: false,
-        plusMinus: false,
-        notEqual: false,
-        multiplication: false,
-        superscriptTwo: false,
-        superscriptThree: false,
-        leftArrow: false,
-        rightArrow: false,
-        copyright: false,
-        registeredTrademark: false,
-        trademark: false,
-        servicemark: false,
-        laquo: false,
-        raquo: false,
-      }),
-      Placeholder.configure({
-        placeholder: ({ node }) =>
-          node.type.name === "commentBlock"
-            ? "Comment"
-            : node.type.name === "heading"
-            ? (headingNames[(node.attrs.level as number) - 1] ?? "Heading")
-            : "Begin anywhere…",
-      }),
-    ],
-    content: initial.content,
-    contentType: "markdown",
-    editorProps: {
-      attributes: {
-        class: isEntry ? "prose is-notes" : "prose",
-        spellcheck: "true",
-        "aria-label": isEntry ? "Codex entry" : "Manuscript",
-      },
-    },
-    onUpdate: ({ transaction }) => {
-      if (transaction.docChanged) {
-        touchRef.current();
-        setTyping(true);
-      }
-    },
+  const editor = usePenEditor(kind, initial.content, () => {
+    touchRef.current();
+    setTyping(true);
   });
 
   const getContent = useCallback(() => (editor ? editor.getMarkdown() : null), [editor]);
@@ -273,24 +223,106 @@ export default function Pen({ projectId, kind, initial }: Props) {
 
   // Save before leaving this document, whichever way we leave.
   const go = async (href: string) => {
-    await leave();
+    await Promise.all([leave(), panel.current?.leave()]);
     router.push(href);
   };
   const goLibrary = () => go("/?library");
 
+  // ─── Codex entry beside the manuscript ─────────────────────
+  const openEntry = async (eid: string) => {
+    setOutlineOpen(false);
+    if (eid === panelEntry) return;
+    await panel.current?.leave();
+    setPanelEntry(eid);
+    if (!window.matchMedia(ROOMY).matches) setConstructOpen(false);
+  };
+  const closeEntry = async () => {
+    await panel.current?.leave();
+    setPanelEntry(null);
+    setPanelFocused(false);
+  };
+  // Drop the panel without saving: its file is gone.
+  const dropEntry = () => {
+    setPanelEntry(null);
+    setPanelFocused(false);
+    setCodexKey((k) => k + 1);
+  };
+  /** Codex and Construct links: entries open beside the manuscript when there's room. */
+  const open = (href: string) => {
+    if (isEntry) return go(href);
+    const entry = href.match(/^\/d\/[^/]+\/codex\/([^/?#]+)$/)?.[1];
+    if (entry && window.matchMedia(WIDE).matches) return openEntry(entry);
+    // Codex navigates home after deleting the open entry.
+    if (href === `/d/${projectId}` && panelEntry) return dropEntry();
+    return go(href);
+  };
+
+  // Keep the open entry in the address, so a reload brings it back.
+  useEffect(() => {
+    if (isEntry) return;
+    const url = panelEntry ? `/d/${projectId}?entry=${encodeURIComponent(panelEntry)}` : `/d/${projectId}`;
+    if (window.location.pathname + window.location.search !== url) window.history.replaceState(null, "", url);
+  }, [isEntry, projectId, panelEntry]);
+
+  // No room: close the panel (or, when both are open, Construct).
+  useEffect(() => {
+    if (wide === false && panelEntry) void closeEntry();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wide]);
+  useEffect(() => {
+    if (roomy === false && panelEntry && constructOpen) setConstructOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomy]);
+
+  // The toolbar and Construct follow whichever editor was used last.
+  useEffect(() => {
+    if (!editor) return;
+    const onMain = () => setPanelFocused(false);
+    editor.on("focus", onMain);
+    return () => {
+      editor.off("focus", onMain);
+    };
+  }, [editor]);
+  useEffect(() => {
+    if (!panelEditor) return;
+    const onPanel = () => setPanelFocused(true);
+    panelEditor.on("focus", onPanel);
+    return () => {
+      panelEditor.off("focus", onPanel);
+    };
+  }, [panelEditor]);
+  const inPanel = panelFocused && !!panelEditor && !!panelEntry;
+  const toolEditor = inPanel ? panelEditor : editor;
+  const onPanelTyping = useCallback(() => setTyping(true), []);
+
   // ─── Construct ─────────────────────────────────────────────
   const constructContext = () => {
-    const context: { entry?: string; selection?: string } = isEntry ? { entry: initial.id } : {};
-    if (editor && !editor.state.selection.empty) {
-      const { from, to } = editor.state.selection;
-      const text = editor.state.doc.textBetween(from, to, "\n").trim();
+    const context: { entry?: string; selection?: string } = isEntry
+      ? { entry: initial.id }
+      : inPanel
+      ? { entry: panelEntry! }
+      : {};
+    const ed = toolEditor;
+    if (ed && !ed.state.selection.empty) {
+      const { from, to } = ed.state.selection;
+      const text = ed.state.doc.textBetween(from, to, "\n").trim();
       if (text) context.selection = text;
     }
     return context;
   };
+  const beforeConstruct = async () => {
+    await Promise.all([leave(), panel.current?.leave()]);
+  };
   const onCodexChange = ({ entry, action, to }: { entry: string; action: string; to?: string }) => {
     setCodexKey((k) => k + 1);
-    if (!isEntry || entry !== initial.id) return;
+    if (!isEntry) {
+      if (entry !== panelEntry) return;
+      if (action === "edited") void panel.current?.pull();
+      if (action === "renamed" && to) setPanelEntry(to);
+      if (action === "deleted") dropEntry();
+      return;
+    }
+    if (entry !== initial.id) return;
     if (action === "edited") void pull(); // skipped if we have unsaved typing: the next save then conflicts
     if (action === "renamed" && to) router.replace(`/d/${projectId}/codex/${to}`);
   };
@@ -310,12 +342,13 @@ export default function Pen({ projectId, kind, initial }: Props) {
   };
   const toggleConstruct = () => {
     setOutlineOpen(false);
+    if (!constructOpen && panelEntry && !window.matchMedia(ROOMY).matches) void closeEntry();
     setConstructOpen((o) => !o);
   };
 
   return (
     <div
-      className={`app app-editor ${typing ? "is-typing" : ""} ${focusMode.toolbarShown ? "toolbar-shown" : ""} ${constructOpen ? "construct-open" : ""}`}
+      className={`app app-editor ${typing ? "is-typing" : ""} ${focusMode.toolbarShown ? "toolbar-shown" : ""} ${constructOpen ? "construct-open" : ""} ${panelEntry ? "codex-open" : ""}`}
     >
       <div className="progress" style={{ transform: `scaleX(${progress})` }} aria-hidden />
 
@@ -445,9 +478,9 @@ export default function Pen({ projectId, kind, initial }: Props) {
         {drawerTab === "codex" && (
           <Codex
             projectId={projectId}
-            activeId={isEntry ? initial.id : null}
-            activeTitle={isEntry ? title : undefined}
-            onOpen={go}
+            activeId={isEntry ? initial.id : panelEntry}
+            activeTitle={isEntry ? title : panelTitle}
+            onOpen={open}
             refreshKey={codexKey}
           />
         )}
@@ -479,16 +512,37 @@ export default function Pen({ projectId, kind, initial }: Props) {
         </div>
       </main>
 
-      {editor && !preview && <Toolbar editor={editor} headingNames={headingNames} />}
+      {panelEntry && (
+        <CodexPanel
+          key={panelEntry}
+          projectId={projectId}
+          entryId={panelEntry}
+          handle={panel}
+          onClose={closeEntry}
+          onExpand={() => go(`/d/${projectId}/codex/${panelEntry}`)}
+          onMissing={dropEntry}
+          onEditor={setPanelEditor}
+          onTitle={setPanelTitle}
+          onChange={onPanelTyping}
+        />
+      )}
+
+      {toolEditor && (!preview || inPanel) && (
+        <Toolbar
+          key={inPanel ? "panel" : "main"}
+          editor={toolEditor}
+          headingNames={inPanel ? HEADINGS.entry : headingNames}
+        />
+      )}
 
       <Construct
         projectId={projectId}
         open={constructOpen}
         onClose={() => setConstructOpen(false)}
         getContext={constructContext}
-        beforeSend={leave}
+        beforeSend={beforeConstruct}
         onCodexChange={onCodexChange}
-        onOpen={go}
+        onOpen={open}
       />
 
       {lib.error && (

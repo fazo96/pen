@@ -5,6 +5,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export type SaveStatus = "saved" | "unsaved" | "saving" | "offline" | "conflict" | "locked";
 export type Story = { id: string; content: string; version: string };
 
+export const STATUS_LABEL: Record<SaveStatus, string> = {
+  saved: "Saved",
+  unsaved: "Unsaved",
+  saving: "Saving",
+  offline: "Offline",
+  conflict: "Conflict",
+  locked: "Locked",
+};
+
 const IDLE_MS = 1200;
 const RETRY_MS = 5000;
 
