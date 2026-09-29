@@ -4,6 +4,7 @@ import { Markdown } from "@tiptap/markdown";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useState } from "react";
+import { CommentExtensions } from "@/lib/comments";
 import type { VersionMeta } from "@/lib/versions";
 
 type Props = {
@@ -20,7 +21,7 @@ export default function VersionPreview({ meta, content, onRestore, onClose }: Pr
   const viewer = useEditor({
     immediatelyRender: false,
     editable: false,
-    extensions: [StarterKit.configure({ heading: { levels: [1, 2, 3] } }), Markdown],
+    extensions: [StarterKit.configure({ heading: { levels: [1, 2, 3] } }), Markdown, ...CommentExtensions],
     content,
     contentType: "markdown",
     editorProps: { attributes: { class: "prose is-preview", "aria-label": "Version preview" } },

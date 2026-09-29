@@ -454,6 +454,27 @@ button {
   background: none;
 }
 
+/* Comments: kept in the file, not part of the prose. */
+.prose .comment-block {
+  margin: 1.2rem 0;
+  padding: 0.15rem 0 0.15rem 0.9rem;
+  border-left: 1px dashed var(--accent);
+  font-size: 0.9em;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+}
+.prose .comment-inline {
+  font-size: 0.9em;
+  font-style: italic;
+  color: var(--ink-soft);
+  background: var(--accent-wash);
+  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  border-radius: 2px;
+  padding: 0 0.2em;
+}
+
 /* Scene break */
 .prose hr {
   border: 0;

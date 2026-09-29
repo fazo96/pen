@@ -7,6 +7,7 @@ import Typography from "@tiptap/extension-typography";
 import { Placeholder } from "@tiptap/extensions";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CommentExtensions, textWithoutComments } from "@/lib/comments";
 import { slugify, wordCount } from "@/lib/text";
 import { type SaveStatus, type Story, useAutosave } from "@/lib/useAutosave";
 import { useFocusMode } from "@/lib/useFocusMode";
@@ -74,6 +75,7 @@ export default function Pen({ projectId, kind, initial }: Props) {
         link: { openOnClick: false },
       }),
       Markdown,
+      ...CommentExtensions,
       Typography.configure({
         // Keep the literary substitutions; drop the ones that ambush prose.
         oneHalf: false,
@@ -95,7 +97,9 @@ export default function Pen({ projectId, kind, initial }: Props) {
       }),
       Placeholder.configure({
         placeholder: ({ node }) =>
-          node.type.name === "heading"
+          node.type.name === "commentBlock"
+            ? "Comment"
+            : node.type.name === "heading"
             ? (headingNames[(node.attrs.level as number) - 1] ?? "Heading")
             : "Begin anywhere…",
       }),
@@ -140,11 +144,11 @@ export default function Pen({ projectId, kind, initial }: Props) {
       const hs: Heading[] = [];
       editor.state.doc.forEach((node, offset) => {
         if (node.type.name === "heading") {
-          hs.push({ pos: offset, level: node.attrs.level as number, text: node.textContent.trim() });
+          hs.push({ pos: offset, level: node.attrs.level as number, text: textWithoutComments(node).trim() });
         }
       });
       setHeadings(hs);
-      setWords(wordCount(editor.state.doc.textBetween(0, editor.state.doc.content.size, " ", " ")));
+      setWords(wordCount(textWithoutComments(editor.state.doc)));
     };
     const onTx = ({ transaction }: { transaction: { docChanged: boolean } }) => {
       if (!transaction.docChanged) return;

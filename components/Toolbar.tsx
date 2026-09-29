@@ -49,6 +49,7 @@ export default function Toolbar({ editor, headingNames }: Props) {
       quote: e.isActive("blockquote"),
       bullets: e.isActive("bulletList"),
       numbers: e.isActive("orderedList"),
+      comment: e.isActive("comment") || e.isActive("commentBlock"),
       canUndo: e.can().undo(),
       canRedo: e.can().redo(),
     }),
@@ -90,6 +91,9 @@ export default function Toolbar({ editor, headingNames }: Props) {
         </Button>
         <Button label="Scene break" onPress={() => run().setHorizontalRule().run()}>
           <span className="glyph">⁂</span>
+        </Button>
+        <Button label="Comment (not counted, kept in the file)" active={s.comment} onPress={() => editor.commands.toggleComment()}>
+          <span className="glyph-h">%%</span>
         </Button>
         <span className="tool-sep" aria-hidden />
         <Button label="Undo" disabled={!s.canUndo} onPress={() => run().undo().run()}>

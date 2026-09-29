@@ -12,8 +12,14 @@ export function slugify(s: string): string {
     .replace(/-+$/g, "");
 }
 
+/** Remove %% … %% and <!-- … --> comments. */
+export function stripComments(markdown: string): string {
+  return markdown.replace(/%%[\s\S]*?%%|<!--[\s\S]*?-->/g, " ");
+}
+
 /** Title is the first H1; failing that, the first line of text; failing that, the fallback. */
-export function titleOf(markdown: string, fallback: string): string {
+export function titleOf(source: string, fallback: string): string {
+  const markdown = stripComments(source);
   const h1 = markdown.match(/^#[ \t]+(.+?)[ \t#]*$/m);
   if (h1) return stripInline(h1[1]);
   const line = markdown.split("\n").find((l) => l.trim() && !/^(-{3,}|\*{3,}|_{3,})$/.test(l.trim()));
@@ -28,7 +34,8 @@ function stripInline(s: string) {
   return s.replace(/[*_~`]/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").trim();
 }
 
+/** Words in markdown or plain text, not counting comments. */
 export function wordCount(text: string): number {
-  const m = text.match(/[\p{L}\p{N}’'-]*[\p{L}\p{N}][\p{L}\p{N}’'-]*/gu);
+  const m = stripComments(text).match(/[\p{L}\p{N}’'-]*[\p{L}\p{N}][\p{L}\p{N}’'-]*/gu);
   return m ? m.length : 0;
 }
