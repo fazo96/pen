@@ -3,10 +3,23 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { isImage, prepareCover } from "./cover";
+import { withTitle } from "./text";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 export const IMPORT_ACCEPT = ".md,.markdown,.mdown,.txt,text/markdown,text/plain";
-const IMPORT_EXT = /\.(md|markdown|mdown|txt)$/i;
+export const IMPORT_EXT = /\.(md|markdown|mdown|txt)$/i;
+
+/** Why a file can't be imported (manuscript or Codex), or null if it can. */
+export function importProblem(file: File): string | null {
+  if (!IMPORT_EXT.test(file.name)) return `${file.name} isn't a markdown or text file`;
+  if (file.size > MAX_BYTES) return `${file.name} is larger than 5 MB`;
+  return null;
+}
+
+/** A file's text, ready to import: an H1 title is added from its name if it has none. */
+export async function importText(file: File): Promise<string> {
+  return withTitle(await file.text(), file.name);
+}
 
 async function fail(res: Response): Promise<never> {
   const body = await res.json().catch(() => ({}));
@@ -50,15 +63,12 @@ export function useLibrary() {
 
   const importFile = useCallback(
     async (file: File) => {
-      if (!IMPORT_EXT.test(file.name)) {
-        setError(`${file.name} isn't a markdown or text file`);
+      const problem = importProblem(file);
+      if (problem) {
+        setError(problem);
         return;
       }
-      if (file.size > MAX_BYTES) {
-        setError(`${file.name} is larger than 5 MB`);
-        return;
-      }
-      await create(await file.text(), file.name.replace(IMPORT_EXT, ""));
+      await create(await importText(file), file.name.replace(IMPORT_EXT, ""));
     },
     [create],
   );

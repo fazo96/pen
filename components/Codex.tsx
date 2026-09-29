@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { EntryMeta } from "@/lib/docs";
+import { IMPORT_ACCEPT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";
 import { IconTrash } from "./icons";
 
 type Props = {
@@ -21,6 +22,8 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
   const base = `/api/docs/${projectId}/codex`;
 
   const load = useCallback(async () => {
@@ -55,6 +58,45 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     }
   };
 
+  /** Each file becomes an entry. One file opens it; several stay put and report back. */
+  const importFiles = async (files: File[]) => {
+    if (!files.length) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    const imported: string[] = [];
+    const skipped: string[] = [];
+    for (const file of files) {
+      const problem = importProblem(file);
+      if (problem) {
+        skipped.push(problem);
+        continue;
+      }
+      try {
+        const res = await fetch(base, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: await importText(file), name: file.name.replace(IMPORT_EXT, "") }),
+        });
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          throw new Error(body.error ?? `request failed (${res.status})`);
+        }
+        imported.push(((await res.json()) as { id: string }).id);
+      } catch (e) {
+        skipped.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    if (files.length === 1 && imported.length === 1) {
+      onOpen(`/d/${projectId}/codex/${imported[0]}`);
+      return;
+    }
+    await load();
+    setBusy(false);
+    if (imported.length) setNotice(`Imported ${imported.length} ${imported.length === 1 ? "entry" : "entries"}.`);
+    if (skipped.length) setError(`Skipped ${skipped.join("; ")}.`);
+  };
+
   const remove = async (eid: string) => {
     setConfirming(null);
     await fetch(`${base}/${eid}`, { method: "DELETE" });
@@ -67,11 +109,37 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
 
   return (
     <div className="codex">
-      <button type="button" className="history-new" onClick={create} disabled={busy}>
-        + New entry
-      </button>
+      <div className="codex-actions">
+        <button type="button" className="history-new" onClick={create} disabled={busy}>
+          + New entry
+        </button>
+        <button type="button" className="history-new" onClick={() => picker.current?.click()} disabled={busy}>
+          Import…
+        </button>
+      </div>
+      <input
+        ref={picker}
+        type="file"
+        accept={IMPORT_ACCEPT}
+        multiple
+        hidden
+        onChange={(e) => {
+          const files = [...(e.target.files ?? [])];
+          e.target.value = "";
+          void importFiles(files);
+        }}
+      />
 
-      {error && <p className="outline-empty">{error}</p>}
+      {notice && (
+        <p className="outline-empty codex-notice" role="status">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <p className="outline-empty" role="alert">
+          {error}
+        </p>
+      )}
 
       {list && list.length === 0 && (
         <p className="outline-empty">

@@ -1193,6 +1193,21 @@ button {
   color: var(--accent);
   padding: 8px 0;
 }
+.codex-actions {
+  display: flex;
+  gap: 22px;
+  padding: 0 20px;
+}
+.codex-actions .history-new {
+  margin: 10px 0 4px;
+}
+.codex-actions .history-new:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+.codex-notice {
+  color: var(--signal);
+}
 .history-save {
   display: flex;
   flex-direction: column;

@@ -39,3 +39,15 @@ export function wordCount(text: string): number {
   const m = stripComments(text).match(/[\p{L}\p{N}’'-]*[\p{L}\p{N}][\p{L}\p{N}’'-]*/gu);
   return m ? m.length : 0;
 }
+
+/**
+ * Imported text with an H1 at the top: its own if the first line of text (past
+ * any comments) is one, otherwise one made from the file name ("Mara Voss.md" →
+ * "# Mara Voss").
+ */
+export function withTitle(text: string, fileName: string): string {
+  const body = text.replace(/^\uFEFF/, "");
+  if (/^(?:\s|%%[\s\S]*?%%|<!--[\s\S]*?-->)*#[ \t]+\S/.test(body)) return body;
+  const title = fileName.replace(/\.[^.]*$/, "").trim() || "Untitled";
+  return `# ${title}\n\n${body.replace(/^\s*\n/, "")}`;
+}
