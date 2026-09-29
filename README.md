@@ -177,3 +177,11 @@ panel ──SSE/POST──▶ pen server ──ACP (stdio)──▶ agent (Claud
 - **Context.** Each message tells the agent what you're looking at (the manuscript or a Codex entry) and any text you have selected.
 - **Memory across restarts.** Conversations are saved with the agent's session id and resumed through ACP `session/resume`, so a chat picks up where it left off.
 - **Model choice.** The panel exposes the agent's model and thinking-effort options, and nothing else.
+
+## License
+
+Copyright (C) 2026 Enrico Fasoli
+
+Pen is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. See [LICENSE](LICENSE).
+
+Construct's agent (Claude Code, through `@agentclientprotocol/claude-agent-acp`) is a separate program under its own license. Pen launches it and talks to it over ACP rather than linking it in. The Docker image installs it next to pen, and it keeps its own terms there.
