@@ -6,6 +6,7 @@ import type { DocMeta } from "@/lib/docs";
 import { IMPORT_ACCEPT, useLibrary } from "@/lib/useLibrary";
 import DropImport from "./DropImport";
 import { IconImport, IconPlus, IconSettings } from "./icons";
+import Logo from "./Logo";
 import Shelf from "./Shelf";
 import ThemeButton from "./ThemeButton";
 
@@ -20,8 +21,10 @@ export default function Home({ docs }: { docs: DocMeta[] }) {
     <div className="app">
       <header className="topbar">
         <div className="topbar-left">
-          <span className="wordmark">pen</span>
-          <span className="topbar-title">Library</span>
+          <span className="wordmark" aria-hidden>
+            <Logo />
+          </span>
+          <span className="topbar-title">Pen</span>
         </div>
         <div className="topbar-right">
           <ThemeButton />

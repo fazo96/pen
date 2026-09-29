@@ -18,5 +18,5 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   // api/construct/mcp is called by the Construct agent process, with its own token.
-  matcher: ["/((?!_next/|unlock(?:$|/)|api/auth(?:$|/)|api/construct/mcp$|favicon\\.ico$).*)"],
+  matcher: ["/((?!_next/|unlock(?:$|/)|api/auth(?:$|/)|api/construct/mcp$|favicon\\.ico$|icon\\.svg$).*)"],
 };

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { IconBack } from "./icons";
+import Logo from "./Logo";
 import LockSettings from "./LockSettings";
 import ThemeButton from "./ThemeButton";
 
@@ -12,8 +13,8 @@ export default function Settings({ locked }: { locked: boolean }) {
           <Link href="/?library" className="icon-btn" aria-label="Back to the library" title="Library">
             <IconBack />
           </Link>
-          <Link href="/?library" className="wordmark">
-            pen
+          <Link href="/?library" className="wordmark" aria-label="pen">
+            <Logo />
           </Link>
           <span className="topbar-title">Settings</span>
         </div>

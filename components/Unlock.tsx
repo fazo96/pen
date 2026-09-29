@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { IconLock } from "./icons";
+import Logo from "./Logo";
 import ThemeButton from "./ThemeButton";
 
 export default function Unlock({ next }: { next: string }) {
@@ -38,7 +39,9 @@ export default function Unlock({ next }: { next: string }) {
     <div className="app">
       <header className="topbar">
         <div className="topbar-left">
-          <span className="wordmark">pen</span>
+          <span className="wordmark" role="img" aria-label="pen">
+            <Logo />
+          </span>
           <span className="topbar-title">Locked</span>
         </div>
         <div className="topbar-right">

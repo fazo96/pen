@@ -21,6 +21,7 @@ import EditorMenu from "./EditorMenu";
 import FocusControls from "./FocusControls";
 import { IconBack, IconConstruct, IconExport, IconFocus, IconOutline } from "./icons";
 import History from "./History";
+import Logo from "./Logo";
 import Outline, { type Heading } from "./Outline";
 import ThemeButton from "./ThemeButton";
 import Toolbar from "./Toolbar";
@@ -329,8 +330,8 @@ export default function Pen({ projectId, kind, initial }: Props) {
           >
             <IconOutline />
           </button>
-          <button type="button" className="wordmark" onClick={goLibrary} title="Library">
-            pen
+          <button type="button" className="wordmark" onClick={goLibrary} title="Library" aria-label="Library">
+            <Logo />
           </button>
           <span className="topbar-title" title={title}>
             {isEntry ? `Codex · ${title}` : title}
