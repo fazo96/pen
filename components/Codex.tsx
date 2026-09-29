@@ -23,6 +23,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [dropping, setDropping] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   const base = `/api/docs/${projectId}/codex`;
 
@@ -108,7 +109,27 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
   };
 
   return (
-    <div className="codex">
+    <div
+      className={`codex ${dropping ? "is-drop" : ""}`}
+      data-drop-zone
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes("Files")) return;
+        e.preventDefault();
+        setDropping(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropping(false);
+      }}
+      onDrop={(e) => {
+        setDropping(false);
+        if (!busy) void importFiles([...e.dataTransfer.files]);
+      }}
+    >
+      {dropping && (
+        <p className="codex-drop-hint" aria-hidden>
+          Drop to add to the Codex
+        </p>
+      )}
       <div className="codex-actions">
         <button type="button" className="history-new" onClick={create} disabled={busy}>
           + New entry

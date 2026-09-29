@@ -1208,6 +1208,34 @@ button {
 .codex-notice {
   color: var(--signal);
 }
+/* The Codex panel fills the drawer below the tabs, so all of it takes drops. */
+.outline-body:has(> .codex) {
+  display: flex;
+  flex-direction: column;
+}
+.codex {
+  position: relative;
+  flex: 1 0 auto;
+}
+.codex.is-drop {
+  outline: 1px dashed var(--accent);
+  outline-offset: -10px;
+  border-radius: 14px;
+}
+.codex-drop-hint {
+  position: absolute;
+  inset: 10px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--paper) 86%, transparent);
+  font-size: 1.15rem;
+  font-style: italic;
+  color: var(--accent);
+  pointer-events: none;
+}
 .history-save {
   display: flex;
   flex-direction: column;
