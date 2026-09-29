@@ -227,5 +227,22 @@ export function useAutosave({ initial, getContent, setContent, ready }: Options)
     await flush();
   }, [flush]);
 
-  return { status, conflict, touch, flush, leave, resolveConflict };
+  /** Take a document the server just wrote (e.g. a restored version) as the new baseline. */
+  const adopt = useCallback(
+    (doc: Story) => {
+      clearTimer();
+      version.current = doc.version;
+      saved.current = doc.content;
+      dirty.current = false;
+      blocked.current = false;
+      backup(null);
+      setContent(doc.content);
+      setConflict(null);
+      setStatus("saved");
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [setContent],
+  );
+
+  return { status, conflict, touch, flush, leave, adopt, resolveConflict };
 }

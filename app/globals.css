@@ -923,6 +923,136 @@ button {
   }
 }
 
+/* ─── Drawer tabs & history ────────────────────────────────── */
+.drawer-tabs {
+  display: flex;
+  gap: 18px;
+  padding: 14px 20px 4px;
+}
+.drawer-tabs button {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 6px 0;
+  border-bottom: 1px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.drawer-tabs button:hover {
+  color: var(--ink-soft);
+}
+.drawer-tabs button[aria-selected="true"] {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.history-new {
+  margin: 10px 20px 4px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding: 8px 0;
+}
+.history-save {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 20px 6px;
+}
+.history-save input {
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  min-height: 42px;
+  padding: 0 12px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  outline: none;
+}
+.history-save input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+.history-save-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.history-save-actions .btn {
+  min-height: 38px;
+  padding: 0 12px;
+}
+.version-item {
+  text-align: left;
+}
+.version-item.is-auto .library-title {
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.version-item.is-active .library-title {
+  color: var(--accent);
+}
+.version-item.is-active {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* ─── Version preview ──────────────────────────────────────── */
+.preview-bar {
+  position: sticky;
+  z-index: 15;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top) + 10px);
+  max-width: var(--measure);
+  margin: -16px auto 36px;
+  padding: 10px 12px 10px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  background: color-mix(in srgb, var(--paper-raised) 92%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.preview-what {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
+}
+.preview-label {
+  font-style: italic;
+  font-size: 1.05rem;
+}
+.preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
+}
+.preview-actions .btn {
+  min-height: 38px;
+  padding: 0 12px;
+}
+.preview-confirm {
+  font-size: 0.95rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.prose.is-preview {
+  caret-color: transparent;
+}
+
 /* ─── Lock ─────────────────────────────────────────────────── */
 .lock {
   align-self: stretch;

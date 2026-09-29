@@ -4,23 +4,32 @@ import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promi
 import path from "node:path";
 import { DOCS_DIR } from "./paths";
 import { slugify, titleOf, wordCount } from "./text";
+import * as versions from "./versions";
 
+// The library: one folder per project, holding manuscript.md (the master
+// copy) and versions/. Room for more per-project files later.
+const MANUSCRIPT = "manuscript.md";
 const TRASH_DIR = path.join(DOCS_DIR, ".trash");
+
+// The first save after this much quiet snapshots the text as it was before.
+const SESSION_GAP_MS = Number(process.env.PEN_SESSION_GAP_MS) || 30 * 60 * 1000;
 
 export const MAX_BYTES = 5 * 1024 * 1024;
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
 
 export type Doc = { id: string; content: string; version: string };
 export type DocMeta = { id: string; title: string; words: number; modified: number };
+export type { VersionMeta } from "./versions";
 
 export function isValidId(id: string): boolean {
   return ID_RE.test(id);
 }
 
-function fileOf(id: string) {
+function dirOf(id: string) {
   if (!isValidId(id)) throw new Error(`invalid id: ${id}`);
-  return path.join(DOCS_DIR, `${id}.md`);
+  return path.join(DOCS_DIR, id);
 }
+const fileOf = (id: string) => path.join(dirOf(id), MANUSCRIPT);
 
 export function versionOf(content: string): string {
   return createHash("sha1").update(content).digest("hex").slice(0, 12);
@@ -30,25 +39,61 @@ function isMissing(err: unknown) {
   return (err as NodeJS.ErrnoException).code === "ENOENT";
 }
 
+// All mutations run through one queue so read-compare-write never interleaves.
+let queue: Promise<unknown> = Promise.resolve();
+function serialize<T>(fn: () => Promise<T>): Promise<T> {
+  const run = queue.then(ready).then(fn);
+  queue = run.catch(() => {});
+  return run;
+}
+
+// One-time move from the old flat layout (data/<id>.md) to data/<id>/manuscript.md.
+let migrated: Promise<void> | null = null;
+function ready(): Promise<void> {
+  migrated ??= (async () => {
+    let names: string[];
+    try {
+      names = await readdir(DOCS_DIR);
+    } catch (err) {
+      if (isMissing(err)) return;
+      throw err;
+    }
+    for (const n of names) {
+      const id = n.slice(0, -3);
+      if (!n.endsWith(".md") || !isValidId(id)) continue;
+      try {
+        await mkdir(dirOf(id)); // fails if the folder already exists: leave both alone
+      } catch {
+        continue;
+      }
+      await rename(path.join(DOCS_DIR, n), fileOf(id));
+    }
+  })().catch((err) => {
+    migrated = null; // retry on the next call
+    throw err;
+  });
+  return migrated;
+}
+
 export async function listDocs(): Promise<DocMeta[]> {
-  let names: string[];
+  await ready();
+  let entries;
   try {
-    names = await readdir(DOCS_DIR);
+    entries = await readdir(DOCS_DIR, { withFileTypes: true });
   } catch (err) {
     if (isMissing(err)) return [];
     throw err;
   }
   const docs = await Promise.all(
-    names
-      .filter((n) => n.endsWith(".md") && isValidId(n.slice(0, -3)))
-      .map(async (n): Promise<DocMeta | null> => {
-        const id = n.slice(0, -3);
+    entries
+      .filter((e) => e.isDirectory() && isValidId(e.name))
+      .map(async ({ name: id }): Promise<DocMeta | null> => {
         try {
-          const file = path.join(DOCS_DIR, n);
+          const file = fileOf(id);
           const [content, info] = await Promise.all([readFile(file, "utf8"), stat(file)]);
           return { id, title: titleOf(content, id), words: wordCount(content), modified: info.mtimeMs };
         } catch (err) {
-          if (isMissing(err)) return null; // deleted between readdir and read
+          if (isMissing(err)) return null; // not a project, or deleted meanwhile
           throw err;
         }
       }),
@@ -58,6 +103,7 @@ export async function listDocs(): Promise<DocMeta[]> {
 
 export async function readDoc(id: string): Promise<Doc | null> {
   if (!isValidId(id)) return null;
+  await ready();
   try {
     const content = await readFile(fileOf(id), "utf8");
     return { id, content, version: versionOf(content) };
@@ -68,22 +114,14 @@ export async function readDoc(id: string): Promise<Doc | null> {
 }
 
 async function writeAtomic(id: string, content: string) {
-  await mkdir(DOCS_DIR, { recursive: true });
+  await mkdir(dirOf(id), { recursive: true });
   const file = fileOf(id);
   const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
   await writeFile(tmp, content, "utf8");
   await rename(tmp, file);
 }
 
-// All mutations run through one queue so read-compare-write never interleaves.
-let queue: Promise<unknown> = Promise.resolve();
-function serialize<T>(fn: () => Promise<T>): Promise<T> {
-  const run = queue.then(fn);
-  queue = run.catch(() => {});
-  return run;
-}
-
-/** Create a new document, naming its file after `name` (or its H1). */
+/** Create a new project, naming its folder after `name` (or its H1). */
 export function createDoc(content: string, name?: string): Promise<Doc> {
   return serialize(async () => {
     await mkdir(DOCS_DIR, { recursive: true });
@@ -91,12 +129,13 @@ export function createDoc(content: string, name?: string): Promise<Doc> {
     for (let i = 1; ; i++) {
       const id = `${base.slice(0, 72)}${i > 1 ? `-${i}` : ""}`;
       try {
-        // "wx" fails if the file exists, so we never overwrite a sibling.
-        await writeFile(fileOf(id), content, { encoding: "utf8", flag: "wx" });
-        return { id, content, version: versionOf(content) };
+        await mkdir(dirOf(id)); // fails if taken, so we never write into a sibling
       } catch (err) {
-        if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+        if ((err as NodeJS.ErrnoException).code === "EEXIST") continue;
+        throw err;
       }
+      await writeFile(fileOf(id), content, "utf8");
+      return { id, content, version: versionOf(content) };
     }
   });
 }
@@ -104,9 +143,9 @@ export function createDoc(content: string, name?: string): Promise<Doc> {
 export type WriteResult = { ok: true; version: string } | { ok: false; current: Doc };
 
 /**
- * Write a document if the caller's baseVersion still matches what's on disk.
+ * Write a manuscript if the caller's baseVersion still matches what's on disk.
  * `force` skips the check (used to resolve a conflict with "keep mine").
- * A document deleted elsewhere is recreated rather than losing the writing.
+ * A project deleted elsewhere is recreated rather than losing the writing.
  */
 export function writeDoc(
   id: string,
@@ -119,22 +158,67 @@ export function writeDoc(
     if (current && !force && baseVersion !== null && baseVersion !== current.version) {
       return { ok: false, current };
     }
-    if (current?.content !== content) await writeAtomic(id, content);
+    if (current?.content !== content) {
+      if (current) {
+        const { mtimeMs } = await stat(fileOf(id));
+        if (Date.now() - mtimeMs >= SESSION_GAP_MS) {
+          await versions.addVersion(dirOf(id), current.content, "auto", "Session start");
+        }
+      }
+      await writeAtomic(id, content);
+    }
     return { ok: true, version: versionOf(content) };
   });
 }
 
-/** Move a document to .trash/ (recoverable by hand). Returns false if missing. */
+/** Move a whole project (manuscript and versions) to .trash/. False if missing. */
 export function trashDoc(id: string): Promise<boolean> {
   return serialize(async () => {
     await mkdir(TRASH_DIR, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     try {
-      await rename(fileOf(id), path.join(TRASH_DIR, `${id}--${stamp}.md`));
+      await stat(fileOf(id));
+      await rename(dirOf(id), path.join(TRASH_DIR, `${id}--${stamp}`));
       return true;
     } catch (err) {
       if (isMissing(err)) return false;
       throw err;
     }
   });
+}
+
+// ─── Versions ────────────────────────────────────────────────
+
+export async function listVersions(id: string) {
+  await ready();
+  return versions.listVersions(dirOf(id));
+}
+
+export async function readVersion(id: string, vid: string) {
+  await ready();
+  return versions.readVersion(dirOf(id), vid);
+}
+
+/** Snapshot the manuscript as it is on disk now. Null if the project is missing. */
+export function saveVersion(id: string, label: string) {
+  return serialize(async () => {
+    const current = await readDoc(id);
+    if (!current) return null;
+    return versions.addVersion(dirOf(id), current.content, "named", label);
+  });
+}
+
+/** Replace the manuscript with a version, snapshotting the current text first. */
+export function restoreVersion(id: string, vid: string): Promise<Doc | null> {
+  return serialize(async () => {
+    const [current, content] = await Promise.all([readDoc(id), versions.readVersion(dirOf(id), vid)]);
+    if (!current || content === null) return null;
+    await versions.addVersion(dirOf(id), current.content, "auto", "Before restore");
+    await writeAtomic(id, content);
+    return { id, content, version: versionOf(content) };
+  });
+}
+
+export function deleteVersion(id: string, vid: string) {
+  return serialize(() => versions.deleteVersion(dirOf(id), vid));
 }

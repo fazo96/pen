@@ -14,7 +14,8 @@ A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Ti
 
 ## Layout
 
-- `lib/docs.ts`: the library on disk. One `.md` file per document in `data/` (override with `PEN_DIR`). Ids are validated against `^[a-z0-9][a-z0-9-]{0,79}$`; deletes move files to `data/.trash/`.
+- `lib/docs.ts`: the library on disk: one folder per project in `data/` (override with `PEN_DIR`), holding `manuscript.md` (the master copy) and `versions/` (snapshots + `index.json`, see `lib/versions.ts`). Ids are validated against `^[a-z0-9][a-z0-9-]{0,79}$`; deletes move the whole folder to `data/.trash/`. Old flat `data/<id>.md` files are migrated on first access.
+- Versions: named ones from the History tab; automatic ones when a save arrives after 30 min of quiet (`PEN_SESSION_GAP_MS` overrides, handy in tests) and before every restore. Only the newest 30 automatic ones are kept.
 - `app/api/docs/`: list/create (import) and per-document GET/PUT/POST(beacon)/DELETE. Saves carry `baseVersion` (sha1 of content); a stale save gets 409 with the current doc.
 - `lib/useAutosave.ts`: idle autosave, conflict prompt, pull on focus, per-document localStorage backup, `leave()` to flush before navigating.
 - `/` is the welcome page + library; `/d/[id]` is the editor. With exactly one document, `/` redirects to it unless `?library` is set.

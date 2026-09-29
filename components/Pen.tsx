@@ -11,13 +11,16 @@ import { slugify, wordCount } from "@/lib/text";
 import { type SaveStatus, type Story, useAutosave } from "@/lib/useAutosave";
 import { useFocusMode } from "@/lib/useFocusMode";
 import { useLibrary } from "@/lib/useLibrary";
+import type { VersionMeta } from "@/lib/versions";
 import Drawer from "./Drawer";
 import DropImport from "./DropImport";
 import FocusControls from "./FocusControls";
 import { IconBack, IconExport, IconFocus, IconOutline } from "./icons";
+import History from "./History";
 import Outline, { type Heading } from "./Outline";
 import ThemeButton from "./ThemeButton";
 import Toolbar from "./Toolbar";
+import VersionPreview from "./VersionPreview";
 
 const STATUS_LABEL: Record<SaveStatus, string> = {
   saved: "Saved",
@@ -36,6 +39,10 @@ export default function Pen({ initial }: { initial: Story }) {
   const [active, setActive] = useState<number | null>(null);
   const [words, setWords] = useState(0);
   const [outlineOpen, setOutlineOpen] = useState(false);
+  const [drawerTab, setDrawerTab] = useState<"contents" | "history">("contents");
+  const [preview, setPreview] = useState<{ meta: VersionMeta; content: string } | null>(null);
+  const [historyKey, setHistoryKey] = useState(0);
+  const scrollBeforePreview = useRef(0);
   const [typing, setTyping] = useState(false);
   const [progress, setProgress] = useState(0);
   const touchRef = useRef<() => void>(() => {});
@@ -92,7 +99,7 @@ export default function Pen({ initial }: { initial: Story }) {
     (md: string) => editor?.commands.setContent(md, { contentType: "markdown", emitUpdate: false }),
     [editor],
   );
-  const { status, conflict, touch, leave, resolveConflict } = useAutosave({
+  const { status, conflict, touch, leave, adopt, resolveConflict } = useAutosave({
     initial,
     getContent,
     setContent,
@@ -193,6 +200,32 @@ export default function Pen({ initial }: { initial: Story }) {
     a.click();
     a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const openPreview = async (meta: VersionMeta) => {
+    const res = await fetch(`/api/docs/${initial.id}/versions/${meta.id}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const { content } = (await res.json()) as { content: string };
+    if (!preview) scrollBeforePreview.current = window.scrollY;
+    setPreview({ meta, content });
+    setOutlineOpen(false);
+    window.scrollTo(0, 0);
+  };
+
+  const closePreview = () => {
+    setPreview(null);
+    requestAnimationFrame(() => window.scrollTo(0, scrollBeforePreview.current));
+  };
+
+  const restore = async () => {
+    if (!preview) return;
+    await leave(); // the "before restore" copy should include the latest keystrokes
+    const res = await fetch(`/api/docs/${initial.id}/versions/${preview.meta.id}/restore`, { method: "POST" });
+    if (!res.ok) return;
+    adopt((await res.json()) as Story);
+    setPreview(null);
+    setHistoryKey((k) => k + 1);
+    window.scrollTo(0, 0);
   };
 
   const jump = (h: Heading) => {
@@ -306,14 +339,54 @@ export default function Pen({ initial }: { initial: Story }) {
         }
         foot={`${words.toLocaleString()} words · ${Math.max(1, Math.round(words / 230))} min read`}
       >
-        <Outline headings={headings} active={active} onJump={jump} />
+        <div className="drawer-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={drawerTab === "contents"}
+            onClick={() => setDrawerTab("contents")}
+          >
+            Contents
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={drawerTab === "history"}
+            onClick={() => setDrawerTab("history")}
+          >
+            History
+          </button>
+        </div>
+        {drawerTab === "contents" ? (
+          <Outline headings={headings} active={active} onJump={jump} />
+        ) : (
+          <History
+            docId={initial.id}
+            refreshKey={historyKey}
+            previewing={preview?.meta.id ?? null}
+            beforeSave={leave}
+            onPreview={openPreview}
+          />
+        )}
       </Drawer>
 
       <main className="page">
-        {editor ? <EditorContent editor={editor} /> : <div className="prose loading" aria-busy />}
+        {preview && (
+          <VersionPreview
+            key={preview.meta.id}
+            meta={preview.meta}
+            content={preview.content}
+            onRestore={restore}
+            onClose={closePreview}
+          />
+        )}
+        {/* The live draft stays mounted underneath a preview. */}
+        <div hidden={!!preview}>
+          {editor ? <EditorContent editor={editor} /> : <div className="prose loading" aria-busy />}
+        </div>
       </main>
 
-      {editor && <Toolbar editor={editor} />}
+      {editor && !preview && <Toolbar editor={editor} />}
 
       {lib.error && (
         <div className="toast" role="alert" onClick={lib.clearError}>
