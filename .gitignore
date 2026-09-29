@@ -1,0 +1,6 @@
+node_modules/
+.next/
+next-env.d.ts
+*.tsbuildinfo
+# the manuscript itself lives here; keep it out of the code repo
+data/
