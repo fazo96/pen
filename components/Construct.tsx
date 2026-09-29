@@ -268,7 +268,7 @@ export default function Construct({ projectId, open, onClose, getContext, before
                 Construct reads your manuscript and its history, and keeps the Codex with you: characters, places,
                 threads, timelines.
               </p>
-              <p>It can’t change the manuscript. Suggestions for the prose come back here, for you to take or leave.</p>
+              <p>It can’t change the manuscript, and it won’t write prose unless you ask: feedback points at passages, the words stay yours.</p>
             </div>
           )}
           {c.items.map((item) => {
