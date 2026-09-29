@@ -91,3 +91,12 @@ export async function deleteVersion(projectDir: string, vid: string): Promise<bo
   return true;
 }
 
+/** Relabel a version. Naming an automatic one keeps it for good: it becomes a named version. */
+export async function renameVersion(projectDir: string, vid: string, label: string): Promise<VersionMeta | null> {
+  const list = await listVersions(projectDir);
+  const v = list.find((x) => x.id === vid);
+  if (!v) return null;
+  const next: VersionMeta = { ...v, label, kind: "named" };
+  await saveIndex(projectDir, list.map((x) => (x.id === vid ? next : x)));
+  return next;
+}

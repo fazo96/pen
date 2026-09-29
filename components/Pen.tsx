@@ -458,6 +458,7 @@ export default function Pen({ projectId, kind, initial }: Props) {
             previewing={preview?.meta.id ?? null}
             beforeSave={leave}
             onPreview={openPreview}
+            onRenamed={(meta) => setPreview((p) => (p && p.meta.id === meta.id ? { ...p, meta } : p))}
           />
         )}
       </Drawer>

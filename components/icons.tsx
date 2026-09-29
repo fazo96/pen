@@ -164,3 +164,9 @@ export const IconImage = (p: P) => (
     <path d="m4 14.5 4-4 3 3 2-2 3.5 3.5" />
   </svg>
 );
+
+export const IconPencil = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M12.5 4.5l3 3L7.5 15.5l-3.7.7.7-3.7zM11 6l3 3" />
+  </svg>
+);

@@ -1257,6 +1257,13 @@ button {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-wash);
 }
+/* Renaming a version: the form takes the row's place. */
+.library-row > .history-save {
+  flex: 1;
+}
+.library-rename:not(:last-child) {
+  margin-right: 0;
+}
 .history-save-actions {
   display: flex;
   justify-content: flex-end;

@@ -321,6 +321,10 @@ export function deleteVersion(id: string, vid: string) {
   return serialize(() => versions.deleteVersion(dirOf(id), vid));
 }
 
+export function renameVersion(id: string, vid: string, label: string) {
+  return serialize(() => versions.renameVersion(dirOf(id), vid, label));
+}
+
 // ─── Codex ───────────────────────────────────────────────────
 // Notes that sit beside the manuscript: <project>/codex/<entry>.md.
 

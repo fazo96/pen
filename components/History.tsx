@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropZone } from "@/lib/useDropZone";
 import { IMPORT_ACCEPT, IMPORT_EXT, importProblem } from "@/lib/useLibrary";
 import type { VersionMeta } from "@/lib/versions";
-import { IconTrash } from "./icons";
+import { IconPencil, IconTrash } from "./icons";
 
 function when(ms: number) {
   const d = new Date(ms);
@@ -29,9 +29,11 @@ type Props = {
   /** Save pending edits before snapshotting. */
   beforeSave: () => Promise<void>;
   onPreview: (v: VersionMeta) => void;
+  /** A version was relabelled (the preview may be showing it). */
+  onRenamed: (v: VersionMeta) => void;
 };
 
-export default function History({ docId, refreshKey, previewing, beforeSave, onPreview }: Props) {
+export default function History({ docId, refreshKey, previewing, beforeSave, onPreview, onRenamed }: Props) {
   const [list, setList] = useState<VersionMeta[] | null>(null);
   const [label, setLabel] = useState("");
   const [naming, setNaming] = useState(false);
@@ -39,6 +41,7 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; label: string } | null>(null);
   const picker = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -123,6 +126,28 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
     if (!busy) void importFiles(files);
   });
 
+  /** Relabel a version; an automatic one becomes named, so it's kept. */
+  const rename = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!renaming) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/docs/${docId}/versions/${renaming.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: renaming.label }),
+      });
+      if (!res.ok) throw new Error();
+      onRenamed((await res.json()) as VersionMeta);
+      setRenaming(null);
+      await load();
+    } catch {
+      setError("Couldn’t rename the version.");
+    }
+    setBusy(false);
+  };
+
   const remove = async (vid: string) => {
     setConfirming(null);
     await fetch(`/api/docs/${docId}/versions/${vid}`, { method: "DELETE" });
@@ -202,7 +227,29 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
             const older = list[i + 1];
             return (
               <li key={v.id} className={`library-row ${confirming === v.id ? "is-confirming" : ""}`}>
-                {confirming === v.id ? (
+                {renaming?.id === v.id ? (
+                  <form className="history-save" onSubmit={rename}>
+                    <input
+                      autoFocus
+                      aria-label="Version name"
+                      onFocus={(e) => e.currentTarget.select()}
+                      placeholder="Saved version"
+                      value={renaming.label}
+                      maxLength={120}
+                      onChange={(e) => setRenaming({ id: v.id, label: e.target.value })}
+                      onKeyDown={(e) => e.key === "Escape" && setRenaming(null)}
+                      disabled={busy}
+                    />
+                    <div className="history-save-actions">
+                      <button type="button" className="btn btn-quiet" onClick={() => setRenaming(null)} disabled={busy}>
+                        Cancel
+                      </button>
+                      <button type="submit" className="btn btn-primary" disabled={busy}>
+                        {busy ? "Saving…" : "Rename"}
+                      </button>
+                    </div>
+                  </form>
+                ) : confirming === v.id ? (
                   <div className="library-confirm">
                     <span>Delete this version?</span>
                     <div className="library-confirm-actions">
@@ -226,6 +273,18 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
                         {when(v.created)} · {v.words.toLocaleString()} w
                         {older ? ` · ${delta(v.words - older.words)}` : ""}
                       </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn library-delete library-rename"
+                      aria-label={`Rename version ${v.label || "Saved version"}`}
+                      title="Rename version"
+                      onClick={() => {
+                        setConfirming(null);
+                        setRenaming({ id: v.id, label: v.label });
+                      }}
+                    >
+                      <IconPencil />
                     </button>
                     {v.kind === "named" && (
                       <button
