@@ -2,6 +2,7 @@
 
 import { Marked } from "marked";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type Citation, parseCitation } from "@/lib/cite";
 import type { ChatItem, ConstructEvent, PromptContext } from "@/lib/construct/types";
 import { useConstruct } from "@/lib/useConstruct";
 import { IconChats, IconClose, IconPlus, IconSend, IconStop, IconTrash } from "./icons";
@@ -19,6 +20,8 @@ type Props = {
   onCodexChange: (change: CodexChange) => void;
   /** Navigate (saving first). */
   onOpen: (href: string) => void;
+  /** Jump to a passage Construct cited; false if it can't be found any more. */
+  onCite: (c: Exclude<Citation, { kind: "codex" }>, href: string) => boolean | Promise<boolean>;
 };
 
 const AGENT_NAMES: Record<string, string> = { claude: "Claude Code" };
@@ -35,6 +38,12 @@ const md = new Marked({
     image: ({ text }) => escapeHtml(text),
     link({ href, tokens }) {
       const inner = this.parser.parseInline(tokens);
+      // Citations (see lib/cite.ts) become chips; the log handles their clicks.
+      const cite = parseCitation(href);
+      if (cite) {
+        const quote = cite.kind !== "codex" && cite.q ? ` title="${escapeHtml(`“${cite.q}…”`)}"` : "";
+        return `<button type="button" class="cite is-${cite.kind}" data-cite="${escapeHtml(href)}"${quote}>${inner}</button>`;
+      }
       return /^https?:\/\//i.test(href)
         ? `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer noopener">${inner}</a>`
         : inner;
@@ -47,21 +56,36 @@ function Markdown({ text }: { text: string }) {
   return <div className="construct-md" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
+/** "the version from 29 Sep, 14:00", from a version id (its UTC timestamp). */
+function versionName(id: string | undefined) {
+  const m = id?.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z/);
+  if (!m) return "a past version";
+  const [y, mo, d, h, mi] = m.slice(1, 6).map(Number);
+  const date = new Date(Date.UTC(y, mo - 1, d, h, mi));
+  const day = date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  const time = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  return `the version from ${day}, ${time}`;
+}
+
 /** What a tool call did, in the writer's terms. */
 function describeTool(item: Extract<ChatItem, { type: "tool" }>): { text: string; entry?: string } {
   const i = item.input ?? {};
   const lines = i.from_line || i.to_line ? ` (lines ${i.from_line ?? "1"}–${i.to_line ?? "end"})` : "";
   switch (item.name) {
-    case "outline":
-      return { text: "Read the outline" };
     case "read_manuscript":
       return { text: `Read ${i.heading ?? "the manuscript"}${lines}` };
     case "search":
       return { text: i.query ? `Searched for “${i.query}”` : "Searched" };
     case "list_versions":
       return { text: "Looked through the history" };
+    case "outline":
+      return { text: i.version ? `Read the outline of ${versionName(i.version)}` : "Read the outline" };
     case "read_version":
-      return { text: `Read a past version${i.heading ? `: ${i.heading}` : ""}` };
+      return { text: `Read ${versionName(i.id)}${i.heading ? `: ${i.heading}` : ""}${lines}` };
+    case "diff_versions":
+      return {
+        text: `Compared ${versionName(i.from)} with ${i.to ? versionName(i.to) : "the current draft"}${i.heading ? ` · ${i.heading}` : ""}`,
+      };
     case "list_codex":
       return { text: "Looked through the Codex" };
     case "read_codex_entry":
@@ -90,7 +114,16 @@ function when(t: number) {
 
 const isTouch = () => typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
 
-export default function Construct({ projectId, open, onClose, getContext, beforeSend, onCodexChange, onOpen }: Props) {
+export default function Construct({
+  projectId,
+  open,
+  onClose,
+  getContext,
+  beforeSend,
+  onCodexChange,
+  onOpen,
+  onCite,
+}: Props) {
   const c = useConstruct(projectId, open, onCodexChange);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -133,6 +166,17 @@ export default function Construct({ projectId, open, onClose, getContext, before
   };
 
   const config = c.state?.config ?? [];
+
+  /** Citation chips in replies: open the entry, or jump to the passage. */
+  const onLogClick = async (e: React.MouseEvent) => {
+    const chip = (e.target as HTMLElement).closest<HTMLElement>("[data-cite]");
+    const cite = chip && parseCitation(chip.dataset.cite ?? "");
+    if (!chip || !cite) return;
+    if (cite.kind === "codex") return onOpen(`/d/${projectId}/codex/${cite.entry}`);
+    const found = await onCite(cite, chip.dataset.cite!);
+    chip.classList.toggle("is-missing", !found);
+    if (!found) chip.title = "Couldn’t find this passage any more";
+  };
 
   return (
     <>
@@ -256,6 +300,7 @@ export default function Construct({ projectId, open, onClose, getContext, before
           className="construct-log"
           hidden={showChats}
           ref={scroller}
+          onClick={onLogClick}
           onScroll={(e) => {
             const el = e.currentTarget;
             stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;

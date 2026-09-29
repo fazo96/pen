@@ -51,3 +51,8 @@ export function withTitle(text: string, fileName: string): string {
   const title = fileName.replace(/\.[^.]*$/, "").trim() || "Untitled";
   return `# ${title}\n\n${body.replace(/^\s*\n/, "")}`;
 }
+
+/** Curly quotes to straight ones: pen keeps " and ' (see lib/quotes.ts). */
+export function straightQuotes(s: string): string {
+  return s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
+}

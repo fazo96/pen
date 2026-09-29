@@ -2051,6 +2051,59 @@ a.btn {
 .construct-md a {
   color: var(--accent);
 }
+/* Citations: tap to jump to the passage (see lib/cite.ts). */
+.construct-md .cite {
+  display: inline;
+  padding: 0.05em 0.45em 0.1em 0.35em;
+  border-radius: 6px;
+  font: inherit;
+  color: var(--accent);
+  background: var(--accent-wash);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+.construct-md .cite::before {
+  content: "¶";
+  margin-right: 0.3em;
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+.construct-md .cite.is-version::before {
+  content: "↺";
+}
+.construct-md .cite.is-codex::before {
+  content: "◇";
+}
+.construct-md .cite:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.construct-md .cite.is-missing {
+  color: var(--ink-faint);
+  background: transparent;
+  cursor: default;
+}
+.construct-md .cite.is-missing::after {
+  content: " · not found";
+  font-size: 0.85em;
+}
+
+/* A cited passage, shown for a moment after tapping its chip. */
+.prose .is-cited {
+  animation: cited 2.6s ease-out;
+}
+@keyframes cited {
+  0%,
+  35% {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
 .construct-md hr {
   border: none;
   border-top: 1px solid var(--rule);

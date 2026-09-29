@@ -3,7 +3,9 @@
 import { type Editor, EditorContent } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { type Citation, findPassage, type LineCitation, parseCitation } from "@/lib/cite";
 import { textWithoutComments } from "@/lib/comments";
+import { showPassage } from "@/lib/passage";
 import { hasCurlyQuotes, straightenQuotes } from "@/lib/quotes";
 import { slugify, wordCount } from "@/lib/text";
 import { STATUS_LABEL, type Story, useAutosave } from "@/lib/useAutosave";
@@ -42,9 +44,11 @@ type Props = {
   initial: Story;
   /** Codex entry to open beside the manuscript (from `?entry=`). */
   initialEntry?: string;
+  /** A Construct citation to show once the manuscript is loaded (from `?cite=`). */
+  initialCite?: string;
 };
 
-export default function Pen({ projectId, kind, initial, initialEntry }: Props) {
+export default function Pen({ projectId, kind, initial, initialEntry, initialCite }: Props) {
   const isEntry = kind === "entry";
   const headingNames = HEADINGS[kind];
   const router = useRouter();
@@ -59,7 +63,7 @@ export default function Pen({ projectId, kind, initial, initialEntry }: Props) {
   const [constructOpen, setConstructOpen] = useState(false);
   const [codexKey, setCodexKey] = useState(0);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>(isEntry || initialEntry ? "codex" : "contents");
-  const [preview, setPreview] = useState<{ meta: VersionMeta; content: string } | null>(null);
+  const [preview, setPreview] = useState<{ meta: VersionMeta; content: string; cite?: LineCitation } | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
   const scrollBeforePreview = useRef(0);
   const [typing, setTyping] = useState(false);
@@ -208,14 +212,15 @@ export default function Pen({ projectId, kind, initial, initialEntry }: Props) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const openPreview = async (meta: VersionMeta) => {
+  const openPreview = async (meta: VersionMeta, cite?: LineCitation) => {
     const res = await fetch(`/api/docs/${initial.id}/versions/${meta.id}`, { cache: "no-store" });
-    if (!res.ok) return;
+    if (!res.ok) return false;
     const { content } = (await res.json()) as { content: string };
     if (!preview) scrollBeforePreview.current = window.scrollY;
-    setPreview({ meta, content });
+    setPreview({ meta, content, cite });
     setOutlineOpen(false);
     window.scrollTo(0, 0);
+    return true;
   };
 
   const closePreview = () => {
@@ -233,6 +238,46 @@ export default function Pen({ projectId, kind, initial, initialEntry }: Props) {
     setHistoryKey((k) => k + 1);
     window.scrollTo(0, 0);
   };
+
+  // ─── Construct citations ───────────────────────────────────
+  /** Settles a version citation once its preview has looked for the passage. */
+  const citeShown = useRef<((found: boolean) => void) | null>(null);
+
+  /** Jump to a passage Construct cited. False when it can't be found any more. */
+  const cite = async (c: Exclude<Citation, { kind: "codex" }>, href: string): Promise<boolean> => {
+    // Passages live on the manuscript's page.
+    if (isEntry) {
+      void go(`/d/${projectId}?cite=${encodeURIComponent(href)}`);
+      return true;
+    }
+    // Below this width Construct covers the text.
+    if (!window.matchMedia(WIDE).matches) setConstructOpen(false);
+    if (c.kind === "version") {
+      const res = await fetch(`/api/docs/${projectId}/versions`, { cache: "no-store" }).catch(() => null);
+      const meta = res?.ok ? ((await res.json()) as VersionMeta[]).find((v) => v.id === c.version) : undefined;
+      if (!meta) return false;
+      citeShown.current?.(false);
+      const shown = new Promise<boolean>((resolve) => (citeShown.current = resolve));
+      return (await openPreview(meta, c)) && shown;
+    }
+    if (!editor) return false;
+    const range = findPassage(editor.state.doc, editor.getMarkdown().split("\n"), c);
+    if (!range) return false;
+    if (preview) {
+      setPreview(null);
+      // Let the draft show again before measuring it.
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    }
+    showPassage(editor.view, range);
+    return true;
+  };
+
+  // A citation followed here from a Codex entry's page (?cite=).
+  useEffect(() => {
+    const c = editor && initialCite ? parseCitation(initialCite) : null;
+    if (c && c.kind !== "codex") void cite(c, initialCite!);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
 
   const jump = (h: Heading) => {
     if (!editor) return;
@@ -523,6 +568,11 @@ export default function Pen({ projectId, kind, initial, initialEntry }: Props) {
             key={preview.meta.id}
             meta={preview.meta}
             content={preview.content}
+            cite={preview.cite}
+            onCited={(found) => {
+              citeShown.current?.(found);
+              citeShown.current = null;
+            }}
             draft={editor?.state.doc ?? null}
             onRestore={restore}
             onClose={closePreview}
@@ -565,6 +615,7 @@ export default function Pen({ projectId, kind, initial, initialEntry }: Props) {
         beforeSend={beforeConstruct}
         onCodexChange={onCodexChange}
         onOpen={open}
+        onCite={cite}
       />
 
       {lib.error && (

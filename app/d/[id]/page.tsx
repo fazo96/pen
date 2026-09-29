@@ -13,7 +13,7 @@ export default async function Page({
   params: Promise<{ id: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [{ id }, { entry }] = await Promise.all([params, searchParams]);
+  const [{ id }, { entry, cite }] = await Promise.all([params, searchParams]);
   await requirePageSession(`/d/${id}`);
   const doc = await readDoc(id);
   if (!doc) notFound();
@@ -25,6 +25,7 @@ export default async function Page({
       kind="manuscript"
       initial={doc}
       initialEntry={typeof entry === "string" && entry ? entry : undefined}
+      initialCite={typeof cite === "string" && cite ? cite : undefined}
     />
   );
 }

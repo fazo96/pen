@@ -7,6 +7,7 @@ import Typography from "@tiptap/extension-typography";
 import { Placeholder } from "@tiptap/extensions";
 import { useRef } from "react";
 import { CommentExtensions } from "./comments";
+import { CitedPassage } from "./passage";
 import { StraightQuotes } from "./quotes";
 
 // Heading names: the manuscript is structured (title, parts, chapters);
@@ -57,6 +58,7 @@ export function usePenEditor(kind: "manuscript" | "entry", content: string, onCh
         raquo: false,
       }),
       StraightQuotes,
+      CitedPassage,
       Placeholder.configure({
         placeholder: ({ node }) =>
           node.type.name === "commentBlock"

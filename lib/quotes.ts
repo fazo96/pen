@@ -1,13 +1,13 @@
 import { Extension } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { type EditorState, Plugin, type Transaction } from "@tiptap/pm/state";
+import { straightQuotes } from "./text";
 
 // pen keeps plain " and '. Curly ones still arrive from imports, pastes, phone
 // keyboards with smart punctuation, and text typed before this rule; they're
 // straightened wherever they show up. Code is left alone.
 
 const CURLY = /[“”‘’]/;
-const straight = (s: string) => s.replace(/[“”]/g, '"').replace(/[‘’]/g, "'");
 
 const isCode = (node: PMNode) => node.type.name === "codeBlock" || node.marks.some((m) => m.type.name === "code");
 
@@ -24,7 +24,7 @@ function straightenRange(doc: PMNode, tr: Transaction, from: number, to: number)
     for (let i = 0; i < text.length; i++) {
       if (!CURLY.test(text[i]) || done.has(pos + i)) continue;
       done.add(pos + i);
-      tr.replaceWith(pos + i, pos + i + 1, doc.type.schema.text(straight(text[i]), node.marks));
+      tr.replaceWith(pos + i, pos + i + 1, doc.type.schema.text(straightQuotes(text[i]), node.marks));
     }
     return true;
   });

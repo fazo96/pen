@@ -1,6 +1,6 @@
-import { diffArrays, diffWordsWithSpace } from "diff";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { alignBlocks, blockKey, countWords, wordDiff } from "./textdiff";
 
 // Changes between a version and the current draft, drawn as decorations on the
 // version's read-only view: text gone since then is struck through in place,
@@ -14,7 +14,6 @@ type Block = {
   text: string;
   /** Document position of each character of `text`. */
   at: number[];
-  /** Whitespace-normalised text, used to line blocks up. */
   key: string;
 };
 
@@ -27,7 +26,6 @@ export type DocDiff = {
 };
 
 const isComment = (n: PMNode) => n.marks.some((m) => m.type.name === "comment");
-const words = (s: string) => s.match(/\S+/g)?.length ?? 0;
 
 function blocks(doc: PMNode): Block[] {
   const out: Block[] = [];
@@ -47,59 +45,10 @@ function blocks(doc: PMNode): Block[] {
         text += " ";
       }
     });
-    const key = text.replace(/\s+/g, " ").trim();
+    const key = blockKey(text);
     if (key) out.push({ node, pos, end: pos + node.nodeSize, text, at, key });
     return false;
   });
-  return out;
-}
-
-function bag(s: string) {
-  const m = new Map<string, number>();
-  for (const w of s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? []) m.set(w, (m.get(w) ?? 0) + 1);
-  return m;
-}
-
-/** Word overlap (Dice) between two blocks, 0–1. */
-function similarity(a: Map<string, number>, b: Map<string, number>) {
-  let na = 0;
-  let nb = 0;
-  let common = 0;
-  for (const n of a.values()) na += n;
-  for (const [w, n] of b) {
-    nb += n;
-    common += Math.min(n, a.get(w) ?? 0);
-  }
-  return na + nb ? (2 * common) / (na + nb) : 0;
-}
-
-const SIMILAR = 0.4;
-
-/**
- * Pairs the removed and added blocks of one hunk that look like edits of each
- * other, keeping document order. Returns, for each removed block, the index of
- * its added counterpart or -1.
- */
-function pair(removed: Block[], added: Block[]): number[] {
-  const R = removed.length;
-  const A = added.length;
-  const out = new Array<number>(R).fill(-1);
-  if (!R || !A || R * A > 40_000) return out;
-  const ra = removed.map((b) => bag(b.key));
-  const aa = added.map((b) => bag(b.key));
-  const sim = ra.map((r) => aa.map((a) => similarity(r, a)));
-  // best[i][j]: highest total similarity pairing removed[i..] with added[j..].
-  const best = Array.from({ length: R + 1 }, () => new Float64Array(A + 1));
-  for (let i = R - 1; i >= 0; i--)
-    for (let j = A - 1; j >= 0; j--) {
-      const s = sim[i][j] >= SIMILAR ? sim[i][j] + best[i + 1][j + 1] : 0;
-      best[i][j] = Math.max(best[i + 1][j], best[i][j + 1], s);
-    }
-  for (let i = 0, j = 0; i < R && j < A; ) {
-    if (sim[i][j] >= SIMILAR && best[i][j] === sim[i][j] + best[i + 1][j + 1]) out[i++] = j++;
-    else if (best[i][j] === best[i + 1][j]) i++;
-    else j++;
-  }
   return out;
 }
 
@@ -130,37 +79,6 @@ function addedText(text: string, replacing: boolean) {
   };
 }
 
-type Part = { value: string; added?: boolean; removed?: boolean };
-
-/**
- * Word diffs interleave ("~~with~~ carrying ~~nothing~~ only"); merge each run
- * of changes, spaces between them included, into one removal and one addition.
- */
-function coalesce(parts: Part[]): Part[] {
-  const out: Part[] = [];
-  const changed = (p?: Part) => !!p && (p.added || p.removed);
-  for (let i = 0; i < parts.length; ) {
-    if (!changed(parts[i])) {
-      out.push(parts[i++]);
-      continue;
-    }
-    let gone = "";
-    let fresh = "";
-    for (; i < parts.length; i++) {
-      const p = parts[i];
-      if (p.removed) gone += p.value;
-      else if (p.added) fresh += p.value;
-      else if (!p.value.trim() && changed(parts[i + 1])) {
-        gone += p.value;
-        fresh += p.value;
-      } else break;
-    }
-    if (gone) out.push({ value: gone, removed: true });
-    if (fresh) out.push({ value: fresh, added: true });
-  }
-  return out;
-}
-
 /** Marks up `version` with what changed on the way to `draft`. */
 export function diffDocs(version: PMNode, draft: PMNode): DocDiff {
   const before = blocks(version);
@@ -173,30 +91,36 @@ export function diffDocs(version: PMNode, draft: PMNode): DocDiff {
     if (stops[stops.length - 1] !== pos) stops.push(pos);
   };
 
-  const insertBlocks = (pos: number, bs: Block[]) => {
-    if (!bs.length) return;
-    decos.push(Decoration.widget(pos, addedBlocks(bs), { side: -1, ignoreSelection: true }));
-    added += bs.reduce((n, b) => n + words(b.key), 0);
+  // New blocks go after the last version block passed (or at the top).
+  let lastEnd = 0;
+  let pending: Block[] = [];
+  const insertPending = () => {
+    if (!pending.length) return;
+    stop(lastEnd);
+    decos.push(Decoration.widget(lastEnd, addedBlocks(pending), { side: -1, ignoreSelection: true }));
+    added += pending.reduce((n, b) => n + countWords(b.key), 0);
+    pending = [];
   };
 
-  // One hunk: a run of removed version blocks and added draft blocks.
-  const hunk = (gone: Block[], fresh: Block[], anchor: number) => {
-    const pairs = pair(gone, fresh);
-    let j = 0;
-    gone.forEach((b, i) => {
-      const k = pairs[i];
-      if (k < 0) {
-        decos.push(Decoration.node(b.pos, b.end, { class: "diff-del-block" }));
-        removed += words(b.key);
-        stop(b.pos);
-        return;
-      }
-      if (k > j) stop(b.pos);
-      insertBlocks(b.pos, fresh.slice(j, k));
-      j = k + 1;
+  for (const op of alignBlocks(
+    before.map((b) => b.key),
+    after.map((b) => b.key),
+  )) {
+    if (op.op === "added") {
+      pending.push(after[op.b]);
+      continue;
+    }
+    insertPending();
+    const b = before[op.a];
+    lastEnd = b.end;
+    if (op.op === "removed") {
+      decos.push(Decoration.node(b.pos, b.end, { class: "diff-del-block" }));
+      removed += countWords(b.key);
+      stop(b.pos);
+    } else if (op.op === "changed") {
       let o = 0;
       let replacing = false;
-      for (const part of coalesce(diffWordsWithSpace(b.text, fresh[k].text))) {
+      for (const part of wordDiff(b.text, after[op.b].text)) {
         const len = part.value.length;
         const real = part.value.trim() !== "";
         if (part.removed) {
@@ -205,7 +129,7 @@ export function diffDocs(version: PMNode, draft: PMNode): DocDiff {
             const from = o + (part.value.length - part.value.trimStart().length);
             const to = o + part.value.trimEnd().length;
             decos.push(Decoration.inline(b.at[from], b.at[to - 1] + 1, { nodeName: "del", class: "diff-del" }));
-            removed += words(part.value);
+            removed += countWords(part.value);
             stop(b.pos);
           }
           // The addition needs its own gap only if nothing separates it from the struck words.
@@ -215,7 +139,7 @@ export function diffDocs(version: PMNode, draft: PMNode): DocDiff {
           if (real) {
             const pos = o < b.at.length ? b.at[o] : b.end - 1;
             decos.push(Decoration.widget(pos, addedText(part.value, replacing), { side: -1, marks: [] }));
-            added += words(part.value);
+            added += countWords(part.value);
             stop(b.pos);
           }
           replacing = false;
@@ -224,43 +148,9 @@ export function diffDocs(version: PMNode, draft: PMNode): DocDiff {
           o += len;
         }
       }
-    });
-    const rest = fresh.slice(j);
-    if (rest.length) {
-      const pos = gone.length ? gone[gone.length - 1].end : anchor;
-      stop(pos);
-      insertBlocks(pos, rest);
-    }
-  };
-
-  let bi = 0;
-  let ai = 0;
-  let gone: Block[] = [];
-  let fresh: Block[] = [];
-  const flush = () => {
-    // Pure insertions go after the last unchanged block (or at the top).
-    if (gone.length || fresh.length) hunk(gone, fresh, bi > 0 ? before[bi - 1].end : 0);
-    gone = [];
-    fresh = [];
-  };
-  for (const change of diffArrays(
-    before.map((b) => b.key),
-    after.map((b) => b.key),
-  )) {
-    const n = change.count;
-    if (change.removed) {
-      gone.push(...before.slice(bi, bi + n));
-      bi += n;
-    } else if (change.added) {
-      fresh.push(...after.slice(ai, ai + n));
-      ai += n;
-    } else {
-      flush();
-      bi += n;
-      ai += n;
     }
   }
-  flush();
+  insertPending();
 
   return { decorations: DecorationSet.create(version, decos), stops, added, removed };
 }

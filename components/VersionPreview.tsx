@@ -8,8 +8,10 @@ import { DecorationSet } from "@tiptap/pm/view";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef, useState } from "react";
+import { findPassage, type LineCitation } from "@/lib/cite";
 import { CommentExtensions } from "@/lib/comments";
 import type { DocDiff } from "@/lib/diff";
+import { CitedPassage, showPassage } from "@/lib/passage";
 import { straightenQuotes } from "@/lib/quotes";
 import type { VersionMeta } from "@/lib/versions";
 import { IconDown, IconUp } from "./icons";
@@ -19,6 +21,10 @@ type Props = {
   content: string;
   /** The live draft, to compare against. */
   draft: PMNode | null;
+  /** A passage Construct cited, to show once the version is on screen. */
+  cite?: LineCitation;
+  /** Whether the cited passage was found. */
+  onCited?: (found: boolean) => void;
   onRestore: () => Promise<void>;
   onClose: () => void;
 };
@@ -42,7 +48,7 @@ const Changes = Extension.create({
 });
 
 /** A version shown read-only in the manuscript's own typography. */
-export default function VersionPreview({ meta, content, draft, onRestore, onClose }: Props) {
+export default function VersionPreview({ meta, content, draft, cite, onCited, onRestore, onClose }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [showChanges, setShowChanges] = useState(false);
@@ -51,7 +57,13 @@ export default function VersionPreview({ meta, content, draft, onRestore, onClos
   const viewer = useEditor({
     immediatelyRender: false,
     editable: false,
-    extensions: [StarterKit.configure({ heading: { levels: [1, 2, 3] } }), Markdown, ...CommentExtensions, Changes],
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+      Markdown,
+      ...CommentExtensions,
+      Changes,
+      CitedPassage,
+    ],
     content,
     contentType: "markdown",
     editorProps: { attributes: { class: "prose is-preview", "aria-label": "Version preview" } },
@@ -79,9 +91,18 @@ export default function VersionPreview({ meta, content, draft, onRestore, onClos
     if (tr) viewer!.view.dispatch(tr);
   }, [viewer]);
 
+  // Show a cited passage (after the quotes above, so the text matches).
+  useEffect(() => {
+    if (!viewer || !cite) return;
+    const range = findPassage(viewer.state.doc, content.split("\n"), cite);
+    if (range) showPassage(viewer.view, range);
+    onCited?.(!!range);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewer, cite]);
+
   useEffect(() => {
     if (!viewer) return;
-    const show = (set: DecorationSet) => viewer.view.dispatch(viewer.state.tr.setMeta(changesKey, set));
+    const show =(set: DecorationSet) => viewer.view.dispatch(viewer.state.tr.setMeta(changesKey, set));
     if (!showChanges || !draft) {
       show(DecorationSet.empty);
       setDiff(null);

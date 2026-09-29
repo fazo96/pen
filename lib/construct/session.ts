@@ -15,7 +15,8 @@ import {
   type SessionConfigOption,
   type SessionNotification,
 } from "@agentclientprotocol/sdk";
-import { readChats, readDoc, trashChat, writeChat } from "../docs";
+import { parseCitation, withSnippets } from "../cite";
+import { readChats, readDoc, readVersion, trashChat, writeChat } from "../docs";
 import { titleOf } from "../text";
 import type { CodexChange, ToolContext } from "./tools";
 import { type AgentId, type AgentPreset, AGENTS, systemPrompt } from "./agents";
@@ -48,7 +49,7 @@ const metaOf = ({ id, title, created, updated }: ChatMeta): ChatMeta => ({ id, t
 function brief(input: unknown): Record<string, string> | undefined {
   if (!input || typeof input !== "object") return undefined;
   const out: Record<string, string> = {};
-  for (const k of ["id", "new_id", "heading", "query", "name", "from_line", "to_line", "scope"]) {
+  for (const k of ["id", "new_id", "heading", "query", "name", "from_line", "to_line", "scope", "version", "from", "to"]) {
     const v = (input as Record<string, unknown>)[k];
     if (typeof v === "string" || typeof v === "number") out[k] = String(v).slice(0, 120);
   }
@@ -391,7 +392,8 @@ class ConstructSession {
     if (this.running) return;
     this.running = true;
     this.streaming = null;
-    this.upsert({ id: this.nextId("u"), type: "user", text, context });
+    const userId = this.nextId("u");
+    this.upsert({ id: userId, type: "user", text, context });
     try {
       await this.start();
       this.setState({ status: "busy" });
@@ -413,8 +415,39 @@ class ConstructSession {
       if (this.conn) this.setState({ status: "ready" });
       this.notice((err as Error).message || "Construct failed.", "error");
     } finally {
+      await this.anchorCitations(userId).catch((err) => console.error("construct: couldn't anchor citations", err));
       this.running = false;
       await this.save();
+    }
+  }
+
+  /**
+   * Adds the cited lines' text to the pen: links in this turn's replies, so
+   * they still find their passage after the writer edits (see lib/cite.ts).
+   * Only the stored transcript changes; the agent's own history keeps its links.
+   */
+  private async anchorCitations(userId: string) {
+    const start = this.items.findIndex((x) => x.id === userId);
+    if (start < 0) return; // another chat is showing now
+    const texts = new Map<string, Promise<string[] | null>>();
+    const linesOf = (version?: string) => {
+      const key = version ?? "";
+      if (!texts.has(key)) {
+        const read = version ? readVersion(this.projectId, version) : readDoc(this.projectId).then((d) => d?.content ?? null);
+        texts.set(key, read.then((t) => t?.split("\n") ?? null).catch(() => null));
+      }
+      return texts.get(key)!;
+    };
+    for (const item of this.items.slice(start + 1)) {
+      if (item.type !== "agent" || !item.text.includes("](pen:")) continue;
+      let text = item.text;
+      for (const [, href] of item.text.matchAll(/\]\((pen:[^)\s]+)\)/g)) {
+        const c = parseCitation(href);
+        if (!c || c.kind === "codex" || c.q) continue;
+        const lines = await linesOf(c.kind === "version" ? c.version : undefined);
+        if (lines) text = text.replaceAll(`](${href})`, `](${withSnippets(href, lines)})`);
+      }
+      if (text !== item.text) this.upsert({ ...item, text });
     }
   }
 
