@@ -475,6 +475,7 @@ button {
   backdrop-filter: blur(12px) saturate(1.1);
   -webkit-backdrop-filter: blur(12px) saturate(1.1);
   border-top: 1px solid var(--rule);
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
 }
 
 .toolbar-scroll {
@@ -980,6 +981,81 @@ button {
   border-color: var(--ink);
 }
 
+/* ─── Focus mode ───────────────────────────────────────────
+   Only the manuscript remains. The toolbar returns when the pointer
+   nears the bottom edge or the corner button pins it. */
+:root[data-focus] .app-editor .topbar,
+:root[data-focus] .app-editor .progress,
+:root[data-focus] .app-editor .outline,
+:root[data-focus] .app-editor .scrim {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.5s ease, visibility 0s linear 0.5s;
+}
+:root[data-focus] .app-editor .page {
+  padding-left: 22px;
+}
+:root[data-focus] .app-editor:not(.toolbar-shown) .toolbar {
+  transform: translateY(calc(100% + 24px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.focus-controls {
+  position: fixed;
+  z-index: 22;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(var(--kb) + max(12px, env(safe-area-inset-bottom)));
+  display: flex;
+  gap: 6px;
+  transition: bottom 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.focus-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--paper-raised) 70%, transparent);
+  border: 1px solid var(--rule);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0.4;
+  transition: opacity 0.3s ease, color 0.2s ease;
+}
+.focus-btn:hover,
+.focus-btn:focus-visible {
+  opacity: 1;
+  color: var(--ink);
+}
+.focus-btn[aria-pressed="true"] {
+  opacity: 0.9;
+  color: var(--accent);
+}
+.focus-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.focus-glyph {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1;
+}
+@media (hover: none) {
+  .focus-btn {
+    opacity: 0.6;
+  }
+}
+/* On phones the toolbar spans the bottom edge; sit above it when it's up. */
+@media (max-width: 719px) {
+  .toolbar-shown .focus-controls {
+    bottom: calc(var(--kb) + 62px + env(safe-area-inset-bottom));
+  }
+}
+
 /* ─── Small phones ─────────────────────────────────────────── */
 @media (max-width: 420px) {
   .words,
@@ -1017,6 +1093,9 @@ button {
     border: 1px solid var(--rule);
     border-radius: 999px;
     box-shadow: var(--shadow);
+  }
+  :root[data-focus] .app-editor:not(.toolbar-shown) .toolbar {
+    transform: translate(-50%, calc(100% + 40px));
   }
   .tool {
     width: 40px;

@@ -9,10 +9,12 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { slugify, wordCount } from "@/lib/text";
 import { type SaveStatus, type Story, useAutosave } from "@/lib/useAutosave";
+import { useFocusMode } from "@/lib/useFocusMode";
 import { useLibrary } from "@/lib/useLibrary";
 import Drawer from "./Drawer";
 import DropImport from "./DropImport";
-import { IconBack, IconExport, IconOutline } from "./icons";
+import FocusControls from "./FocusControls";
+import { IconBack, IconExport, IconFocus, IconOutline } from "./icons";
 import Outline, { type Heading } from "./Outline";
 import ThemeButton from "./ThemeButton";
 import Toolbar from "./Toolbar";
@@ -28,6 +30,7 @@ const STATUS_LABEL: Record<SaveStatus, string> = {
 export default function Pen({ initial }: { initial: Story }) {
   const router = useRouter();
   const lib = useLibrary();
+  const focusMode = useFocusMode();
   const [headings, setHeadings] = useState<Heading[]>([]);
   const [active, setActive] = useState<number | null>(null);
   const [words, setWords] = useState(0);
@@ -212,7 +215,9 @@ export default function Pen({ initial }: { initial: Story }) {
   );
 
   return (
-    <div className={`app ${typing ? "is-typing" : ""}`}>
+    <div
+      className={`app app-editor ${typing ? "is-typing" : ""} ${focusMode.toolbarShown ? "toolbar-shown" : ""}`}
+    >
       <div className="progress" style={{ transform: `scaleX(${progress})` }} aria-hidden />
 
       <header className="topbar">
@@ -239,6 +244,18 @@ export default function Pen({ initial }: { initial: Story }) {
             <span className="status-label">{STATUS_LABEL[status]}</span>
           </span>
           <span className="words label">{words.toLocaleString()} w</span>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => {
+              setOutlineOpen(false);
+              focusMode.toggle();
+            }}
+            aria-label="Focus mode"
+            title="Focus mode (Ctrl+Shift+F)"
+          >
+            <IconFocus />
+          </button>
           <ThemeButton />
           <button type="button" className="icon-btn" onClick={exportMarkdown} aria-label="Export markdown" title="Export .md">
             <IconExport />
@@ -287,6 +304,13 @@ export default function Pen({ initial }: { initial: Story }) {
         <div className="toast" role="alert" onClick={lib.clearError}>
           {lib.error}
         </div>
+      )}
+      {focusMode.focus && (
+        <FocusControls
+          pinned={focusMode.pinned}
+          onToggleToolbar={focusMode.togglePinned}
+          onExit={focusMode.exit}
+        />
       )}
       <DropImport onFile={importFile} />
     </div>

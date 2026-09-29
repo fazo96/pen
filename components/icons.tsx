@@ -94,3 +94,15 @@ export const IconBack = (p: P) => (
     <path d="M12 5 7 10l5 5" />
   </svg>
 );
+
+export const IconFocus = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M3.5 7.5v-4h4M12.5 3.5h4v4M16.5 12.5v4h-4M7.5 16.5h-4v-4" />
+  </svg>
+);
+
+export const IconUnfocus = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M7.5 3.5v4h-4M16.5 7.5h-4v-4M12.5 16.5v-4h4M3.5 12.5h4v4" />
+  </svg>
+);

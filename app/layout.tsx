@@ -33,8 +33,8 @@ export const viewport: Viewport = {
   ],
 };
 
-// Runs before paint so a stored theme choice never flashes the wrong palette.
-const themeScript = `try{var t=localStorage.getItem("pen:theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`;
+// Runs before paint so a stored theme or focus mode never flashes the wrong UI.
+const themeScript = `try{var d=document.documentElement,t=localStorage.getItem("pen:theme");if(t==="light"||t==="dark")d.dataset.theme=t;if(localStorage.getItem("pen:focus"))d.dataset.focus=""}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
