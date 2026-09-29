@@ -1,13 +1,16 @@
 import { createDoc, listDocs, MAX_BYTES } from "@/lib/docs";
+import { hasSession, lockedResponse } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  if (!(await hasSession())) return lockedResponse();
   return Response.json(await listDocs(), { headers: { "Cache-Control": "no-store" } });
 }
 
 /** Create a document: blank ("New") or with content (import). */
 export async function POST(req: Request) {
+  if (!(await hasSession())) return lockedResponse();
   let body: { content?: unknown; name?: unknown };
   try {
     body = await req.json();

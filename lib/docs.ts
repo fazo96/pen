@@ -2,13 +2,9 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { DOCS_DIR } from "./paths";
 import { slugify, titleOf, wordCount } from "./text";
 
-// The library: every document is one markdown file in this directory.
-export const DOCS_DIR = path.resolve(
-  /*turbopackIgnore: true*/
-  process.env.PEN_DIR ?? path.join(process.cwd(), "data"),
-);
 const TRASH_DIR = path.join(DOCS_DIR, ".trash");
 
 export const MAX_BYTES = 5 * 1024 * 1024;

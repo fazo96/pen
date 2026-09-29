@@ -106,3 +106,10 @@ export const IconUnfocus = (p: P) => (
     <path d="M7.5 3.5v4h-4M16.5 7.5h-4v-4M12.5 16.5v-4h4M3.5 12.5h4v4" />
   </svg>
 );
+
+export const IconLock = (p: P) => (
+  <svg {...base} {...p}>
+    <rect x="4.5" y="9" width="11" height="8" rx="1.5" />
+    <path d="M7 9V6.5a3 3 0 0 1 6 0V9M10 12.3v1.8" />
+  </svg>
+);

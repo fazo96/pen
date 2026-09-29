@@ -1,4 +1,5 @@
 import { isValidId, MAX_BYTES, readDoc, trashDoc, writeDoc } from "@/lib/docs";
+import { hasSession, lockedResponse } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -7,12 +8,14 @@ type Ctx = { params: Promise<{ id: string }> };
 const notFound = () => Response.json({ error: "not found" }, { status: 404 });
 
 export async function GET(_req: Request, { params }: Ctx) {
+  if (!(await hasSession())) return lockedResponse();
   const doc = await readDoc((await params).id);
   if (!doc) return notFound();
   return Response.json(doc, { headers: { "Cache-Control": "no-store" } });
 }
 
 async function save(req: Request, { params }: Ctx) {
+  if (!(await hasSession())) return lockedResponse();
   const { id } = await params;
   if (!isValidId(id)) return notFound();
   let body: { content?: unknown; baseVersion?: unknown; force?: unknown };
@@ -38,6 +41,7 @@ export const PUT = save;
 export const POST = save;
 
 export async function DELETE(_req: Request, { params }: Ctx) {
+  if (!(await hasSession())) return lockedResponse();
   const { id } = await params;
   if (!isValidId(id)) return notFound();
   return (await trashDoc(id)) ? new Response(null, { status: 204 }) : notFound();

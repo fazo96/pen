@@ -5,12 +5,13 @@ import type { DocMeta } from "@/lib/docs";
 import { IMPORT_ACCEPT, useLibrary } from "@/lib/useLibrary";
 import Drawer from "./Drawer";
 import DropImport from "./DropImport";
-import { IconImport, IconOutline, IconPlus } from "./icons";
+import { IconImport, IconLock, IconOutline, IconPlus } from "./icons";
 import Library from "./Library";
+import LockSettings from "./LockSettings";
 import ThemeButton from "./ThemeButton";
 
 /** Nothing selected: the rail is the library, the page is a welcome. */
-export default function Home({ docs }: { docs: DocMeta[] }) {
+export default function Home({ docs, locked }: { docs: DocMeta[]; locked: boolean }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const picker = useRef<HTMLInputElement>(null);
   const lib = useLibrary();
@@ -33,6 +34,15 @@ export default function Home({ docs }: { docs: DocMeta[] }) {
           <span className="topbar-title">Library</span>
         </div>
         <div className="topbar-right">
+          <button
+            type="button"
+            className={`icon-btn ${locked ? "is-on" : ""}`}
+            onClick={() => document.getElementById("lock")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+            aria-label={locked ? "Lock: on" : "Lock: off"}
+            title={locked ? "Lock: on" : "Lock: off"}
+          >
+            <IconLock />
+          </button>
           <ThemeButton />
         </div>
       </header>
@@ -101,6 +111,8 @@ export default function Home({ docs }: { docs: DocMeta[] }) {
             </p>
           )}
           <p className="welcome-hint label">.md · .markdown · .txt — or drop a file anywhere</p>
+
+          <LockSettings locked={locked} />
         </section>
       </main>
 

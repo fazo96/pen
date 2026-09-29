@@ -26,3 +26,4 @@ A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Ti
 - The dev server usually runs on port 3000 bound to `0.0.0.0` (`next dev -H 0.0.0.0 -p 3000`) so the user can test on their phone. Leave it running.
 - For browser tests, install `puppeteer-core` in a scratch directory (not in this project) and launch the Chromium from `nix shell nixpkgs#chromium`. The Tiptap instance is reachable in tests as `document.querySelector(".ProseMirror").editor`.
 - When stopping a background server with `pkill -f`, pick a pattern that won't also match the shell running the `pkill` command.
+- Optional lock: a password set from the home page is stored as a scrypt hash in `PEN_DIR/.pen-auth.json`; `proxy.ts` gates every request and route handlers re-check. To reset a forgotten password, delete that file.

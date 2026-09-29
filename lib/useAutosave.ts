@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type SaveStatus = "saved" | "unsaved" | "saving" | "offline" | "conflict";
+export type SaveStatus = "saved" | "unsaved" | "saving" | "offline" | "conflict" | "locked";
 export type Story = { id: string; content: string; version: string };
 
 const IDLE_MS = 1200;
@@ -83,6 +83,13 @@ export function useAutosave({ initial, getContent, setContent, ready }: Options)
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content, baseVersion: version.current, force }),
       });
+      if (res.status === 401) {
+        // Signed out (e.g. the password changed elsewhere). The local backup
+        // keeps the text; it saves after unlocking. Typing retries meanwhile.
+        dirty.current = true;
+        setStatus("locked");
+        return;
+      }
       if (res.status === 409) {
         blocked.current = true;
         dirty.current = true;
@@ -117,7 +124,7 @@ export function useAutosave({ initial, getContent, setContent, ready }: Options)
   const touch = useCallback(() => {
     dirty.current = true;
     if (blocked.current) return;
-    setStatus((s) => (s === "offline" ? s : "unsaved"));
+    setStatus((s) => (s === "offline" || s === "locked" ? s : "unsaved"));
     clearTimer();
     timer.current = setTimeout(() => void flush(), IDLE_MS);
   }, [flush]);

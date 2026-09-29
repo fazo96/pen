@@ -25,6 +25,7 @@ const STATUS_LABEL: Record<SaveStatus, string> = {
   saving: "Saving",
   offline: "Offline",
   conflict: "Conflict",
+  locked: "Locked",
 };
 
 export default function Pen({ initial }: { initial: Story }) {
@@ -239,10 +240,22 @@ export default function Pen({ initial }: { initial: Story }) {
           </span>
         </div>
         <div className="topbar-right">
-          <span className={`status status-${status}`} role="status" aria-live="polite">
-            <span className="status-dot" aria-hidden />
-            <span className="status-label">{STATUS_LABEL[status]}</span>
-          </span>
+          {status === "locked" ? (
+            <a
+              className="status status-locked"
+              href={`/unlock?next=${encodeURIComponent(`/d/${initial.id}`)}`}
+              role="status"
+              title="Signed out. Unlock to keep saving; your text is kept on this device."
+            >
+              <span className="status-dot" aria-hidden />
+              <span className="status-label">Locked · unlock</span>
+            </a>
+          ) : (
+            <span className={`status status-${status}`} role="status" aria-live="polite">
+              <span className="status-dot" aria-hidden />
+              <span className="status-label">{STATUS_LABEL[status]}</span>
+            </span>
+          )}
           <span className="words label">{words.toLocaleString()} w</span>
           <button
             type="button"
