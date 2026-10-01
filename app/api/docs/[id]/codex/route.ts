@@ -1,3 +1,4 @@
+import { critsToMarkdown, isCritiqueCirclePage } from "@/lib/critiquecircle";
 import { createEntry, listCodex, MAX_BYTES } from "@/lib/docs";
 import { hasSession, lockedResponse } from "@/lib/session";
 
@@ -13,13 +14,24 @@ export async function GET(_req: Request, { params }: Ctx) {
   return list ? Response.json(list, { headers: { "Cache-Control": "no-store" } }) : notFound();
 }
 
+/** Create an entry from markdown `content`, or from a saved Critique Circle page's `html`. */
 export async function POST(req: Request, { params }: Ctx) {
   if (!(await hasSession())) return lockedResponse();
-  const body = (await req.json().catch(() => ({}))) as { content?: unknown; name?: unknown };
-  const content = typeof body.content === "string" ? body.content : "";
+  const body = (await req.json().catch(() => ({}))) as { content?: unknown; name?: unknown; html?: unknown };
+  let content = typeof body.content === "string" ? body.content : "";
+  let name = typeof body.name === "string" ? body.name : undefined;
+  if (typeof body.html === "string") {
+    if (Buffer.byteLength(body.html) > MAX_BYTES) {
+      return Response.json({ error: "page too large (max 5 MB)" }, { status: 413 });
+    }
+    if (!isCritiqueCirclePage(body.html)) {
+      return Response.json({ error: "not a saved Critique Circle page with crits" }, { status: 422 });
+    }
+    ({ markdown: content, title: name } = critsToMarkdown(body.html));
+  }
   if (Buffer.byteLength(content) > MAX_BYTES) {
     return Response.json({ error: "entry too large (max 5 MB)" }, { status: 413 });
   }
-  const entry = await createEntry((await params).id, content, typeof body.name === "string" ? body.name : undefined);
+  const entry = await createEntry((await params).id, content, name);
   return entry ? Response.json(entry, { status: 201 }) : notFound();
 }

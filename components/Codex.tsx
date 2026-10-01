@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { EntryMeta } from "@/lib/docs";
 import { useDropZone } from "@/lib/useDropZone";
-import { IMPORT_ACCEPT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";
+import { CODEX_IMPORT_ACCEPT, HTML_EXT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";
 import { IconTrash } from "./icons";
 
 type Props = {
@@ -68,7 +68,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     const imported: string[] = [];
     const skipped: string[] = [];
     for (const file of files) {
-      const problem = importProblem(file);
+      const problem = importProblem(file, true);
       if (problem) {
         skipped.push(problem);
         continue;
@@ -77,7 +77,11 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
         const res = await fetch(base, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: await importText(file), name: file.name.replace(IMPORT_EXT, "") }),
+          body: JSON.stringify(
+            HTML_EXT.test(file.name)
+              ? { html: await file.text() }
+              : { content: await importText(file), name: file.name.replace(IMPORT_EXT, "") },
+          ),
         });
         if (!res.ok) {
           const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -129,7 +133,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
       <input
         ref={picker}
         type="file"
-        accept={IMPORT_ACCEPT}
+        accept={CODEX_IMPORT_ACCEPT}
         multiple
         hidden
         onChange={(e) => {
