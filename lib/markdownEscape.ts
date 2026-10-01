@@ -1,5 +1,6 @@
 import { Markdown, type MarkdownManager } from "@tiptap/markdown";
 import type { JSONContent } from "@tiptap/core";
+import { Marked, type marked } from "marked";
 
 // How plain text is written to markdown.
 //
@@ -61,9 +62,13 @@ export function installEscaping(manager: MarkdownManager): void {
   };
 }
 
-/** The Markdown extension with pen's text escaping. */
+/** The Markdown extension with pen's text escaping, and a markdown parser of its own. */
 export const PenMarkdown = Markdown.extend({
   onBeforeCreate(event) {
+    // Left to itself, every editor registers its tokenizers on the one global
+    // `marked`, so each book opened in a tab added another set and parsing
+    // got slower every time. Read by the parent hook, right below.
+    this.options.marked = new Marked() as unknown as typeof marked; // what the manager uses is there
     this.parent?.(event);
     installEscaping(this.storage.manager);
   },

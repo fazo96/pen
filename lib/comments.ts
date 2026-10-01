@@ -54,11 +54,21 @@ function firstOpening(src: string) {
 
 // Where a block comment could begin: only a comment filling its own line.
 // (Reporting any "<!--" would let the parser cut a paragraph mid-sentence.)
-const BLOCK_START_RE = /(?:^|\n) {0,3}(?:%%(?:(?!%%)[\s\S])*%%|<!--(?:(?!-->)[\s\S])*-->)[ \t]*(?:\n|$)/;
+// marked asks at every paragraph, passing the rest of the document, so only the
+// lines before the next blank one are tried: the paragraph ends there anyway.
+// Searching the whole rest made opening a long book quadratic.
+const BLOCK_AT_RE = / {0,3}(?:%%(?:(?!%%)[\s\S])*%%|<!--(?:(?!-->)[\s\S])*-->)[ \t]*(?:\n|$)/y;
 function blockStart(src: string) {
-  const m = BLOCK_START_RE.exec(src);
-  if (!m) return -1;
-  return m[0].startsWith("\n") ? m.index + 1 : m.index;
+  const blank = src.search(/\n[ \t]*\n/);
+  const end = blank < 0 ? src.length : blank;
+  for (let line = 0; line <= end; ) {
+    BLOCK_AT_RE.lastIndex = line;
+    if (BLOCK_AT_RE.test(src)) return line;
+    const next = src.indexOf("\n", line);
+    if (next < 0) break;
+    line = next + 1;
+  }
+  return -1;
 }
 
 function tokenizer(level: "block" | "inline"): MarkdownTokenizer {

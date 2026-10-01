@@ -1,7 +1,6 @@
 "use client";
 
 import { Extension } from "@tiptap/core";
-import { Markdown } from "@tiptap/markdown";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { DecorationSet } from "@tiptap/pm/view";
@@ -11,6 +10,8 @@ import { useEffect, useRef, useState } from "react";
 import { findPassage, type LineCitation } from "@/lib/cite";
 import { CommentExtensions } from "@/lib/comments";
 import type { DocDiff } from "@/lib/diff";
+import { PenMarkdown } from "@/lib/markdownEscape";
+import { PenOrderedList } from "@/lib/orderedList";
 import { CitedPassage, showPassage } from "@/lib/passage";
 import { straightenQuotes } from "@/lib/quotes";
 import type { VersionMeta } from "@/lib/versions";
@@ -58,8 +59,9 @@ export default function VersionPreview({ meta, content, draft, cite, onCited, on
     immediatelyRender: false,
     editable: false,
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
-      Markdown,
+      StarterKit.configure({ heading: { levels: [1, 2, 3] }, orderedList: false }),
+      PenOrderedList,
+      PenMarkdown,
       ...CommentExtensions,
       Changes,
       CitedPassage,

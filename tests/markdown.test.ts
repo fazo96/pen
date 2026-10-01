@@ -3,14 +3,24 @@ import { test } from "node:test";
 import type { JSONContent } from "@tiptap/core";
 import { MarkdownManager } from "@tiptap/markdown";
 import StarterKit from "@tiptap/starter-kit";
+import { Marked } from "marked";
 import { CommentExtensions } from "../lib/comments.ts";
 import { escapeText, installEscaping } from "../lib/markdownEscape.ts";
+import { PenOrderedList } from "../lib/orderedList.ts";
 import { newManuscript, titleOf } from "../lib/text.ts";
+
+// A markdown parser of its own for each manager, as the editor has (PenMarkdown).
+const ownMarked = () => new Marked() as never;
 
 // The editor's markdown, minus the DOM: tiptap's own manager with pen's extensions.
 function manager() {
   const m = new MarkdownManager({
-    extensions: [StarterKit.configure({ heading: { levels: [1, 2, 3] } }), ...CommentExtensions],
+    marked: ownMarked(),
+    extensions: [
+      StarterKit.configure({ heading: { levels: [1, 2, 3] }, orderedList: false }),
+      PenOrderedList,
+      ...CommentExtensions,
+    ],
   });
   installEscaping(m);
   return m;
@@ -142,4 +152,49 @@ test("a new manuscript's title reads back as typed, in the editor and the librar
 test("titles keep their closing hashes only when escaped", () => {
   assert.equal(titleOf("# Title ##\n", "x"), "Title");
   assert.equal(titleOf("# C#\n", "x"), "C#");
+});
+
+test("ordered lists parse as with tiptap's own tokenizer", () => {
+  const stock = new MarkdownManager({
+    marked: ownMarked(),
+    extensions: [StarterKit.configure({ heading: { levels: [1, 2, 3] } }), ...CommentExtensions],
+  });
+  for (const src of [
+    "1. first\n2. second",
+    "Before.\n\n3) three\n4) four\n\nAfter.",
+    "iv. roman\nv. five",
+    "a. letter\nb. next",
+    "1. nested\n   1. inner\n2. out",
+    "1. item\n\n   continued\n2. two",
+    "1.\n\n1984. Was a year.",
+    "A paragraph\n1. that turns into a list",
+    "No list here.\n\nNone here either.",
+  ]) {
+    assert.deepEqual(md.parse(src), stock.parse(src), src);
+  }
+});
+
+test("block comments are found anywhere, including right under a paragraph", () => {
+  const types = (src: string) => (md.parse(src).content ?? []).map((n) => n.type);
+  assert.deepEqual(types("One.\n%% note %%\nTwo."), ["paragraph", "commentBlock", "paragraph"]);
+  assert.deepEqual(types("One.\n\nTwo.\n\n<!-- note -->"), ["paragraph", "paragraph", "commentBlock"]);
+  assert.deepEqual(types("One.\n%%\nspans\n\na blank line\n%%\nTwo."), ["paragraph", "commentBlock", "paragraph"]);
+  assert.deepEqual(types("One %% inline %% more.\n\nTwo."), ["paragraph", "paragraph"]);
+});
+
+test("parsing time grows with the length of a book, not its square", () => {
+  const book = (n: number) =>
+    Array.from({ length: n }, (_, i) =>
+      i % 50 === 0 ? "### Chapter" : i % 7 === 0 ? "%% a note %%" : `"Line ${i}," she said. It was *late* and cold.`,
+    ).join("\n\n");
+  const time = (src: string) => {
+    md.parse(src);
+    const start = performance.now();
+    md.parse(src);
+    return performance.now() - start;
+  };
+  const small = time(book(500));
+  const large = time(book(4000));
+  // 8× the text: about 8× the time when linear, 64× when quadratic.
+  assert.ok(large / small < 20, `8× the text took ${(large / small).toFixed(1)}× the time`);
 });

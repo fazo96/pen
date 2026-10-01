@@ -8,6 +8,7 @@ import { useRef } from "react";
 import { CommentExtensions } from "./comments";
 import { Grammar } from "./grammar";
 import { PenMarkdown } from "./markdownEscape";
+import { PenOrderedList } from "./orderedList";
 import { CitedPassage } from "./passage";
 import { StraightQuotes } from "./quotes";
 
@@ -31,7 +32,9 @@ export function usePenEditor(kind: "manuscript" | "entry", content: string, onCh
       StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         link: { openOnClick: false },
+        orderedList: false,
       }),
+      PenOrderedList,
       PenMarkdown,
       ...CommentExtensions,
       Typography.configure({

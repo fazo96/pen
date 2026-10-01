@@ -14,7 +14,6 @@
   --warn: #b0701c;
   --selection: rgb(138 51 36 / 0.16);
   --grain-opacity: 0.32;
-  --grain-blend: multiply;
   --shadow: 0 10px 30px -12px rgb(60 40 10 / 0.28), 0 1px 0 rgb(255 255 255 / 0.4) inset;
   --vignette: radial-gradient(ellipse at 50% 35%, transparent 55%, rgb(120 85 30 / 0.1));
 
@@ -41,7 +40,6 @@
     --warn: #e2a55a;
     --selection: rgb(226 165 90 / 0.22);
     --grain-opacity: 0.1;
-    --grain-blend: screen;
     --shadow: 0 12px 34px -12px rgb(0 0 0 / 0.7), 0 1px 0 rgb(255 240 210 / 0.04) inset;
     --vignette: radial-gradient(ellipse at 50% 30%, rgb(226 165 90 / 0.035), transparent 60%);
     color-scheme: dark;
@@ -61,7 +59,6 @@
   --warn: #e2a55a;
   --selection: rgb(226 165 90 / 0.22);
   --grain-opacity: 0.1;
-  --grain-blend: screen;
   --shadow: 0 12px 34px -12px rgb(0 0 0 / 0.7), 0 1px 0 rgb(255 240 210 / 0.04) inset;
   --vignette: radial-gradient(ellipse at 50% 30%, rgb(226 165 90 / 0.035), transparent 60%);
   color-scheme: dark;
@@ -101,7 +98,9 @@ body {
   transition: background-color 0.4s ease, color 0.4s ease;
 }
 
-/* Paper grain */
+/* Paper grain. No mix-blend-mode: blending a fixed full-screen layer made
+   every scroll frame re-blend the page (half the frame rate), and plain
+   opacity looks the same to within 1/255. */
 body::before {
   content: "";
   position: fixed;
@@ -109,7 +108,6 @@ body::before {
   pointer-events: none;
   z-index: 0;
   opacity: var(--grain-opacity);
-  mix-blend-mode: var(--grain-blend);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .36 0 0 0 0 .2 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
