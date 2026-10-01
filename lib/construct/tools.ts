@@ -12,9 +12,11 @@ import {
   trashEntry,
   writeEntry,
 } from "../docs";
+import { ruleLabel } from "../grammarConfig";
 import { type Section, sectionsOf } from "../outline";
 import { straightQuotes, titleOf, wordCount } from "../text";
 import { alignBlocks, blockKey, countWords, wordDiff } from "../textdiff";
+import { checkGrammar, type GrammarReport } from "./grammarCheck";
 
 // Everything Construct can do, and nothing more. The agent's own file, shell
 // and web tools are switched off; these are served to it over MCP (see
@@ -116,6 +118,50 @@ function excerpt(markdown: string, args: Record<string, unknown>) {
     .map((l, i) => `${String(from + i).padStart(width)}\t${l}`)
     .join("\n");
   return `Lines ${from}–${to} of ${lines.length}:\n${body}`;
+}
+
+const GRAMMAR_LIMIT = 150;
+const SPELLING_KINDS = new Set(["Spelling", "Typo"]);
+
+/** grammar_check's answer: flags one per line, citable, with what Harper suggests. */
+function formatGrammar(report: GrammarReport, where: string, kind: string, citable: boolean) {
+  const all = report.flags.filter(
+    (f) => kind === "all" || SPELLING_KINDS.has(f.flag.kind) === (kind === "spelling"),
+  );
+  if (!report.checked) return `Nothing to check in ${where}.`;
+  const spelling = all.filter((f) => SPELLING_KINDS.has(f.flag.kind)).length;
+  const head = [
+    all.length
+      ? `${all.length} flagged in ${where} (${report.checked} paragraphs checked): ${spelling} spelling, ${all.length - spelling} grammar and style.`
+      : `Nothing flagged in ${where} (${report.checked} paragraphs checked).`,
+  ];
+  if (kind !== "grammar" && report.words.length) {
+    head.push(
+      `Unknown words met more than once (often names; the writer can add them to the dictionary): ${report.words
+        .slice(0, 30)
+        .map((w) => `${w.word} ×${w.count}`)
+        .join(", ")}`,
+    );
+  }
+  const rows = all.slice(0, GRAMMAR_LIMIT).map(({ line, flag }) => {
+    const fixes = flag.suggestions
+      .slice(0, 3)
+      .map((s) => (s.kind === "remove" ? "remove it" : s.kind === "insert" ? `add “${s.text}”` : `“${s.text}”`));
+    const what = flag.rule === "SpellCheck" ? "Spelling" : ruleLabel(flag.rule);
+    const at = citable ? `pen:L${line}` : `line ${line}`;
+    return `${at} “${flag.problem}” — ${what}: ${flag.message.replace(/`([^`]*)`/g, "“$1”")}${fixes.length ? ` → ${fixes.join(", ")}` : ""}`;
+  });
+  if (all.length > GRAMMAR_LIMIT) {
+    const rest = new Map<string, number>();
+    for (const { flag } of all.slice(GRAMMAR_LIMIT)) {
+      const what = flag.rule === "SpellCheck" ? "Spelling" : ruleLabel(flag.rule);
+      rest.set(what, (rest.get(what) ?? 0) + 1);
+    }
+    rows.push(
+      `(${all.length - GRAMMAR_LIMIT} more not shown: ${[...rest].map(([k, n]) => `${k} ${n}`).join(", ")}. Narrow it with heading or lines.)`,
+    );
+  }
+  return [...head, "", ...rows].join("\n");
 }
 
 function formatOutline(markdown: string) {
@@ -338,6 +384,42 @@ const TOOLS: Tool[] = [
       }
       if (!hits.length) return "No matches.";
       return hits.length > LIMIT ? `${hits.slice(0, LIMIT).join("\n")}\n(more matches not shown; narrow the query)` : hits.join("\n");
+    },
+  },
+
+  {
+    name: "grammar_check",
+    description:
+      "Spelling and grammar flags in the manuscript (or a Codex entry), from the same checker the writer sees underlined in the editor, with their dictionary and rule settings. Each flag has its line, the flagged words, the checker's message and its suggestions. The checker is mechanical: it flags dialect, invented words and deliberate fragments too, so judge each one in context before passing it on. Checking the whole book the first time can take several seconds; give a heading or lines to check part of it.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        heading: str("Section to check: a label like \"Chapter 3\" or \"Part II\", or text from the heading."),
+        from_line: int("First line (1-based)."),
+        to_line: int("Last line, inclusive."),
+        kind: { type: "string", enum: ["all", "spelling", "grammar"], description: "Which flags (default all)." },
+        entry: str("A Codex entry id to check instead of the manuscript."),
+      },
+    },
+    readOnly: true,
+    run: async (args, ctx) => {
+      const kind = argString(args, "kind", true) ?? "all";
+      if (!["all", "spelling", "grammar"].includes(kind)) throw new ToolError(`"kind" must be all, spelling or grammar.`);
+      const eid = args.entry ? entryId(args, "entry") : undefined;
+      const text = eid ? (await entry(ctx.projectId, eid)).content : await manuscript(ctx.projectId);
+      let from = argInt(args, "from_line") ?? 1;
+      let to = argInt(args, "to_line") ?? Infinity;
+      const heading = argString(args, "heading", true);
+      let where = eid ? `the Codex entry "${eid}"` : "the manuscript";
+      if (heading) {
+        const s = findSection(text, heading);
+        from = Math.max(from, s.line);
+        to = Math.min(to, s.end);
+        where = s.label || s.text;
+      }
+      if (from > 1 || to < Infinity) where += ` (lines ${from}–${Number.isFinite(to) ? to : "end"})`;
+      // Codex entries have no pen:L links; line numbers are for reading them.
+      return formatGrammar(await checkGrammar(text, from, to), where, kind, !eid);
     },
   },
 

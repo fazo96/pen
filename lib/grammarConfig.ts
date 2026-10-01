@@ -63,6 +63,11 @@ export function ruleOn(config: GrammarConfig, rule: string): boolean {
   return config.rules[rule] ?? PEN_RULES[rule] ?? true;
 }
 
+/** Pen's rule switches over its defaults, as Harper takes them. */
+export function effectiveRules(c: GrammarConfig): Record<string, boolean> {
+  return { ...PEN_RULES, ...c.rules };
+}
+
 /** "OxfordComma" → "Oxford comma". */
 export function ruleLabel(rule: string): string {
   const words = rule.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z])([A-Z][a-z])/g, "$1 $2");

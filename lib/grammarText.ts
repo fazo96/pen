@@ -120,3 +120,41 @@ export function repeatedWords(items: PlacedFlag[], rule: string, key: (w: string
   }
   return [...byKey.values()].filter((w) => w.count >= min).sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
 }
+
+/** Text as compared when matching blocks to markdown lines: no emphasis marks, single spaces. */
+export const plainText = (s: string) => s.replace(/[*_`~]/g, "").replace(/\s+/g, " ").trim();
+
+/**
+ * The 1-based markdown line each block starts on, given each line's plain
+ * text: found by its opening words (blocks come in order, so the search moves
+ * forward), or the previous block's line when a block can't be found.
+ */
+export function blockLines(plainLines: string[], texts: string[]): number[] {
+  let at = 0;
+  return texts.map((text) => {
+    const start = plainText(text).slice(0, 32);
+    for (let i = at; i < plainLines.length; i++) {
+      // A paragraph of short lines ("EYE / SENT / US") starts over several of them.
+      let joined = plainLines[i];
+      for (let j = i + 1; joined.length < start.length && plainLines[j]; j++) joined += " " + plainLines[j];
+      if (start && joined.startsWith(start)) {
+        at = i + 1;
+        return i + 1;
+      }
+    }
+    return Math.max(1, at);
+  });
+}
+
+/**
+ * The line a flag is on: a paragraph can run over several markdown lines (hard
+ * or soft breaks), so walk them, adding up their text, until the flag's offset.
+ */
+export function lineOf(plainLines: string[], start: number, offset: number): number {
+  let seen = 0;
+  for (let i = start - 1; i < plainLines.length && plainLines[i]; i++) {
+    seen += plainLines[i].length + 1;
+    if (offset < seen) return i + 1;
+  }
+  return start;
+}

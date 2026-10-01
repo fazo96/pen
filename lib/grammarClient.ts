@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
-import { applyPatch, dictKey, PEN_RULES, visibleFlags, type GrammarConfig, type GrammarPatch } from "./grammarConfig";
+import { applyPatch, dictKey, effectiveRules, visibleFlags, type GrammarConfig, type GrammarPatch } from "./grammarConfig";
 import type { Flag } from "./grammarText";
 import type { WorkerRequest, WorkerResponse } from "./grammar.worker";
 
@@ -183,10 +183,6 @@ class GrammarService {
       this.worker!.postMessage({ ...req, id });
     });
   }
-}
-
-function effectiveRules(c: GrammarConfig): Record<string, boolean> {
-  return { ...PEN_RULES, ...c.rules };
 }
 
 export const grammar = new GrammarService();

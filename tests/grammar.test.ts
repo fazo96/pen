@@ -14,7 +14,16 @@ import {
   sanitizePatch,
   visibleFlags,
 } from "../lib/grammarConfig.ts";
-import { flagRange, flagsByHeading, repeatedWords, textBlocks, type Flag } from "../lib/grammarText.ts";
+import {
+  blockLines,
+  flagRange,
+  flagsByHeading,
+  lineOf,
+  plainText,
+  repeatedWords,
+  textBlocks,
+  type Flag,
+} from "../lib/grammarText.ts";
 
 const extensions = [StarterKit.configure({ heading: { levels: [1, 2, 3] } }), ...CommentExtensions];
 const schema = getSchema(extensions);
@@ -170,4 +179,19 @@ test("repeatedWords groups misspellings by dictionary key, most frequent first",
     repeatedWords(items, "SpellCheck", dictKey).map((w) => [w.word, w.count, w.first.from]),
     [["Bioscan", 3, 1], ["Felia", 2, 13]],
   );
+});
+
+test("blockLines finds each block's line, including paragraphs of short lines and repeats", () => {
+  const lines = ["Title", "", "No.", "", "No.", "", "EYE", "SENT", "US", "BIOSCAN", "", "The end, *truly*."].map(plainText);
+  assert.deepEqual(blockLines(lines, ["Title", "No.", "No.", "EYE SENT US BIOSCAN", "The end, truly."]), [1, 3, 5, 7, 12]);
+  assert.deepEqual(blockLines(lines, ["Title", "Not in the file", "No."]), [1, 1, 3], "a lost block borrows the previous line");
+});
+
+test("lineOf walks a paragraph's lines to the one holding an offset", () => {
+  const lines = ["", "EYE", "SENT", "US", "BIOSCAN", "", "Next."];
+  const text = "EYE SENT US BIOSCAN";
+  assert.equal(lineOf(lines, 2, text.indexOf("EYE")), 2);
+  assert.equal(lineOf(lines, 2, text.indexOf("US")), 4);
+  assert.equal(lineOf(lines, 2, text.indexOf("BIOSCAN")), 5);
+  assert.equal(lineOf(lines, 2, 999), 2, "past the paragraph: its first line");
 });
