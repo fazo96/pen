@@ -16,7 +16,7 @@ import {
   type SessionNotification,
 } from "@agentclientprotocol/sdk";
 import { parseCitation, withSnippets } from "../cite";
-import { readChats, readDoc, readVersion, trashChat, writeChat } from "../docs";
+import { agentHome, readChats, readDoc, readVersion, trashChat, writeChat } from "../docs";
 import { titleOf } from "../text";
 import type { CodexChange, ToolContext } from "./tools";
 import { type AgentId, type AgentPreset, AGENTS, systemPrompt } from "./agents";
@@ -66,6 +66,7 @@ class ConstructSession {
   private sessionId: string | null = null;
   private starting: Promise<void> | null = null;
   private stderr: string[] = [];
+  private cwd = "";
   private seq = 0;
   private running = false;
   /** The message or thought currently streaming, to append chunks to. */
@@ -270,8 +271,9 @@ class ConstructSession {
     const preset: AgentPreset = AGENTS[agent];
     this.setState({ agent, status: "starting", error: undefined, config: [] });
     try {
-      const cwd = path.join(os.tmpdir(), "pen-construct", this.projectId);
+      const cwd = path.join(os.tmpdir(), "pen-construct", await agentHome(this.projectId));
       await mkdir(cwd, { recursive: true });
+      this.cwd = cwd;
       const [cmd, ...args] = preset.command;
       this.stderr = [];
       const child = spawn(cmd, args, {
@@ -331,7 +333,7 @@ class ConstructSession {
     const doc = await readDoc(this.projectId);
     const title = doc ? titleOf(doc.content, this.projectId) : this.projectId;
     const params = {
-      cwd: path.join(os.tmpdir(), "pen-construct", this.projectId),
+      cwd: this.cwd,
       mcpServers: [
         {
           type: "http" as const,
@@ -580,6 +582,12 @@ export async function getSession(projectId: string, baseUrl: string): Promise<Co
   }
   await s.loaded;
   return s;
+}
+
+/** Stop a project's session and forget it (the project was renamed). */
+export function dropSession(projectId: string) {
+  sessions.get(projectId)?.stop();
+  sessions.delete(projectId);
 }
 
 /** The session an MCP request belongs to, by its bearer token. */

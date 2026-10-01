@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { isImage } from "@/lib/cover";
 import type { DocMeta } from "@/lib/docs";
-import { IconClose, IconImage, IconMore, IconShelf, IconTrash } from "./icons";
+import { IconGear } from "./icons";
 
-function ago(ms: number, now: number) {
+export function ago(ms: number, now: number) {
   const s = Math.max(0, (now - ms) / 1000);
   if (s < 60) return "just now";
   if (s < 3600) return `${Math.floor(s / 60)}m ago`;
@@ -44,25 +44,15 @@ export function Cover({ doc }: { doc: DocMeta }) {
 type Props = {
   doc: DocMeta;
   now: number;
-  busy: boolean;
   binding: boolean;
   lifted: boolean;
-  menuOpen: boolean;
-  /** The other shelves, for "Move to shelf". */
-  elsewhere: { id: string; name: string }[];
-  onMenu: (open: boolean) => void;
   onPointerDown: (e: React.PointerEvent<HTMLLIElement>) => void;
-  onMove: (shelf: string) => void;
-  onDelete: () => void;
-  onPickCover: () => void;
   onCover: (file: File) => void;
-  onRemoveCover: () => void;
 };
 
-/** One book on a shelf: its cover, title, and an options menu. Drop an image on it for a cover. */
+/** One book on a shelf: its cover, title, and a way to its settings. Drop an image on it for a cover. */
 export default function Book(p: Props) {
   const { doc: d } = p;
-  const [view, setView] = useState<"main" | "confirm" | "move">("main");
   const [dropping, setDropping] = useState(false);
 
   return (
@@ -95,99 +85,15 @@ export default function Book(p: Props) {
         </span>
       </Link>
 
-      <button
-        type="button"
-        className="icon-btn book-more"
-        data-menu-toggle
-        aria-label={`Options for ${d.title}`}
-        aria-expanded={p.menuOpen}
-        onClick={() => {
-          setView("main");
-          p.onMenu(!p.menuOpen);
-        }}
+      <Link
+        href={`/d/${d.id}/settings`}
+        className="icon-btn book-gear"
+        draggable={false}
+        aria-label={`Settings for ${d.title}`}
+        title="Book settings"
       >
-        <IconMore />
-      </button>
-
-      {p.menuOpen && (
-        <div className="popover-menu book-menu" role="menu">
-          {view === "confirm" ? (
-            <div className="book-confirm">
-              <span>
-                Move <em>{d.title}</em> to trash?
-              </span>
-              <div className="library-confirm-actions">
-                <button type="button" onClick={() => setView("main")}>
-                  Keep
-                </button>
-                <button
-                  type="button"
-                  className="danger"
-                  disabled={p.busy}
-                  onClick={() => {
-                    p.onMenu(false);
-                    p.onDelete();
-                  }}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ) : view === "move" ? (
-            <>
-              <span className="popover-menu-head">Move to shelf</span>
-              {p.elsewhere.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    p.onMenu(false);
-                    p.onMove(s.id);
-                  }}
-                >
-                  <span className={s.name ? "" : "shelf-unnamed"}>{s.name || "Unnamed shelf"}</span>
-                </button>
-              ))}
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={p.busy}
-                onClick={() => {
-                  p.onMenu(false);
-                  p.onPickCover();
-                }}
-              >
-                <IconImage /> {d.cover ? "Change cover…" : "Set cover…"}
-              </button>
-              {d.cover && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={p.busy}
-                  onClick={() => {
-                    p.onMenu(false);
-                    p.onRemoveCover();
-                  }}
-                >
-                  <IconClose /> Remove cover
-                </button>
-              )}
-              {p.elsewhere.length > 0 && (
-                <button type="button" role="menuitem" onClick={() => setView("move")}>
-                  <IconShelf /> Move to shelf…
-                </button>
-              )}
-              <button type="button" role="menuitem" className="danger" onClick={() => setView("confirm")}>
-                <IconTrash /> Delete…
-              </button>
-            </>
-          )}
-        </div>
-      )}
+        <IconGear />
+      </Link>
     </li>
   );
 }

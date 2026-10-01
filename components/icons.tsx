@@ -190,6 +190,14 @@ export const IconDown = (p: P) => (
   </svg>
 );
 
+export const IconGear = (p: P) => (
+  <svg {...base} {...p}>
+    <circle cx="10" cy="10" r="2.4" />
+    <path d="M10 2.8v1.9M10 15.3v1.9M17.2 10h-1.9M4.7 10H2.8M15.1 4.9l-1.35 1.35M6.25 13.75 4.9 15.1M15.1 15.1l-1.35-1.35M6.25 6.25 4.9 4.9" />
+    <circle cx="10" cy="10" r="5.3" />
+  </svg>
+);
+
 /** Books on a shelf, one leaning. */
 export const IconShelf = (p: P) => (
   <svg {...base} {...p}>

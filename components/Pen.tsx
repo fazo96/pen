@@ -21,7 +21,7 @@ import Drawer from "./Drawer";
 import DropImport from "./DropImport";
 import EditorMenu from "./EditorMenu";
 import FocusControls from "./FocusControls";
-import { IconBack, IconConstruct, IconExport, IconFocus, IconOutline } from "./icons";
+import { IconBack, IconConstruct, IconExport, IconFocus, IconGear, IconOutline } from "./icons";
 import History from "./History";
 import Logo from "./Logo";
 import Outline, { type Heading } from "./Outline";
@@ -293,6 +293,7 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
     router.push(href);
   };
   const goLibrary = () => go("/?library");
+  const openSettings = () => go(`/d/${projectId}/settings`);
 
   // ─── Codex entry beside the manuscript ─────────────────────
   const openEntry = async (eid: string) => {
@@ -479,6 +480,15 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
             >
               <IconConstruct />
             </button>
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={openSettings}
+              aria-label="Book settings"
+              title="Book settings"
+            >
+              <IconGear />
+            </button>
           </div>
           <EditorMenu
             status={STATUS_LABEL[status]}
@@ -487,6 +497,7 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
             onFocus={toggleFocus}
             onExport={exportMarkdown}
             onConstruct={toggleConstruct}
+            onSettings={openSettings}
           />
         </div>
       </header>

@@ -90,10 +90,7 @@ export default function Home({ docs, shelves }: { docs: DocMeta[]; shelves: Layo
             <Shelves
               docs={docs}
               layout={shelves}
-              busy={lib.busy}
-              onDelete={lib.remove}
               onCover={lib.setCover}
-              onRemoveCover={lib.removeCover}
             />
           )}
 

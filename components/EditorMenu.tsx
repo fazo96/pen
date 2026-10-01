@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/lib/useTheme";
-import { IconConstruct, IconExport, IconFocus, IconMore, IconTheme } from "./icons";
+import { IconConstruct, IconExport, IconFocus, IconGear, IconMore, IconTheme } from "./icons";
 
 type Props = {
   status: string;
@@ -11,6 +11,7 @@ type Props = {
   onFocus: () => void;
   onExport: () => void;
   onConstruct: () => void;
+  onSettings: () => void;
 };
 
 /** On phones, the editor's top-bar tools folded into one "⋯" menu. */
@@ -49,7 +50,7 @@ export default function EditorMenu(props: Props) {
 }
 
 // Mounted only while open, so the theme label is read fresh each time.
-function Items({ status, words, constructOpen, onFocus, onExport, onConstruct, close }: Props & { close: () => void }) {
+function Items({ status, words, constructOpen, onFocus, onExport, onConstruct, onSettings, close }: Props & { close: () => void }) {
   const theme = useTheme();
   const pick = (fn: () => void) => () => {
     close();
@@ -72,6 +73,9 @@ function Items({ status, words, constructOpen, onFocus, onExport, onConstruct, c
       </button>
       <button type="button" role="menuitem" className={constructOpen ? "is-on" : ""} onClick={pick(onConstruct)}>
         <IconConstruct /> Construct {constructOpen && <span className="editor-menu-value">Open</span>}
+      </button>
+      <button type="button" role="menuitem" onClick={pick(onSettings)}>
+        <IconGear /> Book settings
       </button>
     </div>
   );

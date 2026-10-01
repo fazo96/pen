@@ -7,6 +7,7 @@ import {
   moveBook,
   moveShelf,
   removeShelf,
+  renameBook,
   renameShelf,
   sanitize,
   type Layout,
@@ -70,4 +71,9 @@ test("sanitize accepts layouts and rejects malformed ones", () => {
   assert.equal(sanitize({ shelves: [{ id: "one", name: "", books: ["../etc"] }] }), null);
   assert.equal(sanitize(layout(["one", "", []], ["one", "", []])), null);
   assert.equal(sanitize({ shelves: [{ id: "one", name: "x".repeat(200), books: [] }] })!.shelves[0].name.length, 80);
+});
+
+test("renameBook keeps a book in its place", () => {
+  const l = layout(["one", "", ["a", "b"]], ["two", "", ["c"]]);
+  assert.deepEqual(renameBook(l, "b", "z"), layout(["one", "", ["a", "z"]], ["two", "", ["c"]]));
 });

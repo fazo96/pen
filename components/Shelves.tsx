@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { COVER_ACCEPT } from "@/lib/cover";
 import type { DocMeta } from "@/lib/docs";
 import {
   addShelf,
@@ -20,10 +19,7 @@ import { IconDown, IconMore, IconPencil, IconPlus, IconTrash, IconUp } from "./i
 type Props = {
   docs: DocMeta[];
   layout: Layout;
-  busy: boolean;
-  onDelete: (id: string) => void;
   onCover: (id: string, file: File) => Promise<void>;
-  onRemoveCover: (id: string) => void;
 };
 
 type Target = { shelf: string; index: number };
@@ -69,7 +65,7 @@ function targetAt(x: number, y: number, book: string): Target | "same" | null {
 }
 
 /** The library as rows of shelves. Books are dragged between them to order them. */
-export default function Shelves({ docs, layout, busy, onDelete, onCover, onRemoveCover }: Props) {
+export default function Shelves({ docs, layout, onCover }: Props) {
   // Changes show at once and are saved behind; a failed save puts back the last saved layout.
   const [local, setLocal] = useState(layout);
   const [seen, setSeen] = useState(layout);
@@ -87,8 +83,6 @@ export default function Shelves({ docs, layout, busy, onDelete, onCover, onRemov
   const [draft, setDraft] = useState("");
   const [binding, setBinding] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
-  const picker = useRef<HTMLInputElement>(null);
-  const pickFor = useRef<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const now = Date.now();
 
@@ -428,21 +422,10 @@ export default function Shelves({ docs, layout, busy, onDelete, onCover, onRemov
                     key={d.id}
                     doc={d}
                     now={now}
-                    busy={busy}
                     binding={binding === d.id}
                     lifted={drag?.book === d.id}
-                    menuOpen={menu === `book:${d.id}`}
-                    elsewhere={local.shelves.filter((o) => o.id !== s.id)}
-                    onMenu={(open) => setMenu(open ? `book:${d.id}` : null)}
                     onPointerDown={(e) => onBookPointerDown(e, d.id)}
-                    onMove={(shelf) => save(moveBook(local, d.id, shelf, Infinity))}
-                    onDelete={() => onDelete(d.id)}
-                    onPickCover={() => {
-                      pickFor.current = d.id;
-                      picker.current?.click();
-                    }}
                     onCover={(file) => void cover(d.id, file)}
-                    onRemoveCover={() => onRemoveCover(d.id)}
                   />
                 ))}
               </ul>
@@ -472,18 +455,6 @@ export default function Shelves({ docs, layout, busy, onDelete, onCover, onRemov
           <Cover doc={dragged} />
         </div>
       )}
-
-      <input
-        ref={picker}
-        type="file"
-        accept={COVER_ACCEPT}
-        hidden
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          e.target.value = "";
-          if (file && pickFor.current) void cover(pickFor.current, file);
-        }}
-      />
     </div>
   );
 }

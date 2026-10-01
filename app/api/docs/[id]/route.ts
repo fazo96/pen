@@ -1,6 +1,8 @@
-import { isValidId, readDoc, trashDoc, writeDoc } from "@/lib/docs";
+import { dropSession } from "@/lib/construct/session";
+import { isValidId, readDoc, renameDoc, trashDoc, writeDoc } from "@/lib/docs";
 import { readSaveBody } from "@/lib/saveBody";
 import { hasSession, lockedResponse } from "@/lib/session";
+import { renameOnShelves } from "@/lib/shelves";
 
 export const dynamic = "force-dynamic";
 
@@ -35,4 +37,28 @@ export async function DELETE(_req: Request, { params }: Ctx) {
   const { id } = await params;
   if (!isValidId(id)) return notFound();
   return (await trashDoc(id)) ? new Response(null, { status: 204 }) : notFound();
+}
+
+/** Change the project's id (and URLs): `{ id: "new-id" }`. */
+export async function PATCH(req: Request, { params }: Ctx) {
+  if (!(await hasSession())) return lockedResponse();
+  const { id } = await params;
+  let to: unknown;
+  try {
+    to = ((await req.json()) as { id?: unknown }).id;
+  } catch {}
+  if (typeof to !== "string" || !isValidId(to)) {
+    return Response.json(
+      { error: "Use lowercase letters, digits and hyphens (up to 80), starting with a letter or digit." },
+      { status: 400 },
+    );
+  }
+  const result = await renameDoc(id, to);
+  if (result === "missing" || result === "invalid") return notFound();
+  if (result === "taken") return Response.json({ error: `Another book already uses “${to}”.` }, { status: 409 });
+  if (to !== id) {
+    dropSession(id); // its agent works under the old id
+    await renameOnShelves(id, to);
+  }
+  return Response.json({ id: to });
 }

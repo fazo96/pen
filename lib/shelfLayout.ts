@@ -101,3 +101,8 @@ export function moveShelf(layout: Layout, id: string, delta: number): Layout {
   shelves.splice(to, 0, shelf);
   return { shelves };
 }
+
+/** The layout with a book's id changed, in the same place. */
+export function renameBook(layout: Layout, from: string, to: string): Layout {
+  return { shelves: layout.shelves.map((s) => ({ ...s, books: s.books.map((b) => (b === from ? to : b)) })) };
+}

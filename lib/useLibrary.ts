@@ -35,6 +35,19 @@ async function fail(res: Response): Promise<never> {
   throw new Error((body as { error?: string }).error ?? `request failed (${res.status})`);
 }
 
+/** Move a project's localStorage backups (manuscript and Codex entries) to its new id. */
+function moveBackups(from: string, to: string) {
+  try {
+    const prefix = `pen:backup:${from}`;
+    for (const key of Object.keys(localStorage)) {
+      if (key !== prefix && !key.startsWith(`${prefix}/`)) continue;
+      const value = localStorage.getItem(key);
+      if (value !== null) localStorage.setItem(`pen:backup:${to}${key.slice(prefix.length)}`, value);
+      localStorage.removeItem(key);
+    }
+  } catch {}
+}
+
 /** Create, import and delete documents and set their covers, then navigate or refresh. */
 export function useLibrary() {
   const router = useRouter();
@@ -82,17 +95,38 @@ export function useLibrary() {
     [create],
   );
 
+  /** Trash a document, then go to `next` (or stay and refresh). */
   const remove = useCallback(
-    (id: string) =>
+    (id: string, next?: string) =>
       run(async () => {
         const res = await fetch(`/api/docs/${id}`, { method: "DELETE" });
         if (!res.ok && res.status !== 404) await fail(res);
         try {
           localStorage.removeItem(`pen:backup:${id}`);
         } catch {}
-        router.refresh();
+        if (next) router.push(next);
+        else router.refresh();
       }),
     [router, run],
+  );
+
+  /** Give a document a new id; its local backups follow. True once done. */
+  const rename = useCallback(
+    async (id: string, to: string) => {
+      let done = false;
+      await run(async () => {
+        const res = await fetch(`/api/docs/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: to }),
+        });
+        if (!res.ok) await fail(res);
+        moveBackups(id, to);
+        done = true;
+      });
+      return done;
+    },
+    [run],
   );
 
   const setCover = useCallback(
@@ -116,5 +150,5 @@ export function useLibrary() {
     [router, run],
   );
 
-  return { busy, error, clearError: () => setError(null), createNew, importFile, remove, setCover, removeCover };
+  return { busy, error, clearError: () => setError(null), createNew, importFile, remove, rename, setCover, removeCover };
 }

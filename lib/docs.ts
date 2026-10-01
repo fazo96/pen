@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { DOCS_DIR } from "./paths";
+import { recordRename } from "./renames";
 import { slugify, titleOf, wordCount } from "./text";
 import * as versions from "./versions";
 
@@ -200,6 +201,36 @@ export function trashDoc(id: string): Promise<boolean> {
       if (isMissing(err)) return false;
       throw err;
     }
+  });
+}
+
+export type RenameResult = "ok" | "missing" | "taken" | "invalid";
+
+/**
+ * Give a project a new id (its folder, and its URLs). The old id is recorded
+ * so links, and editors still open under it, reach the project at its new one.
+ */
+export function renameDoc(id: string, to: string): Promise<RenameResult> {
+  if (!isValidId(id) || !isValidId(to)) return Promise.resolve("invalid");
+  return serialize(async () => {
+    if (!(await projectExists(id))) return "missing";
+    if (id === to) return "ok";
+    try {
+      await stat(dirOf(to)); // rename() would happily replace an empty folder
+      return "taken";
+    } catch (err) {
+      if (!isMissing(err)) throw err;
+    }
+    // A project that has talked to Construct keeps its agent's folder name, and with it the agent's memory.
+    try {
+      await stat(chatsDir(id));
+      await pinAgentHome(id);
+    } catch (err) {
+      if (!isMissing(err)) throw err;
+    }
+    await rename(dirOf(id), dirOf(to));
+    await recordRename(id, to);
+    return "ok";
   });
 }
 
@@ -486,6 +517,27 @@ export async function readChats(id: string): Promise<unknown[]> {
       }),
   );
   return chats.filter((c) => c !== null);
+}
+
+// The agent runs in a scratch folder named for the project, and Claude Code
+// files its sessions under that path. The name is fixed the first time, so a
+// renamed project's chats can still be resumed.
+const agentHomeFile = (id: string) => path.join(chatsDir(id), "agent-home");
+
+async function pinAgentHome(id: string): Promise<string> {
+  try {
+    const name = (await readFile(agentHomeFile(id), "utf8")).trim();
+    if (isValidId(name)) return name;
+  } catch (err) {
+    if (!isMissing(err)) throw err;
+  }
+  await atomicWrite(agentHomeFile(id), id);
+  return id;
+}
+
+/** The name of Construct's working folder for this project. */
+export function agentHome(id: string): Promise<string> {
+  return serialize(async () => ((await projectExists(id)) ? pinAgentHome(id) : id));
 }
 
 /** Save a chat. False if the project no longer exists. */
