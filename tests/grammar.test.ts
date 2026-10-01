@@ -14,7 +14,7 @@ import {
   sanitizePatch,
   visibleFlags,
 } from "../lib/grammarConfig.ts";
-import { flagRange, textBlocks, type Flag } from "../lib/grammarText.ts";
+import { flagRange, flagsByHeading, repeatedWords, textBlocks, type Flag } from "../lib/grammarText.ts";
 
 const extensions = [StarterKit.configure({ heading: { levels: [1, 2, 3] } }), ...CommentExtensions];
 const schema = getSchema(extensions);
@@ -142,4 +142,32 @@ test("ruleLabel spells out Harper's rule names", () => {
   assert.equal(ruleLabel("OxfordComma"), "Oxford comma");
   assert.equal(ruleLabel("UseEllipsisCharacter"), "Use ellipsis character");
   assert.equal(ruleLabel("AnA"), "An a");
+});
+
+const placed = (from: number, over: Partial<Flag> = {}) => ({ from, to: from + 3, flag: flag(over) });
+
+test("flagsByHeading puts each flag under the last heading before it", () => {
+  const headings = [{ pos: 10 }, { pos: 50 }, { pos: 90 }];
+  const sections = flagsByHeading([placed(2), placed(12), placed(40), placed(95)], headings);
+  assert.deepEqual(
+    sections.map((s) => [s.heading?.pos ?? null, s.items.map((i) => i.from)]),
+    [[null, [2]], [10, [12, 40]], [90, [95]]],
+  );
+});
+
+test("repeatedWords groups misspellings by dictionary key, most frequent first", () => {
+  const items = [
+    placed(1, { problem: "Bioscan" }),
+    placed(5, { problem: "BIOSCAN" }),
+    placed(9, { problem: "Bioscan's" }),
+    placed(13, { problem: "Felia" }),
+    placed(17, { problem: "Felia" }),
+    placed(21, { problem: "teh" }),
+    placed(25, { problem: "froze", rule: "PronounVerbAgreement" }),
+    placed(29, { problem: "froze", rule: "PronounVerbAgreement" }),
+  ];
+  assert.deepEqual(
+    repeatedWords(items, "SpellCheck", dictKey).map((w) => [w.word, w.count, w.first.from]),
+    [["Bioscan", 3, 1], ["Felia", 2, 13]],
+  );
 });

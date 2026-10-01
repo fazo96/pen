@@ -87,3 +87,36 @@ export function flagRange(block: TextBlock, flag: Flag): { from: number; to: num
   const to = block.at[flag.end - 1] + 1;
   return to - from === flag.end - flag.start ? { from, to } : null;
 }
+
+/** A flag where it sits in the document. */
+export type PlacedFlag = { from: number; to: number; flag: Flag };
+
+export type FlagSection<H> = { heading: H | null; items: PlacedFlag[] };
+
+/** Flags (in document order) under the last heading before each; headings by position, in order. */
+export function flagsByHeading<H extends { pos: number }>(items: PlacedFlag[], headings: H[]): FlagSection<H>[] {
+  const out: FlagSection<H>[] = [];
+  let h = -1;
+  for (const item of items) {
+    while (h + 1 < headings.length && headings[h + 1].pos < item.from) h++;
+    const heading = h >= 0 ? headings[h] : null;
+    if (out[out.length - 1]?.heading !== heading || !out.length) out.push({ heading, items: [] });
+    out[out.length - 1].items.push(item);
+  }
+  return out;
+}
+
+export type RepeatedWord = { word: string; count: number; first: PlacedFlag };
+
+/** Misspellings met at least `min` times, most frequent first. `key` says which spellings are the same word. */
+export function repeatedWords(items: PlacedFlag[], rule: string, key: (w: string) => string, min = 2): RepeatedWord[] {
+  const byKey = new Map<string, RepeatedWord>();
+  for (const item of items) {
+    if (item.flag.rule !== rule) continue;
+    const k = key(item.flag.problem);
+    const seen = byKey.get(k);
+    if (seen) seen.count++;
+    else byKey.set(k, { word: item.flag.problem.replace(/['’]s$/i, ""), count: 1, first: item });
+  }
+  return [...byKey.values()].filter((w) => w.count >= min).sort((a, b) => b.count - a.count || a.word.localeCompare(b.word));
+}

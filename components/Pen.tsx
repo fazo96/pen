@@ -22,6 +22,7 @@ import Drawer from "./Drawer";
 import DropImport from "./DropImport";
 import EditorMenu from "./EditorMenu";
 import FocusControls from "./FocusControls";
+import GrammarPane, { GrammarCount } from "./GrammarPane";
 import GrammarPopover from "./GrammarPopover";
 import { IconBack, IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconOutline } from "./icons";
 import History from "./History";
@@ -31,7 +32,7 @@ import ThemeButton from "./ThemeButton";
 import Toolbar from "./Toolbar";
 import VersionPreview from "./VersionPreview";
 
-type DrawerTab = "contents" | "codex" | "history";
+type DrawerTab = "contents" | "codex" | "history" | "grammar";
 
 // Keep in step with the breakpoints in globals.css.
 /** Room for a codex entry beside the manuscript. */
@@ -553,7 +554,7 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
         foot={`${words.toLocaleString()} words · ${Math.max(1, Math.round(words / 230))} min read`}
       >
         <div className="drawer-tabs" role="tablist">
-          {(["contents", "codex", ...(isEntry ? [] : ["history"])] as DrawerTab[]).map((tab) => (
+          {(["contents", "codex", ...(isEntry ? [] : ["history"]), "grammar"] as DrawerTab[]).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -562,11 +563,15 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
               onClick={() => setDrawerTab(tab)}
             >
               {tab}
+              {tab === "grammar" && <GrammarCount editor={editor} />}
             </button>
           ))}
         </div>
         {drawerTab === "contents" && (
           <Outline headings={headings} active={active} onJump={jump} plain={isEntry} />
+        )}
+        {drawerTab === "grammar" && (
+          <GrammarPane editor={editor} headings={headings} onShown={() => setOutlineOpen(false)} />
         )}
         {drawerTab === "codex" && (
           <Codex
