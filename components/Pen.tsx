@@ -9,11 +9,13 @@ import type { PromptContext } from "@/lib/construct/types";
 import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
 import { showPassage } from "@/lib/passage";
 import { hasCurlyQuotes, straightenQuotes } from "@/lib/quotes";
+import type { Spot } from "@/lib/spot";
 import { slugify, wordCount } from "@/lib/text";
 import { STATUS_LABEL, type Story, useAutosave } from "@/lib/useAutosave";
 import { useFocusMode } from "@/lib/useFocusMode";
 import { useLibrary } from "@/lib/useLibrary";
 import { useMedia } from "@/lib/useMedia";
+import { useSpot } from "@/lib/useSpot";
 import { HEADINGS, usePenEditor } from "@/lib/usePenEditor";
 import type { VersionMeta } from "@/lib/versions";
 import Codex from "./Codex";
@@ -51,9 +53,11 @@ type Props = {
   initialEntry?: string;
   /** A Construct citation to show once the manuscript is loaded (from `?cite=`). */
   initialCite?: string;
+  /** Where the writer last was in the manuscript. */
+  initialSpot?: Spot;
 };
 
-export default function Pen({ projectId, kind, initial, initialEntry, initialCite }: Props) {
+export default function Pen({ projectId, kind, initial, initialEntry, initialCite, initialSpot }: Props) {
   const isEntry = kind === "entry";
   const headingNames = HEADINGS[kind];
   const router = useRouter();
@@ -100,6 +104,14 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
     ready: !!editor,
   });
   touchRef.current = touch;
+
+  // Reopen where the writer left off, unless a citation brought them here.
+  const spot = useSpot({
+    editor,
+    url: isEntry ? null : `/api/docs/${projectId}/spot`,
+    initial: initialCite ? undefined : initialSpot,
+    paused: !!preview,
+  });
 
   // Curly quotes from imports or older text are straightened on open (and saved
   // by autosave). A manuscript gets a version first, so nothing is lost.
@@ -294,7 +306,7 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
 
   // Save before leaving this document, whichever way we leave.
   const go = async (href: string) => {
-    await Promise.all([leave(), panel.current?.leave()]);
+    await Promise.all([leave(), panel.current?.leave(), spot.leave()]);
     router.push(href);
   };
   const goLibrary = () => go("/?library");

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Pen from "@/components/Pen";
-import { readDoc } from "@/lib/docs";
+import { readDoc, readSpot } from "@/lib/docs";
 import { requirePageSession } from "@/lib/session";
 
 // Always read the file fresh so every device opens the latest version.
@@ -15,7 +15,7 @@ export default async function Page({
 }) {
   const [{ id }, { entry, cite }] = await Promise.all([params, searchParams]);
   await requirePageSession(`/d/${id}`);
-  const doc = await readDoc(id);
+  const [doc, spot] = await Promise.all([readDoc(id), readSpot(id)]);
   if (!doc) notFound();
   // Keyed so switching documents gets a fresh editor and save state.
   return (
@@ -26,6 +26,7 @@ export default async function Page({
       initial={doc}
       initialEntry={typeof entry === "string" && entry ? entry : undefined}
       initialCite={typeof cite === "string" && cite ? cite : undefined}
+      initialSpot={spot ?? undefined}
     />
   );
 }

@@ -4,6 +4,7 @@ import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promi
 import path from "node:path";
 import { DOCS_DIR } from "./paths";
 import { recordRename } from "./renames";
+import { sanitizeSpot, type Spot } from "./spot";
 import { slugify, titleOf, wordCount } from "./text";
 import * as versions from "./versions";
 
@@ -231,6 +232,30 @@ export function renameDoc(id: string, to: string): Promise<RenameResult> {
     await rename(dirOf(id), dirOf(to));
     await recordRename(id, to);
     return "ok";
+  });
+}
+
+// ─── Spot ────────────────────────────────────────────────────
+// Where the writer last was in the manuscript (lib/spot.ts): <project>/spot.json.
+
+const spotFile = (id: string) => path.join(dirOf(id), "spot.json");
+
+export async function readSpot(id: string): Promise<Spot | null> {
+  if (!isValidId(id)) return null;
+  try {
+    return sanitizeSpot(JSON.parse(await readFile(spotFile(id), "utf8")));
+  } catch {
+    return null; // none yet, or unreadable: open at the top
+  }
+}
+
+/** False if the project doesn't exist (unlike writeDoc, this never creates one). */
+export function writeSpot(id: string, spot: Spot): Promise<boolean> {
+  if (!isValidId(id)) return Promise.resolve(false);
+  return serialize(async () => {
+    if (!(await projectExists(id))) return false;
+    await atomicWrite(spotFile(id), JSON.stringify(spot));
+    return true;
   });
 }
 
