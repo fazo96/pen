@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { isImage, prepareCover } from "./cover";
-import { withTitle } from "./text";
+import { newManuscript, withTitle } from "./text";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 export const IMPORT_ACCEPT = ".md,.markdown,.mdown,.txt,text/markdown,text/plain";
@@ -81,7 +81,8 @@ export function useLibrary() {
     [router, run],
   );
 
-  const createNew = useCallback(() => create("# Untitled\n\n", "untitled"), [create]);
+  /** A blank manuscript under `title`, which also names its address. */
+  const createNew = useCallback((title: string) => create(newManuscript(title), title.trim() || "untitled"), [create]);
 
   const importFile = useCallback(
     async (file: File) => {

@@ -2649,6 +2649,19 @@ a.btn {
   }
 }
 
+/* ─── New manuscript ───────────────────────────────────────── */
+.new-book {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 28rem;
+  margin-top: 1.6rem;
+}
+.new-book .lock-actions {
+  margin-top: 0;
+}
+
 /* ─── Book settings ────────────────────────────────────────── */
 .book-settings .welcome-lede a,
 .book-settings .lock-text a {
@@ -2748,4 +2761,22 @@ a.btn {
   border: 0;
   background: transparent;
   box-shadow: none;
+}
+.welcome-actions .btn.is-on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.link-btn {
+  font: inherit;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+.link-btn:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+.book-settings-address + .lock-hint {
+  margin-top: 10px;
 }

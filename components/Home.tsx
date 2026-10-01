@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { DocMeta } from "@/lib/docs";
 import type { Layout } from "@/lib/shelfLayout";
 import { IMPORT_ACCEPT, useLibrary } from "@/lib/useLibrary";
@@ -15,6 +15,8 @@ import ThemeButton from "./ThemeButton";
 export default function Home({ docs, shelves }: { docs: DocMeta[]; shelves: Layout }) {
   const picker = useRef<HTMLInputElement>(null);
   const lib = useLibrary();
+  const [naming, setNaming] = useState(false);
+  const [title, setTitle] = useState("");
   const total = docs.reduce((n, d) => n + d.words, 0);
   const shelved = docs.length > 0;
 
@@ -61,13 +63,52 @@ export default function Home({ docs, shelves }: { docs: DocMeta[]; shelves: Layo
             >
               <IconImport /> Import markdown
             </button>
-            <button type="button" className="btn" onClick={lib.createNew} disabled={lib.busy}>
+            <button
+              type="button"
+              className={`btn ${naming ? "is-on" : ""}`}
+              onClick={() => {
+                setTitle("");
+                setNaming((n) => !n);
+              }}
+              disabled={lib.busy}
+              aria-expanded={naming}
+            >
               <IconPlus /> New manuscript
             </button>
             <Link href="/settings" className="btn">
               <IconSettings /> Settings
             </Link>
           </div>
+          {naming && (
+            <form
+              className="new-book"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!lib.busy) void lib.createNew(title);
+              }}
+            >
+              <label className="field">
+                <span className="label">Title</span>
+                <input
+                  value={title}
+                  placeholder="Untitled"
+                  maxLength={200}
+                  autoFocus
+                  onChange={(e) => setTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === "Escape" && setNaming(false)}
+                />
+              </label>
+              <div className="lock-actions">
+                <button type="submit" className="btn btn-primary" disabled={lib.busy}>
+                  Create
+                </button>
+                <button type="button" className="btn btn-quiet" onClick={() => setNaming(false)}>
+                  Cancel
+                </button>
+              </div>
+              <p className="lock-hint">It also names the book’s address. No title yet? Leave it empty and set one later.</p>
+            </form>
+          )}
           <input
             ref={picker}
             type="file"

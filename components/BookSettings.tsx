@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { COVER_ACCEPT, isImage } from "@/lib/cover";
 import type { DocMeta } from "@/lib/docs";
 import { findBook, type Layout, moveBook } from "@/lib/shelfLayout";
+import { slugify } from "@/lib/text";
 import { useLibrary } from "@/lib/useLibrary";
 import { ago, Cover } from "./Book";
 import { IconBack, IconClose, IconImage, IconPencil, IconShelf, IconTrash } from "./icons";
@@ -81,6 +82,13 @@ export default function BookSettings({ doc, shelves }: { doc: DocMeta; shelves: 
     }
   };
 
+  // An address that follows the title, when it doesn't already ("untitled", or a
+  // title changed since). "the-tide-2" beside "the-tide" is left alone.
+  const fromTitle = slugify(doc.title);
+  const suggested =
+    fromTitle && ID_RE.test(fromTitle) && fromTitle !== doc.id && !new RegExp(`^${fromTitle}-\\d+$`).test(doc.id)
+      ? fromTitle
+      : address;
   const wanted = address.replace(/-+$/, "");
   const addressOk = ID_RE.test(wanted);
   const rename = async (e: React.FormEvent) => {
@@ -237,7 +245,18 @@ export default function BookSettings({ doc, shelves }: { doc: DocMeta; shelves: 
                 Save
               </button>
             </form>
-            {!addressOk && <p className="lock-hint">Letters, digits and hyphens.</p>}
+            {!addressOk ? (
+              <p className="lock-hint">Letters, digits and hyphens.</p>
+            ) : (
+              suggested !== address && (
+                <p className="lock-hint">
+                  It doesn’t match the title.{" "}
+                  <button type="button" className="link-btn" onClick={() => setAddress(suggested)}>
+                    Use /d/{suggested}
+                  </button>
+                </p>
+              )
+            )}
             {errorIn("address")}
           </section>
 

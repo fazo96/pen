@@ -20,7 +20,7 @@ export function stripComments(markdown: string): string {
 /** Title is the first H1; failing that, the first line of text; failing that, the fallback. */
 export function titleOf(source: string, fallback: string): string {
   const markdown = stripComments(source);
-  const h1 = markdown.match(/^#[ \t]+(.+?)[ \t#]*$/m);
+  const h1 = markdown.match(/^#[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$/m);
   if (h1) return stripInline(h1[1]);
   const line = markdown.split("\n").find((l) => l.trim() && !/^(-{3,}|\*{3,}|_{3,})$/.test(l.trim()));
   if (line) {
@@ -31,7 +31,11 @@ export function titleOf(source: string, fallback: string): string {
 }
 
 function stripInline(s: string) {
-  return s.replace(/[*_~`]/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").trim();
+  return s
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/\\([!-/:-@[-`{-~])|[*_~`]/g, (_m, escaped?: string) => escaped ?? "") // "\*" stays a "*"
+    .replace(/&amp;/g, "&")
+    .trim();
 }
 
 /** Words in markdown or plain text, not counting comments. */
@@ -50,6 +54,18 @@ export function withTitle(text: string, fileName: string): string {
   if (/^(?:\s|%%[\s\S]*?%%|<!--[\s\S]*?-->)*#[ \t]+\S/.test(body)) return body;
   const title = fileName.replace(/\.[^.]*$/, "").trim() || "Untitled";
   return `# ${title}\n\n${body.replace(/^\s*\n/, "")}`;
+}
+
+/** A new manuscript: the title as its H1, escaped so it reads back as typed ("Untitled" if empty). */
+export function newManuscript(title: string): string {
+  const text = straightQuotes(title).replace(/\s+/g, " ").trim() || "Untitled";
+  const escaped = text
+    .replace(/[\\`*_[\]~]/g, "\\$&")
+    .replace(/&(?=#?[A-Za-z0-9]+;)/g, "&amp;")
+    .replace(/<(?=[A-Za-z/!?])/g, "\\<")
+    .replace(/%(?=%)/g, "%\\")
+    .replace(/#+$/, "\\$&"); // a closing "#" run would be dropped
+  return `# ${escaped}\n\n`;
 }
 
 /** Curly quotes to straight ones: pen keeps " and ' (see lib/quotes.ts). */

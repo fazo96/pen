@@ -5,6 +5,7 @@ import { MarkdownManager } from "@tiptap/markdown";
 import StarterKit from "@tiptap/starter-kit";
 import { CommentExtensions } from "../lib/comments.ts";
 import { escapeText, installEscaping } from "../lib/markdownEscape.ts";
+import { newManuscript, titleOf } from "../lib/text.ts";
 
 // The editor's markdown, minus the DOM: tiptap's own manager with pen's extensions.
 function manager() {
@@ -123,4 +124,22 @@ test("existing files load and save unchanged", () => {
 
 test("installEscaping refuses a manager without the expected internals", () => {
   assert.throws(() => installEscaping({} as MarkdownManager), /internals changed/);
+});
+
+test("a new manuscript's title reads back as typed, in the editor and the library", () => {
+  const titles = ["The *Heist*", "Part #", "snake_case & <b>bold</b>", "100%% sure", "# Hash", "[Not] a link", "C:\\path", "Fish &amp; chips"];
+  for (const t of titles) {
+    const source = newManuscript(t);
+    const heading = md.parse(source).content?.[0];
+    assert.equal(heading?.type, "heading", source);
+    assert.equal(heading?.content?.map((c) => c.text).join(""), t, source);
+    assert.equal(titleOf(source, "x"), t, source);
+  }
+  assert.equal(newManuscript("  Tom’s   “Tale” "), "# Tom's \"Tale\"\n\n");
+  assert.equal(newManuscript("  "), "# Untitled\n\n");
+});
+
+test("titles keep their closing hashes only when escaped", () => {
+  assert.equal(titleOf("# Title ##\n", "x"), "Title");
+  assert.equal(titleOf("# C#\n", "x"), "C#");
 });
