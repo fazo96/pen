@@ -1,12 +1,12 @@
 "use client";
 
-import { Markdown } from "@tiptap/markdown";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Typography from "@tiptap/extension-typography";
 import { Placeholder } from "@tiptap/extensions";
 import { useRef } from "react";
 import { CommentExtensions } from "./comments";
+import { PenMarkdown } from "./markdownEscape";
 import { CitedPassage } from "./passage";
 import { StraightQuotes } from "./quotes";
 
@@ -31,7 +31,7 @@ export function usePenEditor(kind: "manuscript" | "entry", content: string, onCh
         heading: { levels: [1, 2, 3] },
         link: { openOnClick: false },
       }),
-      Markdown,
+      PenMarkdown,
       ...CommentExtensions,
       Typography.configure({
         // Keep dashes and ellipses; drop the ones that ambush prose. Quotes stay
