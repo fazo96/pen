@@ -28,7 +28,7 @@ import FocusControls from "./FocusControls";
 import GrammarPane, { GrammarCount } from "./GrammarPane";
 import GrammarPopover from "./GrammarPopover";
 import WordTools from "./WordTools";
-import { IconBack, IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconOutline } from "./icons";
+import { IconBack, IconCodex, IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconManuscript, IconOutline } from "./icons";
 import History from "./History";
 import Logo from "./Logo";
 import Outline, { type Heading } from "./Outline";
@@ -53,11 +53,13 @@ type Props = {
   initialEntry?: string;
   /** A Construct citation to show once the manuscript is loaded (from `?cite=`). */
   initialCite?: string;
-  /** Where the writer last was in the manuscript. */
+  /** Where the writer last was in this manuscript or entry. */
   initialSpot?: Spot;
+  /** The Codex entry viewed last, for the top bar's switch (manuscript only). */
+  lastEntry?: { id: string; title: string };
 };
 
-export default function Pen({ projectId, kind, initial, initialEntry, initialCite, initialSpot }: Props) {
+export default function Pen({ projectId, kind, initial, initialEntry, initialCite, initialSpot, lastEntry }: Props) {
   const isEntry = kind === "entry";
   const headingNames = HEADINGS[kind];
   const router = useRouter();
@@ -106,9 +108,11 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
   touchRef.current = touch;
 
   // Reopen where the writer left off, unless a citation brought them here.
+  const spotUrl = `/api/docs/${projectId}/spot`;
   const spot = useSpot({
     editor,
-    url: isEntry ? null : `/api/docs/${projectId}/spot`,
+    url: spotUrl,
+    entry: isEntry ? initial.id : null,
     initial: initialCite ? undefined : initialSpot,
     paused: !!preview,
   });
@@ -333,6 +337,55 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
     setPanelFocused(false);
     setCodexKey((k) => k + 1);
   };
+  // ─── Switching between the manuscript and the Codex entry viewed last ───
+  const [last, setLast] = useState(lastEntry ?? null);
+  // Any entry opened counts, beside the manuscript or on its own page.
+  const visited = isEntry ? initial.id : panelEntry;
+  useEffect(() => {
+    if (!visited) return;
+    void fetch(spotUrl, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ entry: visited }),
+    }).catch(() => {});
+  }, [spotUrl, visited]);
+  useEffect(() => {
+    if (panelEntry) setLast({ id: panelEntry, title: panelTitle || panelEntry });
+  }, [panelEntry, panelTitle]);
+
+  /** Manuscript ⇄ the last entry: a page of its own on phones, the side panel where there's room. */
+  const switchView = () => {
+    const beside = window.matchMedia(WIDE).matches;
+    if (isEntry) return go(beside ? `/d/${projectId}?entry=${encodeURIComponent(initial.id)}` : `/d/${projectId}`);
+    if (beside && panelEntry) return closeEntry();
+    if (!last) {
+      // Nothing viewed yet: show the list instead.
+      setDrawerTab("codex");
+      setOutlineOpen(true);
+      return;
+    }
+    return beside ? openEntry(last.id) : go(`/d/${projectId}/codex/${last.id}`);
+  };
+  const switchRef = useRef(switchView);
+  switchRef.current = switchView;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        void switchRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const switchLabel = isEntry
+    ? "Back to the manuscript"
+    : panelEntry
+      ? "Close the Codex entry"
+      : last
+        ? `Codex: ${last.title}`
+        : "Codex";
+
   /** Codex and Construct links: entries open beside the manuscript when there's room. */
   const open = (href: string) => {
     if (isEntry) return go(href);
@@ -412,6 +465,10 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
   };
   const onCodexChange = ({ entry, action, to }: { entry: string; action: string; to?: string }) => {
     setCodexKey((k) => k + 1);
+    if (entry === last?.id) {
+      if (action === "deleted") setLast(null);
+      if (action === "renamed" && to) setLast({ ...last, id: to });
+    }
     if (!isEntry) {
       if (entry !== panelEntry) return;
       if (action === "edited") void panel.current?.pull();
@@ -484,6 +541,15 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
               <span className="status-label">{STATUS_LABEL[status]}</span>
             </span>
           )}
+          <button
+            type="button"
+            className={`icon-btn ${panelEntry ? "is-on" : ""}`}
+            onClick={() => void switchView()}
+            aria-label={switchLabel}
+            title={`${switchLabel} (Ctrl+Shift+E)`}
+          >
+            {isEntry ? <IconManuscript /> : <IconCodex />}
+          </button>
           {/* Inline on wider screens; folded into EditorMenu on phones (CSS picks one). */}
           <div className="topbar-tools">
             <span className="words label">{words.toLocaleString()} w</span>

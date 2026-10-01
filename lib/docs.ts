@@ -4,7 +4,7 @@ import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promi
 import path from "node:path";
 import { DOCS_DIR } from "./paths";
 import { recordRename } from "./renames";
-import { sanitizeSpot, type Spot } from "./spot";
+import { droppedEntry, noSpots, renamedEntry, sanitizeSpots, type Spot, type Spots, withLast, withSpot } from "./spot";
 import { slugify, titleOf, wordCount } from "./text";
 import * as versions from "./versions";
 
@@ -236,25 +236,38 @@ export function renameDoc(id: string, to: string): Promise<RenameResult> {
 }
 
 // ─── Spot ────────────────────────────────────────────────────
-// Where the writer last was in the manuscript (lib/spot.ts): <project>/spot.json.
+// Where the writer last was in the manuscript and in each Codex entry, and the
+// entry viewed last (lib/spot.ts): <project>/spot.json.
 
 const spotFile = (id: string) => path.join(dirOf(id), "spot.json");
 
-export async function readSpot(id: string): Promise<Spot | null> {
-  if (!isValidId(id)) return null;
+export async function readSpots(id: string): Promise<Spots> {
+  if (!isValidId(id)) return noSpots();
   try {
-    return sanitizeSpot(JSON.parse(await readFile(spotFile(id), "utf8")));
+    return sanitizeSpots(JSON.parse(await readFile(spotFile(id), "utf8")));
   } catch {
-    return null; // none yet, or unreadable: open at the top
+    return noSpots(); // none yet, or unreadable: open at the top
   }
 }
 
-/** False if the project doesn't exist (unlike writeDoc, this never creates one). */
-export function writeSpot(id: string, spot: Spot): Promise<boolean> {
-  if (!isValidId(id)) return Promise.resolve(false);
+/** Unserialized: callers hold the queue. Written only when it changes. */
+async function updateSpots(id: string, change: (s: Spots) => Spots) {
+  const before = await readSpots(id);
+  const after = change(before);
+  if (JSON.stringify(after) !== JSON.stringify(before)) await atomicWrite(spotFile(id), JSON.stringify(after));
+}
+
+/**
+ * Record the manuscript's spot (entry null), or an entry's, which also makes it
+ * the last viewed; without a spot, only that. False if the project or entry
+ * doesn't exist (unlike writeDoc, this never creates one).
+ */
+export function writeSpot(id: string, entry: string | null, spot: Spot | null): Promise<boolean> {
+  if (!isValidId(id) || (entry !== null && !isValidId(entry))) return Promise.resolve(false);
   return serialize(async () => {
     if (!(await projectExists(id))) return false;
-    await atomicWrite(spotFile(id), JSON.stringify(spot));
+    if (entry !== null && !(await readEntry(id, entry))) return false;
+    await updateSpots(id, (s) => (spot ? withSpot(s, entry, spot) : entry ? withLast(s, entry) : s));
     return true;
   });
 }
@@ -480,6 +493,7 @@ export function trashEntry(id: string, eid: string): Promise<boolean> {
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     try {
       await rename(entryFile(id, eid), path.join(TRASH_DIR, `${id}--codex--${eid}--${stamp}.md`));
+      await updateSpots(id, (s) => droppedEntry(s, eid));
       return true;
     } catch (err) {
       if (isMissing(err)) return false;
@@ -501,6 +515,7 @@ export function renameEntry(id: string, eid: string, newEid: string): Promise<bo
     }
     try {
       await rename(from, to);
+      await updateSpots(id, (s) => renamedEntry(s, eid, newEid));
       return true;
     } catch (err) {
       if (isMissing(err)) return false;

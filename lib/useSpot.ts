@@ -5,7 +5,7 @@ import type { Editor } from "@tiptap/react";
 import { useCallback, useEffect, useRef } from "react";
 import { placeOf, posOf, type Spot } from "./spot";
 
-// Saves where the writer is in the manuscript (lib/spot.ts) a moment after they
+// Saves where the writer is in the manuscript or a Codex entry (lib/spot.ts) a moment after they
 // scroll or move the cursor, when leaving the page, and when it's hidden; puts
 // them back there when it opens.
 
@@ -41,16 +41,19 @@ function currentSpot(editor: Editor): Spot {
 
 type Options = {
   editor: Editor | null;
-  /** The project's spot endpoint; null turns the hook off (codex entries). */
-  url: string | null;
+  /** The project's spot endpoint. */
+  url: string;
+  /** The Codex entry this editor holds; null for the manuscript. */
+  entry: string | null;
   /** Where to open; skipped when the page opened somewhere else on purpose (a citation). */
   initial?: Spot;
   /** Don't record while the page shows something else (a version preview). */
   paused: boolean;
 };
 
-export function useSpot({ editor, url, initial, paused }: Options) {
-  const sent = useRef(initial ? JSON.stringify(initial) : "");
+export function useSpot({ editor, url, entry, initial, paused }: Options) {
+  const bodyOf = useCallback((spot: Spot) => JSON.stringify(entry ? { entry, spot } : { spot }), [entry]);
+  const sent = useRef(initial ? bodyOf(initial) : "");
   // The last spot measured, a moment after the writer stopped. Kept because by
   // the time the page unmounts (the back button) it may already have scrolled
   // for the next page.
@@ -63,15 +66,15 @@ export function useSpot({ editor, url, initial, paused }: Options) {
 
   const measure = useCallback(() => {
     clearTimeout(measureTimer.current);
-    if (editor && !editor.isDestroyed && url && !pausedRef.current && !left.current) {
-      latest.current = JSON.stringify(currentSpot(editor));
+    if (editor && !editor.isDestroyed && !pausedRef.current && !left.current) {
+      latest.current = bodyOf(currentSpot(editor));
     }
-  }, [editor, url]);
+  }, [editor, bodyOf]);
 
   const send = useCallback(async () => {
     clearTimeout(saveTimer.current);
     const body = latest.current;
-    if (!body || !url || body === sent.current) return;
+    if (!body || body === sent.current) return;
     const res = await fetch(url, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -90,7 +93,7 @@ export function useSpot({ editor, url, initial, paused }: Options) {
 
   // Open where the writer left off.
   useEffect(() => {
-    if (!editor || !url || !initial) return;
+    if (!editor || !initial) return;
     const { doc } = editor.state;
     const sel = TextSelection.between(doc.resolve(posOf(doc, initial.anchor)), doc.resolve(posOf(doc, initial.head)));
     // Not focused: on a phone that would bring up the keyboard.
@@ -113,7 +116,7 @@ export function useSpot({ editor, url, initial, paused }: Options) {
   }, [editor]);
 
   useEffect(() => {
-    if (!editor || !url) return;
+    if (!editor) return;
     const schedule = () => {
       if (left.current) return;
       clearTimeout(measureTimer.current);

@@ -235,3 +235,18 @@ export const IconGithub = (p: P) => (
     />
   </svg>
 );
+
+/** An index card: a Codex entry. */
+export const IconCodex = (p: P) => (
+  <svg {...base} {...p}>
+    <rect x="3" y="5" width="14" height="10.5" rx="1" />
+    <path d="M3 8.5h14M6 11.5h8M6 13.5h5" />
+  </svg>
+);
+
+/** A page of prose: the manuscript. */
+export const IconManuscript = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M5 3h7l3 3v11H5Z M12 3v3h3M7.5 9h5M7.5 11.5h5M7.5 14h3.5" />
+  </svg>
+);

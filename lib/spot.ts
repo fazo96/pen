@@ -57,3 +57,66 @@ export function sanitizeSpot(x: unknown): Spot | null {
   const [anchor, head, top] = [sanitizePlace(s.anchor), sanitizePlace(s.head), sanitizePlace(s.top)];
   return anchor && head && top ? { anchor, head, top } : null;
 }
+
+// ─── spot.json ───────────────────────────────────────────────
+// One file per project: the manuscript's spot, the Codex entries' (most
+// recently used last, at most MAX_ENTRIES) and the entry viewed last, which
+// the top bar's switch goes back to.
+
+export type Spots = { manuscript?: Spot; entries: [string, Spot][]; last?: string };
+
+const MAX_ENTRIES = 50;
+const ENTRY_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
+
+export const noSpots = (): Spots => ({ entries: [] });
+
+/** Spots from untrusted JSON; the old file (a lone Spot) is the manuscript's. */
+export function sanitizeSpots(x: unknown): Spots {
+  const old = sanitizeSpot(x);
+  if (old) return { manuscript: old, entries: [] };
+  const s = x as { manuscript?: unknown; entries?: unknown; last?: unknown } | null;
+  if (!s || typeof s !== "object") return noSpots();
+  const out = noSpots();
+  const manuscript = sanitizeSpot(s.manuscript);
+  if (manuscript) out.manuscript = manuscript;
+  if (Array.isArray(s.entries)) {
+    const seen = new Set<string>();
+    for (const e of s.entries.slice(-MAX_ENTRIES)) {
+      if (!Array.isArray(e) || typeof e[0] !== "string" || !ENTRY_RE.test(e[0]) || seen.has(e[0])) continue;
+      const spot = sanitizeSpot(e[1]);
+      if (!spot) continue;
+      seen.add(e[0]);
+      out.entries.push([e[0], spot]);
+    }
+  }
+  if (typeof s.last === "string" && ENTRY_RE.test(s.last)) out.last = s.last;
+  return out;
+}
+
+export const entrySpot = (spots: Spots, entry: string) => spots.entries.find(([e]) => e === entry)?.[1];
+
+/** With `spot` for the manuscript (entry null) or an entry, which becomes the last viewed. */
+export function withSpot(spots: Spots, entry: string | null, spot: Spot): Spots {
+  if (entry === null) return { ...spots, manuscript: spot };
+  const entries = spots.entries.filter(([e]) => e !== entry);
+  entries.push([entry, spot]);
+  return { ...spots, entries: entries.slice(-MAX_ENTRIES), last: entry };
+}
+
+export const withLast = (spots: Spots, entry: string): Spots => ({ ...spots, last: entry });
+
+/** After an entry's id changed. */
+export function renamedEntry(spots: Spots, from: string, to: string): Spots {
+  return {
+    ...spots,
+    entries: spots.entries.filter(([e]) => e !== to).map(([e, s]) => [e === from ? to : e, s]),
+    last: spots.last === from ? to : spots.last,
+  };
+}
+
+/** After an entry was deleted. */
+export function droppedEntry(spots: Spots, entry: string): Spots {
+  const out: Spots = { ...spots, entries: spots.entries.filter(([e]) => e !== entry) };
+  if (out.last === entry) delete out.last;
+  return out;
+}
