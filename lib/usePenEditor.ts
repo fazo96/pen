@@ -6,6 +6,7 @@ import Typography from "@tiptap/extension-typography";
 import { Placeholder } from "@tiptap/extensions";
 import { useRef } from "react";
 import { CommentExtensions } from "./comments";
+import { Grammar } from "./grammar";
 import { PenMarkdown } from "./markdownEscape";
 import { CitedPassage } from "./passage";
 import { StraightQuotes } from "./quotes";
@@ -59,6 +60,7 @@ export function usePenEditor(kind: "manuscript" | "entry", content: string, onCh
       }),
       StraightQuotes,
       CitedPassage,
+      Grammar, // also sets spellcheck on the editor
       Placeholder.configure({
         placeholder: ({ node }) =>
           node.type.name === "commentBlock"
@@ -73,7 +75,6 @@ export function usePenEditor(kind: "manuscript" | "entry", content: string, onCh
     editorProps: {
       attributes: {
         class: isEntry ? "prose is-notes" : "prose",
-        spellcheck: "true",
         "aria-label": isEntry ? "Codex entry" : "Manuscript",
       },
     },

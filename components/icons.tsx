@@ -190,6 +190,12 @@ export const IconDown = (p: P) => (
   </svg>
 );
 
+export const IconGrammar = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="m5 8.5 3 3 6-6.5M3 15.5c1.2-1.2 2.3-1.2 3.5 0s2.3 1.2 3.5 0 2.3-1.2 3.5 0 2.3 1.2 3.5 0" />
+  </svg>
+);
+
 export const IconGear = (p: P) => (
   <svg {...base} {...p}>
     <circle cx="10" cy="10" r="2.4" />

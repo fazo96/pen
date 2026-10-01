@@ -2,13 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/lib/useTheme";
-import { IconConstruct, IconExport, IconFocus, IconGear, IconMore, IconTheme } from "./icons";
+import { IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconMore, IconTheme } from "./icons";
 
 type Props = {
   status: string;
   words: number;
   constructOpen: boolean;
+  grammarOn: boolean;
   onFocus: () => void;
+  onGrammar: () => void;
   onExport: () => void;
   onConstruct: () => void;
   onSettings: () => void;
@@ -50,7 +52,7 @@ export default function EditorMenu(props: Props) {
 }
 
 // Mounted only while open, so the theme label is read fresh each time.
-function Items({ status, words, constructOpen, onFocus, onExport, onConstruct, onSettings, close }: Props & { close: () => void }) {
+function Items({ status, words, constructOpen, grammarOn, onFocus, onGrammar, onExport, onConstruct, onSettings, close }: Props & { close: () => void }) {
   const theme = useTheme();
   const pick = (fn: () => void) => () => {
     close();
@@ -67,6 +69,9 @@ function Items({ status, words, constructOpen, onFocus, onExport, onConstruct, o
       </button>
       <button type="button" role="menuitem" onClick={theme.cycle}>
         <IconTheme /> Theme <span className="editor-menu-value">{theme.label}</span>
+      </button>
+      <button type="button" role="menuitemcheckbox" aria-checked={grammarOn} onClick={onGrammar}>
+        <IconGrammar /> Grammar <span className="editor-menu-value">{grammarOn ? "On" : "Off"}</span>
       </button>
       <button type="button" role="menuitem" onClick={pick(onExport)}>
         <IconExport /> Export .md

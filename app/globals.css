@@ -2800,3 +2800,104 @@ a.btn {
   line-height: 1.4;
   color: var(--ink);
 }
+
+/* ─── Grammar ──────────────────────────────────────────────── */
+.prose .grammar-flag {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-thickness: 1px;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 0.22em;
+  cursor: pointer;
+}
+.prose .grammar-flag.is-spelling {
+  text-decoration-color: var(--accent);
+}
+.prose .grammar-flag.is-grammar {
+  text-decoration-color: var(--signal);
+}
+.grammar-popover {
+  position: fixed;
+  z-index: 60;
+  width: max-content;
+  min-width: 12rem;
+  max-width: min(20rem, calc(100vw - 16px));
+}
+.grammar-message {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 12px 10px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: var(--ink);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 4px;
+}
+.popover-menu > button.grammar-fix {
+  font-family: var(--font-body);
+  font-size: 1.02rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--accent);
+}
+.grammar-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 1.4rem;
+}
+.grammar-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.grammar-words li {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 2px 2px 10px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper-raised);
+}
+.grammar-words button {
+  display: inline-flex;
+  padding: 5px;
+  color: var(--ink-faint);
+}
+.grammar-words button:hover {
+  color: var(--accent);
+}
+.grammar-words svg {
+  width: 13px;
+  height: 13px;
+}
+.grammar-rules {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 28rem;
+}
+.grammar-rules li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.grammar-rules em {
+  color: var(--ink-faint);
+}
+.grammar-rules .btn {
+  min-width: 4.5rem;
+  justify-content: center;
+}
+.grammar-rules .btn.is-on {
+  color: var(--accent);
+}

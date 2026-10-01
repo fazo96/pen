@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { LibraryStats } from "@/lib/library";
+import GrammarSettings from "./GrammarSettings";
 import { IconBack, IconBooks, IconExport } from "./icons";
 import Logo from "./Logo";
 import LockSettings from "./LockSettings";
@@ -47,6 +48,7 @@ export default function Settings({ locked, stats }: { locked: boolean; stats: Li
               </a>
             </div>
           </section>
+          <GrammarSettings />
           <LockSettings locked={locked} />
         </section>
       </main>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Citation, findPassage, type LineCitation, parseCitation } from "@/lib/cite";
 import { textWithoutComments } from "@/lib/comments";
+import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
 import { showPassage } from "@/lib/passage";
 import { hasCurlyQuotes, straightenQuotes } from "@/lib/quotes";
 import { slugify, wordCount } from "@/lib/text";
@@ -21,7 +22,8 @@ import Drawer from "./Drawer";
 import DropImport from "./DropImport";
 import EditorMenu from "./EditorMenu";
 import FocusControls from "./FocusControls";
-import { IconBack, IconConstruct, IconExport, IconFocus, IconGear, IconOutline } from "./icons";
+import GrammarPopover from "./GrammarPopover";
+import { IconBack, IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconOutline } from "./icons";
 import History from "./History";
 import Logo from "./Logo";
 import Outline, { type Heading } from "./Outline";
@@ -294,6 +296,8 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
   };
   const goLibrary = () => go("/?library");
   const openSettings = () => go(`/d/${projectId}/settings`);
+  const grammarOn = useGrammarEnabled();
+  const toggleGrammar = () => grammar.setEnabled(!grammarOn);
 
   // ─── Codex entry beside the manuscript ─────────────────────
   const openEntry = async (eid: string) => {
@@ -467,6 +471,16 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
               <IconFocus />
             </button>
             <ThemeButton />
+            <button
+              type="button"
+              className={`icon-btn ${grammarOn ? "is-on" : ""}`}
+              onClick={toggleGrammar}
+              aria-label="Grammar check"
+              aria-pressed={grammarOn}
+              title={grammarOn ? "Grammar check: on" : "Grammar check: off"}
+            >
+              <IconGrammar />
+            </button>
             <button type="button" className="icon-btn" onClick={exportMarkdown} aria-label="Export markdown" title="Export .md">
               <IconExport />
             </button>
@@ -495,6 +509,8 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
             words={words}
             constructOpen={constructOpen}
             onFocus={toggleFocus}
+            grammarOn={grammarOn}
+            onGrammar={toggleGrammar}
             onExport={exportMarkdown}
             onConstruct={toggleConstruct}
             onSettings={openSettings}
@@ -642,6 +658,8 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
         />
       )}
       <DropImport onFile={importFile} />
+      {editor && <GrammarPopover editor={editor} />}
+      {panelEditor && <GrammarPopover editor={panelEditor} />}
     </div>
   );
 }
