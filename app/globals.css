@@ -3227,9 +3227,12 @@ a.btn {
 }
 
 /* ─── Quick switcher and commands (Ctrl+O, Ctrl+P) ─────────── */
-.scrim.palette-scrim {
+/* Not a .scrim: those are hidden on wide screens and in focus mode. */
+.palette-scrim {
+  position: fixed;
+  inset: 0;
   z-index: 70;
-  transition: none;
+  background: rgb(20 14 6 / 0.28);
 }
 .palette {
   position: fixed;

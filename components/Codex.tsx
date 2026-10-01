@@ -12,7 +12,7 @@ type Props = {
   activeId: string | null;
   activeTitle?: string;
   /** Navigate (saving the current file first). */
-  onOpen: (href: string) => void;
+  onOpen: (href: string) => void | Promise<void>;
   /** Bump to reload the list (e.g. after Construct changed it). */
   refreshKey?: number;
 };
@@ -56,11 +56,13 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     setBusy(true);
     setError(null);
     try {
-      onOpen(`/d/${projectId}/codex/${await createEntry(projectId)}`);
+      // Wide screens open it beside the manuscript, keeping this list on screen.
+      await onOpen(`/d/${projectId}/codex/${await createEntry(projectId)}`);
+      await load();
     } catch {
       setError("Couldn’t create the entry.");
-      setBusy(false);
     }
+    setBusy(false);
   };
 
   /** Each file becomes an entry. One file opens it; several stay put and report back. */
@@ -96,13 +98,11 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
         skipped.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
-    if (files.length === 1 && imported.length === 1) {
-      onOpen(`/d/${projectId}/codex/${imported[0]}`);
-      return;
-    }
+    const opening = files.length === 1 && imported.length === 1;
+    if (opening) await onOpen(`/d/${projectId}/codex/${imported[0]}`);
     await load();
     setBusy(false);
-    if (imported.length) setNotice(`Imported ${imported.length} ${imported.length === 1 ? "entry" : "entries"}.`);
+    if (imported.length && !opening) setNotice(`Imported ${imported.length} ${imported.length === 1 ? "entry" : "entries"}.`);
     if (skipped.length) setError(`Skipped ${skipped.join("; ")}.`);
   };
   const drop = useDropZone((files) => {

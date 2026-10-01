@@ -137,7 +137,7 @@ export default function Palette({ mode, places, commands, onClose }: Props) {
 
   return (
     <>
-      <div className="scrim palette-scrim is-open" onMouseDown={() => onClose(true)} aria-hidden />
+      <div className="palette-scrim" onMouseDown={() => onClose(true)} aria-hidden />
       <div className="palette" role="dialog" aria-modal="true" aria-label={doing ? "Commands" : "Go to"}>
         {asking && <div className="palette-asking label">{asking.label}</div>}
         <input
