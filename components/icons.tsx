@@ -190,6 +190,13 @@ export const IconDown = (p: P) => (
   </svg>
 );
 
+/** Books on a shelf, one leaning. */
+export const IconShelf = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M3 16h14M5 16V6h2.5v10M8.5 16V4H11v12M12.5 16l1.6-9.2 2.3.4-1.4 8.8" />
+  </svg>
+);
+
 /** GitHub's mark, filled: an outline of it doesn't read at this size. */
 export const IconGithub = (p: P) => (
   <svg {...base} stroke="none" fill="currentColor" {...p}>

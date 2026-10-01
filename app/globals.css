@@ -955,24 +955,138 @@ button {
 }
 
 /* ─── Shelf ────────────────────────────────────────────────── */
-.shelf {
+.shelves {
   align-self: stretch;
+  margin-top: 3.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3.4rem;
+}
+.shelves.is-dragging {
+  cursor: grabbing;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.shelf {
+  min-width: 0;
+}
+/* A shelf's name, then a rule running to its menu */
+.shelf-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1.6rem;
+}
+.shelf-name,
+.shelf-name-input {
+  min-width: 0;
+  max-width: 70%;
+  padding: 4px 0;
+  font-family: var(--font-body);
+  font-size: 1.25rem;
+  font-style: italic;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.shelf-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+.shelf-name:hover {
+  color: var(--accent);
+}
+.shelf-name-input {
+  flex: 1;
+  border: 0;
+  border-bottom: 1px solid var(--accent);
+  background: transparent;
+  outline: none;
+}
+.shelf-unnamed {
+  color: var(--ink-faint);
+}
+.shelf-count {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+}
+.shelf-rule {
+  flex: 1;
+  min-width: 12px;
+  height: 1px;
+  background: var(--rule);
+}
+.shelf-more {
+  width: 36px;
+  height: 36px;
+  margin-right: -10px;
+}
+.shelf-more svg {
+  width: 18px;
+  height: 18px;
+}
+.shelf-menu {
+  top: 100%;
+  right: -4px;
+  min-width: 14rem;
+  max-width: 20rem;
+}
+.shelf-books {
   list-style: none;
-  margin: 3.2rem 0 0;
+  margin: 0;
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
   gap: 38px 22px;
 }
 @media (min-width: 720px) {
-  .shelf {
+  .shelf-books {
     grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
     gap: 52px 36px;
   }
 }
+.shelf-empty {
+  margin: 0;
+  padding: 2rem 1rem;
+  border: 1px dashed var(--rule);
+  border-radius: 6px;
+  text-align: center;
+  font-style: italic;
+  color: var(--ink-faint);
+}
+.is-dragging .shelf-empty {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.shelf-add {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: -1.4rem;
+  padding: 8px 0;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.shelf-add:hover {
+  color: var(--accent);
+}
+.shelf-add svg {
+  width: 16px;
+  height: 16px;
+}
 .book {
   position: relative;
   min-width: 0;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
 }
 .book-link {
   display: flex;
@@ -981,6 +1095,31 @@ button {
   color: inherit;
   text-decoration: none;
   border-radius: 4px;
+  -webkit-user-drag: none;
+}
+/* The gap a lifted book leaves, which moves to where it would land */
+.book.is-lifted .book-link {
+  opacity: 0.25;
+}
+.book.is-lifted .book-cover {
+  outline: 1.5px dashed var(--accent);
+  outline-offset: 5px;
+  transform: none;
+}
+.book-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 40;
+  pointer-events: none;
+  transform-origin: 30% 20%;
+  filter: drop-shadow(0 18px 24px rgb(30 18 4 / 0.35));
+}
+.book-ghost .book-cover {
+  transition: none;
+}
+.is-dragging .book-link:hover .book-cover {
+  transform: none;
 }
 .book-cover {
   position: relative;
@@ -1149,6 +1288,19 @@ button {
   width: 16px;
   height: 16px;
   flex: none;
+}
+.popover-menu-head {
+  padding: 8px 12px 6px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.popover-menu > button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .book-menu {
   top: 40%;

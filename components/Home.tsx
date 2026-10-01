@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { useRef } from "react";
 import type { DocMeta } from "@/lib/docs";
+import type { Layout } from "@/lib/shelfLayout";
 import { IMPORT_ACCEPT, useLibrary } from "@/lib/useLibrary";
 import DropImport from "./DropImport";
 import { IconGithub, IconImport, IconPlus, IconSettings } from "./icons";
 import Logo from "./Logo";
-import Shelf from "./Shelf";
+import Shelves from "./Shelves";
 import ThemeButton from "./ThemeButton";
 
 /** The welcome page, and the library as a shelf once there's something on it. */
-export default function Home({ docs }: { docs: DocMeta[] }) {
+export default function Home({ docs, shelves }: { docs: DocMeta[]; shelves: Layout }) {
   const picker = useRef<HTMLInputElement>(null);
   const lib = useLibrary();
   const total = docs.reduce((n, d) => n + d.words, 0);
@@ -47,7 +48,7 @@ export default function Home({ docs }: { docs: DocMeta[] }) {
           <h1 className="welcome-title">{shelved ? "Welcome back." : "A blank desk."}</h1>
           <p className="welcome-lede">
             {shelved
-              ? `${docs.length} ${docs.length === 1 ? "manuscript" : "manuscripts"} on the shelf, ${total.toLocaleString()} words between them.`
+              ? `${docs.length} ${docs.length === 1 ? "manuscript" : "manuscripts"} in the library, ${total.toLocaleString()} words between them.`
               : "Bring in a manuscript you’ve already started, or begin a new one."}
           </p>
 
@@ -86,8 +87,9 @@ export default function Home({ docs }: { docs: DocMeta[] }) {
           )}
 
           {shelved && (
-            <Shelf
+            <Shelves
               docs={docs}
+              layout={shelves}
               busy={lib.busy}
               onDelete={lib.remove}
               onCover={lib.setCover}
@@ -97,7 +99,7 @@ export default function Home({ docs }: { docs: DocMeta[] }) {
 
           <p className="welcome-hint label">
             {shelved
-              ? "Drop a manuscript anywhere to import it, or an image on a book for its cover"
+              ? "Drag books between shelves to arrange them. Drop a manuscript anywhere to import it, or an image on a book for its cover"
               : ".md · .markdown · .txt — or drop a file anywhere"}
           </p>
         </section>
