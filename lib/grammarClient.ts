@@ -3,31 +3,32 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { applyPatch, dictKey, effectiveRules, visibleFlags, type GrammarConfig, type GrammarPatch } from "./grammarConfig";
 import type { Flag } from "./grammarText";
-import type { WorkerRequest, WorkerResponse } from "./grammar.worker";
 
 // The page's side of the grammar checker, shared by every editor on the page:
-// the worker, the library's settings, and the flags found so far, cached by
-// block text so an unchanged paragraph is never checked twice.
+// the library's settings, and the flags found so far, cached by block text so
+// an unchanged paragraph is never asked for twice. The checking itself is the
+// server's (POST /api/grammar/check, lib/grammarServer.ts), which remembers
+// every paragraph it has checked, for every device.
 
 const ENABLED_KEY = "pen:grammar";
 const CACHE_LIMIT = 8000;
 
 type Listener = () => void;
-type Request = WorkerRequest extends infer R ? (R extends WorkerRequest ? Omit<R, "id"> : never) : never;
 
 class GrammarService {
-  private worker: Worker | null = null;
-  private nextId = 1;
-  private pending = new Map<number, { resolve: (r: WorkerResponse) => void }>();
-  private configuring: Promise<void> | null = null;
   private loading: Promise<void> | null = null;
+  /** A settings change on its way to the server: checks wait for it. */
+  private saving: Promise<unknown> = Promise.resolve();
+  /** Bumped when the cache is cleared, so answers to older requests are dropped. */
+  private generation = 0;
   private cache = new Map<string, Flag[]>();
   private listeners = new Set<Listener>();
   private dictionary = new Set<string>();
   private ignored = new Set<string>();
   config: GrammarConfig | null = null;
   enabled = false;
-  failed = false;
+  /** The last check couldn't reach the server; the next edit tries again. */
+  unreachable = false;
 
   constructor() {
     if (typeof window === "undefined") return;
@@ -56,26 +57,45 @@ class GrammarService {
     this.emit();
   }
 
+  private setUnreachable(value: boolean) {
+    if (this.unreachable === value) return;
+    this.unreachable = value;
+    this.emit();
+  }
+
   /** Flags already found for this text, filtered by the settings; undefined if not checked yet. */
   cached(text: string): Flag[] | undefined {
     const flags = this.cache.get(text);
     return flags && this.config ? visibleFlags(flags, this.config, this.dictionary, this.ignored) : undefined;
   }
 
-  /** Check these texts (filling the cache). Resolves false if the checker can't run. */
+  /** Check these texts (filling the cache). Resolves false if they couldn't be checked. */
   async check(texts: string[]): Promise<boolean> {
-    if (!(await this.ready())) return false;
-    const res = await this.send({ type: "lint", texts });
-    if (!res.flags) {
-      console.warn("grammar check failed:", res.error);
+    try {
+      await this.load();
+      await this.saving;
+      const generation = this.generation;
+      const res = await fetch("/api/grammar/check", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ texts }),
+      });
+      if (!res.ok) throw new Error(`check: ${res.status}`);
+      const { flags } = (await res.json()) as { flags: Flag[][] };
+      this.setUnreachable(false);
+      // Asked with settings since changed: the next pass asks again.
+      if (generation !== this.generation) return true;
+      texts.forEach((t, i) => {
+        this.cache.delete(t);
+        this.cache.set(t, flags[i]);
+      });
+      while (this.cache.size > CACHE_LIMIT) this.cache.delete(this.cache.keys().next().value!);
+      return true;
+    } catch (err) {
+      console.warn("grammar check failed:", err);
+      this.setUnreachable(true);
       return false;
     }
-    texts.forEach((t, i) => {
-      this.cache.delete(t);
-      this.cache.set(t, res.flags![i]);
-    });
-    while (this.cache.size > CACHE_LIMIT) this.cache.delete(this.cache.keys().next().value!);
-    return true;
   }
 
   /** Save a change to the library's settings, applied here right away. */
@@ -83,14 +103,18 @@ class GrammarService {
     if (!this.config) await this.load();
     if (!this.config) return;
     this.setConfig(applyPatch(this.config, patch));
-    try {
-      const res = await fetch("/api/grammar", {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(patch),
-      });
-      if (res.ok) this.setConfig(await res.json());
-    } catch {}
+    const saving = (async () => {
+      try {
+        const res = await fetch("/api/grammar", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+        if (res.ok) this.setConfig(await res.json());
+      } catch {}
+    })();
+    this.saving = Promise.all([this.saving, saving]);
+    await saving;
   }
 
   /** Fetch the library's settings, once. */
@@ -130,58 +154,12 @@ class GrammarService {
         prev.dialect !== next.dialect ||
         [...on(next)].some((r) => !prevOn.has(r)) ||
         prev.words.some((w) => !words.has(dictKey(w)));
-      if (stale) this.cache.clear();
-      if (this.worker) {
-        this.configuring = this.configure().catch((err) => console.warn("grammar settings not applied:", err));
+      if (stale) {
+        this.cache.clear();
+        this.generation++;
       }
     }
     this.emit();
-  }
-
-  private configure(): Promise<void> {
-    const c = this.config!;
-    return this.send({ type: "configure", dialect: c.dialect, rules: effectiveRules(c), words: c.words }).then((r) => {
-      if (r.error) throw new Error(r.error);
-    });
-  }
-
-  private ready(): Promise<boolean> {
-    if (this.failed) return Promise.resolve(false);
-    if (!this.configuring) {
-      this.configuring = (async () => {
-        await this.load();
-        this.worker = new Worker(new URL("./grammar.worker.ts", import.meta.url), { type: "module" });
-        this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
-          const p = this.pending.get(e.data.id);
-          this.pending.delete(e.data.id);
-          p?.resolve(e.data);
-        };
-        this.worker.onerror = (e) => {
-          console.warn("grammar worker failed:", e.message);
-          this.failed = true;
-          for (const p of this.pending.values()) p.resolve({ id: -1, error: "worker failed" });
-          this.pending.clear();
-          this.emit();
-        };
-        await this.configure();
-      })();
-    }
-    return this.configuring.then(
-      () => !this.failed,
-      (err) => {
-        console.warn("grammar checker unavailable:", err);
-        this.configuring = null; // try again next time
-        return false;
-      },
-    );
-  }
-
-  private send(req: Request): Promise<WorkerResponse> {
-    const id = this.nextId++;
-    return new Promise((resolve) => {
-      this.pending.set(id, { resolve });
-      this.worker!.postMessage({ ...req, id });
-    });
   }
 }
 
@@ -192,6 +170,15 @@ export function useGrammarEnabled(): boolean {
   return useSyncExternalStore(
     (fn) => grammar.subscribe(fn),
     () => grammar.enabled,
+    () => false,
+  );
+}
+
+/** Whether the last check couldn't reach the server. */
+export function useGrammarUnreachable(): boolean {
+  return useSyncExternalStore(
+    (fn) => grammar.subscribe(fn),
+    () => grammar.unreachable,
     () => false,
   );
 }

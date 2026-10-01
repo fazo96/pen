@@ -78,6 +78,8 @@ Books are stored in `./data`. Point `PEN_DIR` elsewhere to keep them somewhere e
 | Variable | Default | What it does |
 | --- | --- | --- |
 | `PEN_DIR` | `./data` | Where the library lives |
+| `PEN_CACHE_DIR` | `./cache` | Where pen keeps what it can make again: the dictionary (downloaded on the first look-up) and grammar results. Safe to delete |
+| `PEN_GRAMMAR_IDLE_MS` | 5 minutes | How long the grammar checker (about 450 MB) stays loaded after its last check |
 | `PEN_SESSION_GAP_MS` | 30 minutes | Quiet time after which the next save snapshots a new version |
 | `PEN_CONSTRUCT_CLAUDE` | `npx -y @agentclientprotocol/claude-agent-acp@0.84.0` | Command that launches Construct's agent |
 | `PEN_INTERNAL_URL` | `http://127.0.0.1:<port>` | Where the agent reaches pen's tool endpoint |
@@ -86,11 +88,11 @@ Construct uses [Claude Code](https://claude.com/claude-code) and its login: sign
 
 ## Self-hosting
 
-The repository includes a `Dockerfile` that builds a self-contained image. Everything pen keeps (books, covers, history, the lock, Construct's chats and the agent's own state) lives in a single volume at `/data`, so backing up means copying one folder.
+The repository includes a `Dockerfile` that builds a self-contained image. Everything pen keeps (books, covers, history, the lock, Construct's chats and the agent's own state) lives in a single volume at `/data`, so backing up means copying one folder. What pen can make again (the dictionary, downloaded on the first look-up, and grammar results) goes in `/cache`: give it a volume too, or it's made again after each upgrade.
 
 ```sh
 docker build -t pen .
-docker run -d --name pen -p 3000:3000 -v pen-data:/data --restart unless-stopped pen
+docker run -d --name pen -p 3000:3000 -v pen-data:/data -v pen-cache:/cache --restart unless-stopped pen
 ```
 
 Or with Compose:
@@ -103,9 +105,12 @@ services:
       - "3000:3000"
     volumes:
       - ./library:/data   # a host folder must be writable by uid 1000
+      - pen-cache:/cache
     environment:
       CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN}   # optional, for Construct
     restart: unless-stopped
+volumes:
+  pen-cache:
 ```
 
 **Construct in a container.** There's no interactive login inside the container, so give the agent a credential through the environment:

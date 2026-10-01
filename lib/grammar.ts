@@ -19,7 +19,7 @@ export const grammarKey = new PluginKey<State>("grammar");
 
 const DELAY_EDIT = 700;
 const DELAY_START = 1500;
-const BATCH = 24;
+const BATCH = 50;
 
 /** Spelling flags are drawn (and listed) apart from grammar and style. */
 export const isSpelling = (f: Flag) => f.kind === "Spelling" || f.kind === "Typo";

@@ -156,12 +156,20 @@ function LookUp({
   const box = useRef<HTMLDivElement>(null);
   const pos = useAnchored(editor, picked, box, { onOutside: onClose });
 
+  const [slow, setSlow] = useState(false);
+
   useEffect(() => {
     const ctrl = new AbortController();
+    setSlow(false);
+    const timer = setTimeout(() => setSlow(true), 1500);
     fetch(`/api/dictionary?word=${encodeURIComponent(picked.text)}`, { signal: ctrl.signal })
       .then(async (res) => setResult(res.ok ? await res.json() : { error: (await res.json().catch(() => ({}))).error ?? "Look-up failed." }))
-      .catch((err) => (err as Error).name !== "AbortError" && setResult({ error: "Can’t reach pen." }));
-    return () => ctrl.abort();
+      .catch((err) => (err as Error).name !== "AbortError" && setResult({ error: "Can’t reach pen." }))
+      .finally(() => clearTimeout(timer));
+    return () => {
+      ctrl.abort();
+      clearTimeout(timer);
+    };
   }, [picked.text]);
 
   // Typing elsewhere, or moving the words, closes it.
@@ -212,7 +220,11 @@ function LookUp({
       onMouseDown={(e) => e.preventDefault()}
     >
       <div className="lookup-body">
-        {!result && <p className="lookup-note">Looking up “{picked.text}”…</p>}
+        {!result && (
+          <p className="lookup-note">
+            {slow ? "Getting the dictionary ready: the first look-up downloads it…" : `Looking up “${picked.text}”…`}
+          </p>
+        )}
         {result && "error" in result && <p className="lookup-note">{result.error}</p>}
         {result && "entries" in result && !entries.length && (
           <p className="lookup-note">“{picked.text}” isn’t in the dictionary.</p>

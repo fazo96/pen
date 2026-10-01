@@ -4,7 +4,7 @@ import type { Editor } from "@tiptap/react";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { useEffect, useMemo, useState } from "react";
 import { grammarFlags, grammarKey, grammarProgress, isSpelling, showFlag, type Progress } from "@/lib/grammar";
-import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
+import { grammar, useGrammarEnabled, useGrammarUnreachable } from "@/lib/grammarClient";
 import { dictKey, SPELLING_RULE } from "@/lib/grammarConfig";
 import { flagsByHeading, repeatedWords, type PlacedFlag } from "@/lib/grammarText";
 import type { Heading } from "./Outline";
@@ -79,6 +79,7 @@ export default function GrammarPane({
   onShown: () => void;
 }) {
   const enabled = useGrammarEnabled();
+  const unreachable = useGrammarUnreachable();
   const snap = useGrammarFlags(editor);
   const [filter, setFilter] = useState<Filter>("all");
   const [limit, setLimit] = useState(PAGE);
@@ -125,13 +126,15 @@ export default function GrammarPane({
   return (
     <div className="grammar-pane">
       <p className="grammar-status label" role="status">
-        {!progress
-          ? "Checking…"
-          : progress.checked < progress.total
-            ? `Checking… ${n(progress.checked)} of ${n(progress.total)} paragraphs`
-            : items.length
-              ? `${n(items.length)} ${items.length === 1 ? "flag" : "flags"}`
-              : "Nothing flagged"}
+        {unreachable && (!progress || progress.checked < progress.total)
+          ? "Checking paused: pen’s server didn’t answer. It tries again as you type."
+          : !progress
+            ? "Checking…"
+            : progress.checked < progress.total
+              ? `Checking… ${n(progress.checked)} of ${n(progress.total)} paragraphs`
+              : items.length
+                ? `${n(items.length)} ${items.length === 1 ? "flag" : "flags"}`
+                : "Nothing flagged"}
       </p>
 
       {items.length > 0 && (

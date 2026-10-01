@@ -4,5 +4,5 @@ next-env.d.ts
 *.tsbuildinfo
 # the manuscript itself lives here; keep it out of the code repo
 data/
-# built from Open English WordNet by `npm run dictionary`
-/dictionary/
+# rebuildable things: the dictionary, grammar results (PEN_CACHE_DIR)
+/cache/

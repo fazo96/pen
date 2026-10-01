@@ -1,11 +1,11 @@
 import { Worker } from "node:worker_threads";
-import type { GrammarConfig } from "../grammarConfig";
-import type { Flag } from "../grammarText";
+import type { GrammarConfig } from "./grammarConfig";
+import type { Flag } from "./grammarText";
 
 // Harper for the server, in a worker thread. Loaded, it takes about 450 MB,
 // which Node never gives back while the process lives; a worker's goes when
-// the worker ends. So Construct's grammar_check starts one when it needs to
-// check text, and it ends after a few idle minutes.
+// the worker ends. So lib/grammarServer.ts starts one when it has text to
+// check (for the editor or Construct), and it ends after a few idle minutes.
 //
 // Kept free of pen imports (types aside) so tests can load it with plain Node.
 
@@ -13,8 +13,7 @@ import type { Flag } from "../grammarText";
 const IDLE_MS = Number(process.env.PEN_GRAMMAR_IDLE_MS) || 5 * 60_000;
 
 // Plain JavaScript, run with `eval` (resolving "harper.js" from the app's
-// node_modules). It does what lib/harperFlags.ts does for the browser's
-// worker; tests/grammar-server.test.ts checks the two give the same flags.
+// node_modules, which next.config.ts makes sure a standalone build has).
 export const WORKER_SOURCE = `
 const { parentPort } = require("node:worker_threads");
 const DIALECT = { american: 0, british: 1, australian: 2, canadian: 3, indian: 4 };

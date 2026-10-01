@@ -5,9 +5,8 @@
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/build-dictionary.mjs --if-missing",
     "build": "next build",
-    "dictionary": "node scripts/build-dictionary.mjs",
+    "dictionary": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/build-dictionary.ts",
     "start": "next start",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test 'tests/**/*.test.ts'"
   },

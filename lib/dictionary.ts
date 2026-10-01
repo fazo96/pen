@@ -3,13 +3,19 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { gunzip } from "node:zlib";
+import { CACHE_DIR } from "./paths";
 import { baseCandidates, headWord, type Pos } from "./wordforms";
+import { buildWordnet, WORDNET_FILE } from "./wordnetBuild";
 
-// Look-ups in Open English WordNet (CC-BY 4.0), from the index that
-// scripts/build-dictionary.mjs writes. Loaded on the first look-up (about
-// 40 MB of memory); each meaning stays a JSON string until it's asked for.
+// Look-ups in Open English WordNet (CC-BY 4.0), from an index kept in the
+// cache folder: made by lib/wordnetBuild.ts on the first look-up (a download
+// of 10 MB) unless `npm run dictionary` made it already. Loaded then
+// (about 40 MB of memory); each meaning stays a JSON string until it's asked for.
 
-const FILE = path.join(/*turbopackIgnore: true*/ process.cwd(), "dictionary", "oewn-2025.json.gz");
+const DIR = path.join(CACHE_DIR, "wordnet");
+const FILE = path.join(DIR, WORDNET_FILE);
+// After a failed download, look-ups wait this long before trying again.
+const RETRY_MS = 60_000;
 export const DICTIONARY_SOURCE = "Open English WordNet 2025";
 
 type Index = { v: 2; w: Record<string, string>; s: string[]; f: Record<string, string>; p: Record<string, string> };
@@ -38,24 +44,45 @@ export type Entry = {
   senses: Sense[];
 };
 
-let loading: Promise<Index | null> | null = null;
+let loading: Promise<Index> | null = null;
 /** "take:v", "mouse:n": words with irregular forms. */
 let irregulars: Set<string> | null = null;
+let failedAt = 0;
+let failure = "";
 
-function load(): Promise<Index | null> {
+async function read(): Promise<Index | null> {
+  try {
+    const index = JSON.parse((await promisify(gunzip)(await readFile(FILE))).toString("utf8")) as Index;
+    return index.v === 2 ? index : null; // an older format: made again
+  } catch (err) {
+    // Missing, or damaged: made again.
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") console.error("dictionary:", err);
+    return null;
+  }
+}
+
+/** The index, made first if it isn't in the cache yet. Throws if it can't be had. */
+function load(): Promise<Index> {
   loading ??= (async () => {
-    try {
-      const raw = await promisify(gunzip)(await readFile(FILE));
-      const index = JSON.parse(raw.toString("utf8")) as Index;
-      if (index.v !== 2) throw new Error(`dictionary format ${index.v} is out of date: run npm run dictionary`);
-      irregulars = new Set(Object.values(index.f).flatMap((v) => v.split("|")));
-      return index;
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") console.error("dictionary:", err);
-      loading = null; // try again next time (e.g. after `npm run dictionary`)
-      return null;
+    let index = await read();
+    if (!index) {
+      if (Date.now() - failedAt < RETRY_MS) throw new Error(failure);
+      console.log("dictionary: downloading Open English WordNet…");
+      try {
+        console.log(`dictionary: ${await buildWordnet(DIR)}`);
+      } catch (err) {
+        failedAt = Date.now();
+        failure = `The dictionary couldn’t be downloaded (${(err as Error).message}).`;
+        console.error("dictionary:", err);
+        throw new Error(failure);
+      }
+      index = await read();
+      if (!index) throw new Error("The dictionary couldn’t be read.");
     }
+    irregulars = new Set(Object.values(index.f).flatMap((v) => v.split("|")));
+    return index;
   })();
+  loading.catch(() => (loading = null)); // try again next time
   return loading;
 }
 
@@ -92,10 +119,9 @@ function senses(index: Index, key: string, prefer: Pos | null): { lemma: string;
   return { lemma, senses: out };
 }
 
-/** What the dictionary has for `word`; null if it isn't installed. */
-export async function lookUp(word: string): Promise<Entry[] | null> {
+/** What the dictionary has for `word`. Throws (with a message for the writer) if the dictionary can't be had. */
+export async function lookUp(word: string): Promise<Entry[]> {
   const index = await load();
-  if (!index) return null;
   const entries: Entry[] = [];
   const seen = new Set<string>();
   const add = (key: string, via: Entry["via"], prefer: Pos | null) => {

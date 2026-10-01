@@ -1,10 +1,14 @@
+import { spawn } from "node:child_process";
+
 // Builds pen's dictionary from Open English WordNet (CC-BY 4.0,
 // https://en-word.net): downloads the pinned release, checks it, and writes a
-// compact index to dictionary/oewn-2025.json.gz for lib/dictionary.ts.
+// compact index for lib/dictionary.ts. The server does this on the first
+// look-up; `npm run dictionary` (scripts/build-dictionary.ts) does it ahead.
 //
-//   node scripts/build-dictionary.mjs              always rebuild
-//   node scripts/build-dictionary.mjs --if-missing  skip when the index exists,
-//                                                   and never fail the build
+// It runs in a child process: parsing WordNet takes a few hundred MB, which
+// the server would keep until it restarts (a worker thread's is only partly
+// given back). Kept free of pen imports so the script can load it with plain
+// Node.
 //
 // The index (format version 2):
 //   w: lowercased word → comma-separated synset numbers, in WordNet's order
@@ -13,22 +17,25 @@
 //   f: lowercased irregular form → "lemma:pos|…" (geese → "goose:n")
 //   p: lowercased word → pronunciation (IPA)
 
-import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import { gzipSync, inflateRawSync } from "node:zlib";
+export const WORDNET_FILE = "oewn-2025.json.gz";
 
-const URL = "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025-json.zip";
+// Plain JavaScript, run with `node -e`; the folder to write into is its argument.
+const SOURCE = `
+const { createHash } = require("node:crypto");
+const { mkdir, rename, writeFile } = require("node:fs/promises");
+const path = require("node:path");
+const { promisify } = require("node:util");
+const { gzip, inflateRawSync } = require("node:zlib");
+
+const DOWNLOAD = "https://github.com/globalwordnet/english-wordnet/releases/download/2025-edition/english-wordnet-2025-json.zip";
 const SHA256 = "7d749f6e2c39e6970e4997839dcf6e42fd281f3c2fae0171d2192bae8cfa4b51";
-const OUT = path.join(import.meta.dirname, "..", "dictionary", "oewn-2025.json.gz");
+const FILE = ${JSON.stringify(WORDNET_FILE)};
 const MAX_EXAMPLES = 2;
 // More specific words: the first word of each narrower meaning (stroll, amble,
 // trudge… for "walk"), which leaves out rare senses of other words ("cock").
 const MAX_NARROWER = 80;
 
-const ifMissing = process.argv.includes("--if-missing");
-
-/** The files in a zip, by name (stored or deflated entries only). */
+// The files in a zip, by name (stored or deflated entries only).
 function unzip(buf) {
   let eocd = buf.length - 22;
   while (eocd >= 0 && buf.readUInt32LE(eocd) !== 0x06054b50) eocd--;
@@ -55,13 +62,12 @@ function unzip(buf) {
 
 const lemmaOf = (senseKey) => senseKey.slice(0, senseKey.indexOf("%")).replace(/_/g, " ");
 
-async function build() {
-  console.log(`dictionary: downloading ${URL}`);
-  const res = await fetch(URL);
-  if (!res.ok) throw new Error(`download failed: ${res.status}`);
+async function build(dir) {
+  const res = await fetch(DOWNLOAD);
+  if (!res.ok) throw new Error("download failed: " + res.status);
   const zip = Buffer.from(await res.arrayBuffer());
   const sum = createHash("sha256").update(zip).digest("hex");
-  if (sum !== SHA256) throw new Error(`checksum mismatch: got ${sum}`);
+  if (sum !== SHA256) throw new Error("checksum mismatch: got " + sum);
 
   const synsets = {};
   const entries = {};
@@ -97,7 +103,7 @@ async function build() {
       }
       for (const f of e.form ?? []) {
         const set = forms.get(f.toLowerCase()) ?? new Set();
-        set.add(`${key}:${pos}`);
+        set.add(key + ":" + pos);
         forms.set(f.toLowerCase(), set);
       }
       const pron = e.pronunciation?.[0]?.value;
@@ -131,20 +137,36 @@ async function build() {
     f: Object.fromEntries([...forms].map(([k, v]) => [k, [...v].join("|")])),
     p: Object.fromEntries(prons),
   };
-  mkdirSync(path.dirname(OUT), { recursive: true });
-  const gz = gzipSync(JSON.stringify(out));
-  writeFileSync(OUT, gz);
-  console.log(`dictionary: ${words.size} words, ${ids.length} meanings → ${path.relative(process.cwd(), OUT)} (${(gz.length / 1e6).toFixed(1)} MB)`);
+  const gz = await promisify(gzip)(JSON.stringify(out));
+  const file = path.join(dir, FILE);
+  await mkdir(dir, { recursive: true });
+  // Written aside and moved in, so a reader never sees half of it.
+  await writeFile(file + ".tmp", gz);
+  await rename(file + ".tmp", file);
+  return words.size + " words, " + ids.length + " meanings → " + file + " (" + (gz.length / 1e6).toFixed(1) + " MB)";
 }
 
-if (ifMissing && existsSync(OUT)) {
-  console.log("dictionary: already built");
-} else {
-  try {
-    await build();
-  } catch (err) {
-    if (!ifMissing) throw err;
-    mkdirSync(path.dirname(OUT), { recursive: true }); // so the Docker image's COPY still finds the folder
-    console.warn(`dictionary: not built (${err.message}); look-ups will say it isn't installed`);
-  }
+build(process.argv[1]).then(
+  (done) => console.log(done),
+  (err) => {
+    console.error(err.message);
+    process.exit(1);
+  },
+);
+`;
+
+/** Download WordNet and write the index into `dir`. Resolves with a line for the log. */
+export function buildWordnet(dir: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ["-e", SOURCE, dir], { stdio: ["ignore", "pipe", "pipe"] });
+    let out = "";
+    let err = "";
+    child.stdout.on("data", (d) => (out += d));
+    child.stderr.on("data", (d) => (err += d));
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolve(out.trim());
+      else reject(new Error(err.trim().split("\n").pop() || `the dictionary's builder stopped (${code})`));
+    });
+  });
 }

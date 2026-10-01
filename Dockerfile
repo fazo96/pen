@@ -1,5 +1,6 @@
 # pen: a self-contained image. Books, the lock and Construct's own state
-# all live in the /data volume.
+# all live in the /data volume; /cache holds what pen can make again (the
+# dictionary, grammar results): mount a volume there to keep it across upgrades.
 
 FROM node:24-bookworm-slim AS build
 WORKDIR /app
@@ -14,6 +15,7 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
     PEN_DIR=/data \
+    PEN_CACHE_DIR=/cache \
     PEN_INTERNAL_URL=http://127.0.0.1:3000 \
     PEN_CONSTRUCT_CLAUDE=claude-agent-acp \
     CLAUDE_CONFIG_DIR=/data/.claude \
@@ -24,10 +26,7 @@ RUN npm install -g @agentclientprotocol/claude-agent-acp@0.84.0 && npm cache cle
 
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
-# Read at run time, so the standalone build doesn't pick it up by itself.
-COPY --from=build --chown=node:node /app/dictionary ./dictionary
-
-RUN mkdir -p /data && chown node:node /data
+RUN mkdir -p /data /cache && chown node:node /data /cache
 USER node
 VOLUME /data
 EXPOSE 3000
