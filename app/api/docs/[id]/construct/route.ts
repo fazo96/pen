@@ -90,6 +90,7 @@ export async function POST(req: Request, { params }: Ctx) {
         const context: PromptContext = {
           ...(typeof c.entry === "string" && isValidId(c.entry) ? { entry: c.entry } : {}),
           ...(typeof c.selection === "string" && c.selection.trim() ? { selection: c.selection.slice(0, 4000) } : {}),
+          ...(typeof c.paragraph === "string" && c.paragraph.trim() ? { paragraph: c.paragraph.slice(0, 8000) } : {}),
         };
         // Runs to the end of the turn in the background; the stream shows progress.
         void session.prompt(text.slice(0, 20_000), context);

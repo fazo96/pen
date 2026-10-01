@@ -558,6 +558,9 @@ function describeContext(c: PromptContext) {
   const where = c.entry ? `the Codex entry "${c.entry}"` : "the manuscript";
   const lines = [`[The writer is looking at ${where}.`];
   if (c.selection) lines.push(`They have selected this text:\n"""\n${c.selection}\n"""`);
+  if (c.paragraph && c.paragraph.trim() !== c.selection?.trim()) {
+    lines.push(`It's in this paragraph (search for it to find its line):\n"""\n${c.paragraph}\n"""`);
+  }
   return `${lines.join(" ")}]`;
 }
 

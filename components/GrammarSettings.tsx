@@ -32,6 +32,13 @@ export default function GrammarSettings() {
         Spelling and grammar are checked in your browser by Harper; the text never leaves the device. Tap an underlined
         word in the editor for fixes. The dictionary and rules below are shared by every book.
       </p>
+      <p className="lock-hint">
+        Look up uses{" "}
+        <a href="https://en-word.net" target="_blank" rel="noreferrer">
+          Open English WordNet
+        </a>{" "}
+        (CC BY 4.0).
+      </p>
       <div className="lock-actions">
         <button type="button" className="btn" onClick={() => grammar.setEnabled(!enabled)}>
           {enabled ? "Turn off here" : "Turn on here"}

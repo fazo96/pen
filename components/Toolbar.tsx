@@ -1,7 +1,9 @@
 "use client";
 
 import { type Editor, useEditorState } from "@tiptap/react";
-import { IconBullets, IconNumbers, IconQuote, IconRedo, IconUndo } from "./icons";
+import { askDraft, constructPrompt, pickedWords, requestLookUp } from "@/lib/wordTools";
+import { IconBook, IconBullets, IconConstruct, IconNumbers, IconQuote, IconRedo, IconUndo } from "./icons";
+import type { Ask } from "./WordTools";
 
 type ButtonProps = {
   label: string;
@@ -34,9 +36,10 @@ type Props = {
   editor: Editor;
   /** Names for heading levels 1–3, shown as tooltips. */
   headingNames: readonly string[];
+  onAsk: Ask;
 };
 
-export default function Toolbar({ editor, headingNames }: Props) {
+export default function Toolbar({ editor, headingNames, onAsk }: Props) {
   const s = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
@@ -52,14 +55,42 @@ export default function Toolbar({ editor, headingNames }: Props) {
       comment: e.isActive("comment") || e.isActive("commentBlock"),
       canUndo: e.can().undo(),
       canRedo: e.can().redo(),
+      picked: pickedWords(e.state),
     }),
+    equalityFn: (a, b) =>
+      !!a &&
+      !!b &&
+      Object.keys(a).every((k) =>
+        k === "picked"
+          ? a.picked?.from === b.picked?.from && a.picked?.to === b.picked?.to
+          : a[k as keyof typeof a] === b[k as keyof typeof b],
+      ),
   });
+  const picked = s.picked;
 
   const run = () => editor.chain().focus();
 
   return (
     <div className="toolbar" role="toolbar" aria-label="Formatting">
       <div className="toolbar-scroll">
+        {/* Phones: what the selection bar offers on desktop. */}
+        {picked && (
+          <span className="tool-group tool-touch">
+            <Button label="Look up" onPress={() => requestLookUp(editor)}>
+              <IconBook />
+            </Button>
+            <Button label="Synonyms (Construct)" className="tool-text" onPress={() => onAsk(constructPrompt("synonyms", picked.text), picked, true)}>
+              <IconConstruct /> Syn.
+            </Button>
+            <Button label="Meaning (Construct)" className="tool-text" onPress={() => onAsk(constructPrompt("meaning", picked.text), picked, true)}>
+              <IconConstruct /> Mean.
+            </Button>
+            <Button label="Ask Construct" className="tool-text" onPress={() => onAsk(askDraft(picked.text), picked, false)}>
+              <IconConstruct /> Ask
+            </Button>
+            <span className="tool-sep" aria-hidden />
+          </span>
+        )}
         <Button label={headingNames[0]} active={s.h1} onPress={() => run().toggleHeading({ level: 1 }).run()}>
           <span className="glyph-h">H1</span>
         </Button>

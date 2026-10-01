@@ -1,12 +1,15 @@
 "use client";
 
 import type { Editor } from "@tiptap/react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { grammarKey, type ActiveFlag } from "@/lib/grammar";
 import { grammar } from "@/lib/grammarClient";
 import { ruleLabel, SPELLING_RULE } from "@/lib/grammarConfig";
 import type { Suggestion } from "@/lib/grammarText";
+import { useAnchored } from "@/lib/useAnchored";
+import { IconConstruct } from "./icons";
+import { grammarPrompt } from "@/lib/wordTools";
 
 const MAX_SUGGESTIONS = 5;
 
@@ -20,9 +23,8 @@ function suggestionLabel(s: Suggestion, problem: string) {
 }
 
 /** What the grammar checker says about the flag last clicked in `editor`, with its fixes. */
-export default function GrammarPopover({ editor }: { editor: Editor }) {
+export default function GrammarPopover({ editor, onAsk }: { editor: Editor; onAsk: (text: string, range: { from: number; to: number }) => void }) {
   const [active, setActive] = useState<ActiveFlag | null>(null);
-  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,44 +41,7 @@ export default function GrammarPopover({ editor }: { editor: Editor }) {
   };
 
   // Under the flagged words, or above them when there's no room below.
-  useLayoutEffect(() => {
-    if (!active) return setPos(null);
-    const place = () => {
-      const el = box.current;
-      if (!el || editor.isDestroyed) return;
-      const start = editor.view.coordsAtPos(active.from);
-      const end = editor.view.coordsAtPos(active.to, -1);
-      const vv = window.visualViewport;
-      const bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
-      const w = el.offsetWidth;
-      const h = el.offsetHeight;
-      const left = Math.max(8, Math.min(start.left, window.innerWidth - w - 8));
-      const below = end.bottom + 6;
-      setPos({ left, top: below + h > bottom - 8 && start.top - h - 6 > 8 ? start.top - h - 6 : below });
-    };
-    place();
-    let frame = 0;
-    const onMove = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(place);
-    };
-    const onDown = (e: PointerEvent) => {
-      const t = e.target as Node;
-      if (!box.current?.contains(t) && !editor.view.dom.contains(t)) close();
-    };
-    window.addEventListener("scroll", onMove, true);
-    window.addEventListener("resize", onMove);
-    window.visualViewport?.addEventListener("resize", onMove);
-    document.addEventListener("pointerdown", onDown);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", onMove, true);
-      window.removeEventListener("resize", onMove);
-      window.visualViewport?.removeEventListener("resize", onMove);
-      document.removeEventListener("pointerdown", onDown);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, editor]);
+  const pos = useAnchored(editor, active, box, { onOutside: close });
 
   if (!active) return null;
   const { flag, from, to } = active;
@@ -127,6 +92,24 @@ export default function GrammarPopover({ editor }: { editor: Editor }) {
           Turn off this rule
         </button>
       )}
+      <button
+        type="button"
+        className="grammar-ask"
+        onClick={() => {
+          close();
+          onAsk(
+            grammarPrompt(
+              flag.problem,
+              spelling ? "spelling" : ruleLabel(flag.rule),
+              plain(flag.message),
+              flag.suggestions.filter((s) => s.kind !== "remove").map((s) => s.text),
+            ),
+            { from, to },
+          );
+        }}
+      >
+        <IconConstruct /> Ask Construct
+      </button>
     </div>,
     document.body,
   );

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Citation, findPassage, type LineCitation, parseCitation } from "@/lib/cite";
 import { textWithoutComments } from "@/lib/comments";
+import type { PromptContext } from "@/lib/construct/types";
 import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
 import { showPassage } from "@/lib/passage";
 import { hasCurlyQuotes, straightenQuotes } from "@/lib/quotes";
@@ -17,13 +18,14 @@ import { HEADINGS, usePenEditor } from "@/lib/usePenEditor";
 import type { VersionMeta } from "@/lib/versions";
 import Codex from "./Codex";
 import CodexPanel, { type CodexPanelHandle } from "./CodexPanel";
-import Construct from "./Construct";
+import Construct, { type ConstructRequest } from "./Construct";
 import Drawer from "./Drawer";
 import DropImport from "./DropImport";
 import EditorMenu from "./EditorMenu";
 import FocusControls from "./FocusControls";
 import GrammarPane, { GrammarCount } from "./GrammarPane";
 import GrammarPopover from "./GrammarPopover";
+import WordTools from "./WordTools";
 import { IconBack, IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconOutline } from "./icons";
 import History from "./History";
 import Logo from "./Logo";
@@ -368,19 +370,30 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
   const onPanelTyping = useCallback(() => setTyping(true), []);
 
   // ─── Construct ─────────────────────────────────────────────
-  const constructContext = () => {
-    const context: { entry?: string; selection?: string } = isEntry
-      ? { entry: initial.id }
-      : inPanel
-      ? { entry: panelEntry! }
-      : {};
-    const ed = toolEditor;
-    if (ed && !ed.state.selection.empty) {
-      const { from, to } = ed.state.selection;
-      const text = ed.state.doc.textBetween(from, to, "\n").trim();
+  /** Where the writer is in `ed`, and what they've selected there (or in `range`). */
+  const contextIn = (ed: Editor | null, range?: { from: number; to: number }): PromptContext => {
+    const context: PromptContext =
+      ed && ed === panelEditor ? { entry: panelEntry! } : isEntry ? { entry: initial.id } : {};
+    const sel = range ?? (ed && !ed.state.selection.empty ? ed.state.selection : null);
+    if (ed && sel) {
+      const text = ed.state.doc.textBetween(sel.from, sel.to, "\n").trim();
       if (text) context.selection = text;
+      const $from = ed.state.doc.resolve(sel.from);
+      if (text && $from.sameParent(ed.state.doc.resolve(sel.to)) && $from.parent.isTextblock) {
+        context.paragraph = $from.parent.textContent;
+      }
     }
     return context;
+  };
+  const constructContext = () => contextIn(toolEditor);
+
+  // Look-up and grammar buttons that ask Construct: into the chat that's open.
+  const [constructRequest, setConstructRequest] = useState<ConstructRequest | null>(null);
+  const askConstruct = (ed: Editor) => (text: string, range: { from: number; to: number }, send: boolean) => {
+    setConstructRequest({ id: Date.now(), text, context: contextIn(ed, range), send });
+    setOutlineOpen(false);
+    if (!constructOpen && panelEntry && ed !== panelEditor && !window.matchMedia(ROOMY).matches) void closeEntry();
+    setConstructOpen(true);
   };
   const beforeConstruct = async () => {
     await Promise.all([leave(), panel.current?.leave()]);
@@ -635,6 +648,7 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
         <Toolbar
           key={inPanel ? "panel" : "main"}
           editor={toolEditor}
+          onAsk={askConstruct(toolEditor)}
           headingNames={inPanel ? HEADINGS.entry : headingNames}
         />
       )}
@@ -648,6 +662,7 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
         onCodexChange={onCodexChange}
         onOpen={open}
         onCite={cite}
+        request={constructRequest}
       />
 
       {lib.error && (
@@ -663,8 +678,12 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
         />
       )}
       <DropImport onFile={importFile} />
-      {editor && <GrammarPopover editor={editor} />}
-      {panelEditor && <GrammarPopover editor={panelEditor} />}
+      {editor && <GrammarPopover editor={editor} onAsk={(text, range) => askConstruct(editor)(text, range, true)} />}
+      {panelEditor && (
+        <GrammarPopover editor={panelEditor} onAsk={(text, range) => askConstruct(panelEditor)(text, range, true)} />
+      )}
+      {editor && <WordTools editor={editor} onAsk={askConstruct(editor)} />}
+      {panelEditor && <WordTools editor={panelEditor} onAsk={askConstruct(panelEditor)} />}
     </div>
   );
 }

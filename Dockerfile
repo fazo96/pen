@@ -24,6 +24,8 @@ RUN npm install -g @agentclientprotocol/claude-agent-acp@0.84.0 && npm cache cle
 
 COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
+# Read at run time, so the standalone build doesn't pick it up by itself.
+COPY --from=build --chown=node:node /app/dictionary ./dictionary
 
 RUN mkdir -p /data && chown node:node /data
 USER node

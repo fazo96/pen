@@ -3049,3 +3049,179 @@ a.btn {
     display: none;
   }
 }
+
+/* ─── Word tools: selection bar, Look up ───────────────────── */
+.tool-group {
+  display: contents;
+}
+.tool.tool-text {
+  width: auto;
+  display: inline-flex;
+  gap: 5px;
+  padding: 0 10px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tool.tool-text svg {
+  width: 15px;
+  height: 15px;
+}
+/* The selection bar does this where there's a mouse. */
+@media (hover: hover) and (pointer: fine) {
+  .tool-touch {
+    display: none;
+  }
+}
+.word-bar {
+  position: fixed;
+  z-index: 60;
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+}
+.popover-menu.word-bar > button {
+  padding: 7px 10px;
+  gap: 7px;
+}
+.word-bar-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--rule);
+}
+.word-bar-construct {
+  width: 15px;
+  height: 15px;
+  margin: 0 2px 0 4px;
+  color: var(--ink-faint);
+}
+.popover-menu > button.grammar-ask {
+  margin-top: 4px;
+  border-top: 1px solid var(--rule);
+  border-radius: 0 0 7px 7px;
+}
+.lookup {
+  position: fixed;
+  z-index: 60;
+  width: min(24rem, calc(100vw - 16px));
+  max-height: min(28rem, 60vh);
+  padding: 0;
+}
+.lookup-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 10px 14px 6px;
+}
+.lookup-note {
+  margin: 4px 0 8px;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.lookup-entry + .lookup-entry {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+}
+.lookup-word {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.lookup-pron,
+.lookup-via {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--ink-faint);
+}
+.lookup-sense {
+  padding: 6px 0;
+}
+.lookup-sense + .lookup-sense {
+  border-top: 1px dashed var(--rule);
+}
+.lookup-def {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: var(--ink);
+}
+.lookup-def .label {
+  margin-right: 4px;
+  color: var(--ink-faint);
+}
+.lookup-example {
+  margin: 3px 0 0;
+  font-size: 0.88rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.lookup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+}
+.lookup-row-label {
+  font-family: var(--font-ui);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-right: 2px;
+}
+.lookup-chip {
+  padding: 2px 9px;
+  font-size: 0.92rem;
+  color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 999px;
+}
+.lookup-chip:hover {
+  background: var(--accent-wash);
+}
+.lookup-more {
+  margin: 4px 0 2px;
+  padding: 4px 0;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.lookup-foot {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  border-top: 1px solid var(--rule);
+}
+.lookup-foot svg {
+  width: 15px;
+  height: 15px;
+  margin: 0 4px 0 6px;
+  color: var(--ink-faint);
+}
+.lookup-foot button {
+  padding: 8px 9px;
+  border-radius: 7px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.lookup-foot button:hover {
+  color: var(--ink);
+  background: var(--accent-wash);
+}

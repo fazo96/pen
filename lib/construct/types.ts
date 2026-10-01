@@ -7,6 +7,8 @@ export type PromptContext = {
   entry?: string;
   /** Text the writer had selected, if any. */
   selection?: string;
+  /** The paragraph the selection sits in, when it's part of one. */
+  paragraph?: string;
 };
 
 export type ChatItem =

@@ -22,7 +22,11 @@ type Props = {
   onOpen: (href: string) => void;
   /** Jump to a passage Construct cited; false if it can't be found any more. */
   onCite: (c: Exclude<Citation, { kind: "codex" }>, href: string) => boolean | Promise<boolean>;
+  /** A message from elsewhere in pen (a new `id` each time): sent, or left in the input to finish. */
+  request?: ConstructRequest | null;
 };
+
+export type ConstructRequest = { id: number; text: string; context: PromptContext; send: boolean };
 
 const AGENT_NAMES: Record<string, string> = { claude: "Claude Code" };
 
@@ -123,6 +127,7 @@ export default function Construct({
   onCodexChange,
   onOpen,
   onCite,
+  request,
 }: Props) {
   const c = useConstruct(projectId, open, onCodexChange);
   const [draft, setDraft] = useState("");
@@ -164,6 +169,32 @@ export default function Construct({
       stick.current = true;
     }
   };
+
+  // Look-up and grammar buttons: send right away, unless Construct is still
+  // answering (then the message waits in the input) or it's a question to finish.
+  const handled = useRef(0);
+  useEffect(() => {
+    if (!request || request.id === handled.current) return;
+    handled.current = request.id;
+    if (!request.send || busy) {
+      setDraft(request.text);
+      requestAnimationFrame(() => {
+        const el = input.current;
+        el?.focus();
+        el?.setSelectionRange(request.text.length, request.text.length);
+      });
+      return;
+    }
+    void (async () => {
+      setSending(true);
+      await beforeSend();
+      const ok = await c.send(request.text, request.context);
+      setSending(false);
+      if (ok) stick.current = true;
+      else setDraft(request.text);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request?.id]);
 
   const config = c.state?.config ?? [];
 
