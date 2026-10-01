@@ -17,6 +17,17 @@ type Props = {
   refreshKey?: number;
 };
 
+/** A new, untitled entry (from here or the command palette); its id. */
+export async function createEntry(projectId: string): Promise<string> {
+  const res = await fetch(`/api/docs/${projectId}/codex`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: "# Untitled entry\n\n", name: "entry" }),
+  });
+  if (!res.ok) throw new Error();
+  return ((await res.json()) as { id: string }).id;
+}
+
 /** Plot outlines, character notes and the like: one markdown file each. */
 export default function Codex({ projectId, activeId, activeTitle, onOpen, refreshKey = 0 }: Props) {
   const [list, setList] = useState<EntryMeta[] | null>(null);
@@ -45,14 +56,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(base, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: "# Untitled entry\n\n", name: "entry" }),
-      });
-      if (!res.ok) throw new Error();
-      const entry = (await res.json()) as { id: string };
-      onOpen(`/d/${projectId}/codex/${entry.id}`);
+      onOpen(`/d/${projectId}/codex/${await createEntry(projectId)}`);
     } catch {
       setError("Couldn’t create the entry.");
       setBusy(false);

@@ -31,6 +31,7 @@ export default async function Page({
       initialCite={typeof cite === "string" && cite ? cite : undefined}
       initialSpot={spots.manuscript}
       lastEntry={last ? { id: last.id, title: titleOf(last.content, last.id) } : undefined}
+      recentEntries={spots.entries.map(([e]) => e).reverse()}
     />
   );
 }

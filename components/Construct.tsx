@@ -24,6 +24,8 @@ type Props = {
   onCite: (c: Exclude<Citation, { kind: "codex" }>, href: string) => boolean | Promise<boolean>;
   /** A message from elsewhere in pen (a new `id` each time): sent, or left in the input to finish. */
   request?: ConstructRequest | null;
+  /** Bumped to start a new chat (from the command palette). */
+  newChat?: number;
 };
 
 export type ConstructRequest = { id: number; text: string; context: PromptContext; send: boolean };
@@ -128,6 +130,7 @@ export default function Construct({
   onOpen,
   onCite,
   request,
+  newChat,
 }: Props) {
   const c = useConstruct(projectId, open, onCodexChange);
   const [draft, setDraft] = useState("");
@@ -195,6 +198,17 @@ export default function Construct({
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request?.id]);
+
+  // The command palette's New chat: once the conversation has loaded, if there is one.
+  const handledNew = useRef(0);
+  useEffect(() => {
+    if (!newChat || newChat === handledNew.current || !c.state) return;
+    handledNew.current = newChat;
+    setShowChats(false);
+    if (c.items.length) void c.reset();
+    if (!isTouch()) input.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newChat, c.state]);
 
   const config = c.state?.config ?? [];
 

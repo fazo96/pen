@@ -12,6 +12,13 @@ export default async function Page({ params }: { params: Promise<{ id: string; e
   const [project, entry, spots] = await Promise.all([readDoc(id), readEntry(id, eid), readSpots(id)]);
   if (!project || !entry) notFound();
   return (
-    <Pen key={`${id}/codex/${eid}`} projectId={id} kind="entry" initial={entry} initialSpot={entrySpot(spots, eid)} />
+    <Pen
+      key={`${id}/codex/${eid}`}
+      projectId={id}
+      kind="entry"
+      initial={entry}
+      initialSpot={entrySpot(spots, eid)}
+      recentEntries={spots.entries.map(([e]) => e).reverse()}
+    />
   );
 }

@@ -16,9 +16,12 @@ import { useFocusMode } from "@/lib/useFocusMode";
 import { useLibrary } from "@/lib/useLibrary";
 import { useMedia } from "@/lib/useMedia";
 import { useSpot } from "@/lib/useSpot";
+import { roman } from "@/lib/outline";
 import { HEADINGS, usePenEditor } from "@/lib/usePenEditor";
+import { useTheme, THEME_LABEL, type Theme } from "@/lib/useTheme";
 import type { VersionMeta } from "@/lib/versions";
-import Codex from "./Codex";
+import { askDraft, constructPrompt, pickedWords, requestLookUp } from "@/lib/wordTools";
+import Codex, { createEntry } from "./Codex";
 import CodexPanel, { type CodexPanelHandle } from "./CodexPanel";
 import Construct, { type ConstructRequest } from "./Construct";
 import Drawer from "./Drawer";
@@ -32,6 +35,7 @@ import { IconBack, IconCodex, IconConstruct, IconExport, IconFocus, IconGear, Ic
 import History from "./History";
 import Logo from "./Logo";
 import Outline, { type Heading } from "./Outline";
+import Palette, { type PaletteItem, type PaletteMode, usePaletteLists } from "./Palette";
 import ThemeButton from "./ThemeButton";
 import Toolbar from "./Toolbar";
 import VersionPreview from "./VersionPreview";
@@ -57,9 +61,20 @@ type Props = {
   initialSpot?: Spot;
   /** The Codex entry viewed last, for the top bar's switch (manuscript only). */
   lastEntry?: { id: string; title: string };
+  /** Codex entries by when they were viewed, the most recent first (for the quick switcher). */
+  recentEntries?: string[];
 };
 
-export default function Pen({ projectId, kind, initial, initialEntry, initialCite, initialSpot, lastEntry }: Props) {
+export default function Pen({
+  projectId,
+  kind,
+  initial,
+  initialEntry,
+  initialCite,
+  initialSpot,
+  lastEntry,
+  recentEntries,
+}: Props) {
   const isEntry = kind === "entry";
   const headingNames = HEADINGS[kind];
   const router = useRouter();
@@ -500,6 +515,350 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
     setConstructOpen((o) => !o);
   };
 
+  // ─── Quick switcher (Ctrl+O) and commands (Ctrl+P, Ctrl+K) ──────
+  const [palette, setPalette] = useState<PaletteMode | null>(null);
+  /** The editor that had the cursor when the palette opened, to give it back. */
+  const paletteFrom = useRef<Editor | null>(null);
+  const lists = usePaletteLists(projectId, !!palette);
+  const [recent, setRecent] = useState(recentEntries ?? []);
+  useEffect(() => {
+    if (visited) setRecent((r) => [visited, ...r.filter((e) => e !== visited)]);
+  }, [visited]);
+  const [newChat, setNewChat] = useState(0);
+  const { cycle: cycleTheme } = useTheme();
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => {
+    if (!notice) return;
+    const t = setTimeout(() => setNotice(null), 3000);
+    return () => clearTimeout(t);
+  }, [notice]);
+
+  const togglePalette = (mode: PaletteMode) => {
+    if (palette === mode) return closePalette(true);
+    if (!palette) paletteFrom.current = toolEditor?.isFocused ? toolEditor : null;
+    setPalette(mode);
+  };
+  const closePalette = (refocus: boolean) => {
+    setPalette(null);
+    const ed = paletteFrom.current;
+    if (refocus && ed && !ed.isDestroyed) requestAnimationFrame(() => ed.view.focus());
+  };
+  const paletteKeys = useRef(togglePalette);
+  paletteKeys.current = togglePalette;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      const mode: PaletteMode | null = k === "o" ? "go" : k === "p" || k === "k" ? "do" : null;
+      if (!mode) return;
+      // Before the browser's Open and Print, and before the editor sees it.
+      e.preventDefault();
+      e.stopPropagation();
+      paletteKeys.current(mode);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
+  const showTab = (tab: DrawerTab) => {
+    setDrawerTab(tab);
+    setOutlineOpen(true);
+  };
+  const saveVersion = async (label: string) => {
+    try {
+      await leave(); // the version should include the latest keystrokes
+      const res = await fetch(`/api/docs/${initial.id}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label }),
+      });
+      if (!res.ok) throw new Error();
+      setHistoryKey((k) => k + 1);
+      setNotice(label ? `Saved version “${label}”` : "Saved a version");
+    } catch {
+      setNotice("Couldn’t save the version.");
+    }
+  };
+  const newEntry = async () => {
+    try {
+      const eid = await createEntry(projectId);
+      setCodexKey((k) => k + 1);
+      void open(`/d/${projectId}/codex/${eid}`);
+    } catch {
+      setNotice("Couldn’t create the entry.");
+    }
+  };
+
+  /** Where the switcher can go: the switch, recent entries, headings, the Codex, other books. */
+  const places = (): PaletteItem[] => {
+    const items: PaletteItem[] = [];
+    const here = isEntry ? initial.id : panelEntry;
+    const titles = new Map((lists.entries ?? []).map((e) => [e.id, e.title]));
+    if (isEntry || panelEntry || last) {
+      // Searchable on an entry's page, where it's the way back; elsewhere it repeats an entry.
+      items.push({
+        key: "switch",
+        section: "Recent",
+        label: switchLabel,
+        hint: "Ctrl+Shift+E",
+        when: isEntry ? undefined : "empty",
+        run: switchView,
+      });
+    }
+    const target = !isEntry && !panelEntry ? last?.id : undefined;
+    const recentShown = recent.filter((e) => e !== here && e !== target && titles.has(e)).slice(0, 5);
+    for (const eid of recentShown) {
+      items.push({
+        key: `recent:${eid}`,
+        section: "Recent",
+        label: titles.get(eid)!,
+        when: "empty",
+        run: () => void open(`/d/${projectId}/codex/${eid}`),
+      });
+    }
+    let part = 0;
+    let chapter = 0;
+    for (const h of headings) {
+      const label = h.text || "Untitled";
+      let prefix: string | undefined;
+      let keywords: string | undefined;
+      if (!isEntry && h.level === 2) {
+        prefix = `Part ${roman(++part)}`;
+        keywords = `part ${part} ${prefix}`;
+      } else if (!isEntry && h.level === 3) {
+        prefix = String(++chapter).padStart(2, "0");
+        keywords = `chapter ${chapter} ch ${chapter}`;
+      }
+      items.push({
+        key: `h:${h.pos}`,
+        section: isEntry ? "Headings" : "Contents",
+        label,
+        prefix,
+        keywords,
+        run: () => {
+          const had = !!paletteFrom.current;
+          jump(h);
+          if (had && editor) requestAnimationFrame(() => editor.view.focus());
+        },
+      });
+    }
+    // The most recently viewed first, then the rest as listed.
+    const byRecent = [...(lists.entries ?? [])].sort((a, b) => {
+      const ra = recent.indexOf(a.id);
+      const rb = recent.indexOf(b.id);
+      return (ra < 0 ? Infinity : ra) - (rb < 0 ? Infinity : rb);
+    });
+    for (const e of byRecent) {
+      if (e.id === here) continue;
+      const shownAbove = recentShown.includes(e.id) || e.id === target;
+      items.push({
+        key: `codex:${e.id}`,
+        section: "Codex",
+        label: e.title,
+        when: shownAbove ? "search" : undefined,
+        run: () => void open(`/d/${projectId}/codex/${e.id}`),
+      });
+    }
+    for (const b of lists.books ?? []) {
+      if (b.id === projectId) continue;
+      items.push({
+        key: `book:${b.id}`,
+        section: "Books",
+        label: b.title,
+        keywords: "book manuscript",
+        run: () => void go(`/d/${b.id}`),
+      });
+    }
+    return items;
+  };
+
+  /** What the command palette can do, given where the writer is and what they've selected. */
+  const commands = (): PaletteItem[] => {
+    const ed = paletteFrom.current ?? toolEditor;
+    const picked = ed ? pickedWords(ed.state) : null;
+    const theme: Theme = (document.documentElement.dataset.theme as Theme | undefined) ?? "auto";
+    const nextTheme: Theme = theme === "auto" ? "light" : theme === "light" ? "dark" : "auto";
+    const items: (PaletteItem | false)[] = [
+      {
+        key: "go",
+        section: "Go",
+        label: "Go to…",
+        keywords: "quick switcher open chapter entry book",
+        hint: "Ctrl+O",
+        run: () => togglePalette("go"),
+      },
+      !!(isEntry || panelEntry || last) && {
+        key: "switch",
+        section: "Go",
+        label: switchLabel,
+        keywords: "switch codex manuscript",
+        hint: "Ctrl+Shift+E",
+        run: switchView,
+      },
+      { key: "library", section: "Go", label: "Library", keywords: "books shelves home", run: goLibrary },
+      {
+        key: "contents",
+        section: "Go",
+        label: "Show contents",
+        keywords: "outline chapters drawer",
+        run: () => showTab("contents"),
+      },
+      {
+        key: "codex-list",
+        section: "Go",
+        label: "Show the Codex",
+        keywords: "entries notes drawer",
+        run: () => showTab("codex"),
+      },
+
+      !!picked && {
+        key: "lookup",
+        section: "Selection",
+        label: `Look up “${picked.text}”`,
+        keywords: "dictionary define wordnet",
+        hint: "Ctrl+Shift+D",
+        refocus: true,
+        run: () => requestLookUp(ed!),
+      },
+      !!picked && {
+        key: "ask-synonyms",
+        section: "Selection",
+        label: `Ask Construct for synonyms of “${picked.text}”`,
+        keywords: "ai",
+        run: () => askConstruct(ed!)(constructPrompt("synonyms", picked.text), picked, true),
+      },
+      !!picked && {
+        key: "ask-meaning",
+        section: "Selection",
+        label: `Ask Construct what “${picked.text}” means`,
+        keywords: "ai meaning",
+        run: () => askConstruct(ed!)(constructPrompt("meaning", picked.text), picked, true),
+      },
+      !!picked && {
+        key: "ask",
+        section: "Selection",
+        label: `Ask Construct about “${picked.text}”…`,
+        keywords: "ai question",
+        run: () => askConstruct(ed!)(askDraft(picked.text), picked, false),
+      },
+
+      {
+        key: "construct",
+        section: "Construct",
+        label: constructOpen ? "Close Construct" : "Open Construct",
+        keywords: "ai assistant chat panel",
+        run: toggleConstruct,
+      },
+      {
+        key: "new-chat",
+        section: "Construct",
+        label: "New Construct chat",
+        keywords: "ai assistant reset conversation",
+        run: () => {
+          if (!constructOpen) toggleConstruct();
+          setNewChat((n) => n + 1);
+        },
+      },
+
+      {
+        key: "grammar",
+        section: "Grammar",
+        label: grammarOn ? "Turn grammar check off" : "Turn grammar check on",
+        keywords: "spelling harper toggle",
+        refocus: true,
+        run: toggleGrammar,
+      },
+      grammarOn && {
+        key: "grammar-list",
+        section: "Grammar",
+        label: "Show grammar flags",
+        keywords: "spelling list problems",
+        run: () => showTab("grammar"),
+      },
+
+      !isEntry && {
+        key: "save-version",
+        section: "Versions",
+        label: "Save version…",
+        keywords: "snapshot history name checkpoint",
+        refocus: true,
+        ask: { placeholder: "Name this version (optional)", submit: (label) => void saveVersion(label) },
+      },
+      !isEntry && {
+        key: "history",
+        section: "Versions",
+        label: "Show history",
+        keywords: "versions snapshots restore",
+        run: () => showTab("history"),
+      },
+
+      {
+        key: "new-entry",
+        section: "Codex",
+        label: "New Codex entry",
+        keywords: "note create character",
+        run: () => void newEntry(),
+      },
+      !isEntry &&
+        !!panelEntry && {
+          key: "close-entry",
+          section: "Codex",
+          label: "Close the Codex panel",
+          run: () => void closeEntry(),
+        },
+      !isEntry &&
+        !!panelEntry && {
+          key: "expand-entry",
+          section: "Codex",
+          label: `Open “${panelTitle || panelEntry}” on its own page`,
+          keywords: "expand full",
+          run: () => void go(`/d/${projectId}/codex/${panelEntry}`),
+        },
+
+      {
+        key: "focus",
+        section: "View",
+        label: focusMode.focus ? "Leave focus mode" : "Focus mode",
+        keywords: "distraction free zen",
+        hint: "Ctrl+Shift+F",
+        refocus: true,
+        run: toggleFocus,
+      },
+      {
+        key: "theme",
+        section: "View",
+        label: `Switch theme to ${THEME_LABEL[nextTheme]}`,
+        keywords: "dark light night paper auto colors",
+        refocus: true,
+        run: cycleTheme,
+      },
+      {
+        key: "pen-settings",
+        section: "View",
+        label: "Pen settings",
+        keywords: "grammar dictionary dialect password lock",
+        run: () => void go("/settings"),
+      },
+
+      {
+        key: "export",
+        section: "Book",
+        label: "Export .md",
+        keywords: "download markdown file",
+        refocus: true,
+        run: exportMarkdown,
+      },
+      {
+        key: "settings",
+        section: "Book",
+        label: "Book settings",
+        keywords: "cover shelf address rename delete",
+        run: openSettings,
+      },
+    ];
+    return items.filter((x): x is PaletteItem => !!x);
+  };
+
   return (
     <div
       className={`app app-editor ${typing ? "is-typing" : ""} ${focusMode.toolbarShown ? "toolbar-shown" : ""} ${constructOpen ? "construct-open" : ""} ${panelEntry ? "codex-open" : ""}`}
@@ -544,9 +903,10 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
           <button
             type="button"
             className={`icon-btn ${panelEntry ? "is-on" : ""}`}
-            onClick={() => void switchView()}
-            aria-label={switchLabel}
-            title={`${switchLabel} (Ctrl+Shift+E)`}
+            onClick={() => togglePalette("go")}
+            aria-label="Go to…"
+            aria-haspopup="dialog"
+            title={`Go to… (Ctrl+O) · ${switchLabel} (Ctrl+Shift+E)`}
           >
             {isEntry ? <IconManuscript /> : <IconCodex />}
           </button>
@@ -741,7 +1101,17 @@ export default function Pen({ projectId, kind, initial, initialEntry, initialCit
         onOpen={open}
         onCite={cite}
         request={constructRequest}
+        newChat={newChat}
       />
+
+      {palette && (
+        <Palette key={palette} mode={palette} places={places()} commands={commands()} onClose={closePalette} />
+      )}
+      {notice && (
+        <div className="toast" role="status" onClick={() => setNotice(null)}>
+          {notice}
+        </div>
+      )}
 
       {lib.error && (
         <div className="toast" role="alert" onClick={lib.clearError}>
