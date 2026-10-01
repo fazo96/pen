@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { COVER_ACCEPT, isImage } from "@/lib/cover";
 import type { DocMeta } from "@/lib/docs";
+import type { Stats as Figures } from "@/lib/library";
 import { findBook, type Layout, moveBook } from "@/lib/shelfLayout";
 import { slugify } from "@/lib/text";
 import { useLibrary } from "@/lib/useLibrary";
 import { ago, Cover } from "./Book";
-import { IconBack, IconClose, IconImage, IconPencil, IconShelf, IconTrash } from "./icons";
+import { IconBack, IconBooks, IconClose, IconExport, IconImage, IconPencil, IconShelf, IconTrash } from "./icons";
 import Logo from "./Logo";
+import Stats from "./Stats";
 import ThemeButton from "./ThemeButton";
 
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
@@ -28,7 +30,7 @@ const typedId = (s: string) =>
 type Section = "cover" | "shelf" | "address" | "delete";
 
 /** One book's settings: cover, shelf, address (its id in URLs), and deleting it. */
-export default function BookSettings({ doc, shelves }: { doc: DocMeta; shelves: Layout }) {
+export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; shelves: Layout; stats: Figures }) {
   const router = useRouter();
   const lib = useLibrary();
   const picker = useRef<HTMLInputElement>(null);
@@ -123,6 +125,25 @@ export default function BookSettings({ doc, shelves }: { doc: DocMeta; shelves: 
             {doc.words.toLocaleString()} {doc.words === 1 ? "word" : "words"}, last written {ago(doc.modified, Date.now())}.
             The title is the manuscript’s first heading: <Link href={`/d/${doc.id}`}>change it there</Link>.
           </p>
+
+          <section className="lock" aria-labelledby="contents-title">
+            <div className="lock-head">
+              <IconBooks />
+              <h2 id="contents-title" className="label">
+                Contents
+              </h2>
+            </div>
+            <Stats stats={stats} />
+            <p className="lock-text">
+              Export it as a zip: the manuscript, versions, Codex, Construct chats, cover, and whatever of it is in the
+              trash.
+            </p>
+            <div className="lock-actions">
+              <a className="btn" href={`/api/docs/${doc.id}/export`} download>
+                <IconExport /> Export book
+              </a>
+            </div>
+          </section>
 
           <section className="lock" aria-labelledby="cover-title">
             <div className="lock-head">

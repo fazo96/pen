@@ -198,6 +198,15 @@ export const IconGear = (p: P) => (
   </svg>
 );
 
+/** A stack of books. */
+export const IconBooks = (p: P) => (
+  <svg {...base} {...p}>
+    <rect x="3.5" y="13" width="13" height="3.5" rx=".5" />
+    <rect x="4.5" y="9" width="11" height="4" rx=".5" />
+    <rect x="3.8" y="5" width="12" height="4" rx=".5" transform="rotate(-4 10 7)" />
+  </svg>
+);
+
 /** Books on a shelf, one leaning. */
 export const IconShelf = (p: P) => (
   <svg {...base} {...p}>
