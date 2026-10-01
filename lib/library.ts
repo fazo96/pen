@@ -137,7 +137,8 @@ export async function* libraryFiles(): AsyncGenerator<ZipSource> {
   yield* filesUnder(TRASH_DIR, ".trash");
   for (const n of LIBRARY_FILES) {
     try {
-      yield await source(path.join(DOCS_DIR, n), n);
+      // A path in the data folder, not a file of the app: nothing to trace.
+      yield await source(path.join(/*turbopackIgnore: true*/ DOCS_DIR, n), n);
     } catch {} // not there yet
   }
 }
