@@ -29,6 +29,10 @@ type Props = {
   newChat?: number;
   /** Bumped to compact the conversation (from the command palette). */
   compact?: number;
+  /** Bumped to put the cursor in the input (Ctrl+Shift+A, the palette). */
+  focus?: number;
+  /** Esc in the input: give the cursor back to the text. */
+  onEscape?: () => void;
 };
 
 export type ConstructRequest = { id: number; text: string; context: PromptContext; send: boolean };
@@ -210,6 +214,8 @@ export default function Construct({
   request,
   newChat,
   compact,
+  focus,
+  onEscape,
 }: Props) {
   const c = useConstruct(projectId, open, onCodexChange);
   const [draft, setDraft] = useState("");
@@ -234,6 +240,10 @@ export default function Construct({
   useEffect(() => {
     if (open && !isTouch()) input.current?.focus();
   }, [open]);
+  useEffect(() => {
+    if (focus && open && !isTouch()) input.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus]);
 
   // Follow the conversation unless the writer has scrolled up to reread.
   useLayoutEffect(() => {
@@ -638,9 +648,13 @@ export default function Construct({
             placeholder={status === "starting" ? "Waking Construct…" : "Ask Construct"}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !isTouch()) {
+              if (e.nativeEvent.isComposing) return;
+              if (e.key === "Enter" && !e.shiftKey && !isTouch()) {
                 e.preventDefault();
                 void send();
+              } else if (e.key === "Escape" && onEscape) {
+                e.preventDefault();
+                onEscape();
               }
             }}
           />

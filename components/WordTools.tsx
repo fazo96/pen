@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { grammarKey } from "@/lib/grammar";
 import { useAnchored } from "@/lib/useAnchored";
+import { useKeys } from "@/lib/useKeys";
 import { askDraft, constructPrompt, onLookUpRequest, pickedWords, type AskKind, type Picked } from "@/lib/wordTools";
 import { inflectLike, type Pos } from "@/lib/wordforms";
 import { IconBook, IconConstruct } from "./icons";
@@ -48,6 +49,7 @@ export default function WordTools({ editor, onAsk }: { editor: Editor; onAsk: As
   const [picked, setPicked] = useState<Picked | null>(null);
   const [lookUp, setLookUp] = useState<Picked | null>(null);
   const [pressing, setPressing] = useState(false);
+  const keys = useKeys();
   const bar = useRef<HTMLDivElement>(null);
 
   // Follow the selection; the bar waits until the mouse is let go.
@@ -122,7 +124,7 @@ export default function WordTools({ editor, onAsk }: { editor: Editor; onAsk: As
             style={barPos ? { left: barPos.left, top: barPos.top } : { visibility: "hidden" }}
             onMouseDown={(e) => e.preventDefault()}
           >
-            <button type="button" onClick={() => setLookUp(picked)} title="Look up (Ctrl+Shift+D)">
+            <button type="button" onClick={() => setLookUp(picked)} title={keys.title("Look up", "lookUp")}>
               <IconBook /> Look up
             </button>
             <span className="word-bar-sep" aria-hidden />

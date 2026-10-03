@@ -3016,6 +3016,45 @@ a.btn {
   color: var(--ink);
 }
 
+/* ─── Keyboard shortcuts (/settings) ──────────────────────── */
+.keys {
+  margin: 0 0 1.2rem;
+}
+.keys-group {
+  display: block;
+  margin-bottom: 6px;
+}
+.keys > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.keys dt {
+  color: var(--ink-soft);
+  min-width: 0;
+}
+.keys dd {
+  margin: 0;
+  flex: none;
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+}
+.keys kbd {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+/* Shortcuts mean nothing without a keyboard. */
+@media (hover: none) {
+  .key-settings {
+    display: none;
+  }
+}
+
 /* ─── Grammar ──────────────────────────────────────────────── */
 .prose .grammar-flag {
   text-decoration-line: underline;

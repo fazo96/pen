@@ -257,3 +257,9 @@ export const IconManuscript = (p: P) => (
     <path d="M5 3h7l3 3v11H5Z M12 3v3h3M7.5 9h5M7.5 11.5h5M7.5 14h3.5" />
   </svg>
 );
+export const IconKeyboard = (p: P) => (
+  <svg {...base} {...p}>
+    <rect x="2.5" y="5.5" width="15" height="9" rx="1.5" />
+    <path d="M5.5 8.5h1M9.5 8.5h1M13.5 8.5h1M7 11.5h6" />
+  </svg>
+);

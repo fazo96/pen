@@ -13,6 +13,7 @@ import type { Spot } from "@/lib/spot";
 import { slugify, wordCount } from "@/lib/text";
 import { STATUS_LABEL, type Story, useAutosave } from "@/lib/useAutosave";
 import { useFocusMode } from "@/lib/useFocusMode";
+import { useKeys } from "@/lib/useKeys";
 import { useLibrary } from "@/lib/useLibrary";
 import { useMedia } from "@/lib/useMedia";
 import { useSpot } from "@/lib/useSpot";
@@ -48,6 +49,8 @@ type DrawerTab = "contents" | "codex" | "history" | "grammar";
 const WIDE = "(min-width: 1180px)";
 /** Room for the codex entry and Construct at once. */
 const ROOMY = "(min-width: 1800px)";
+/** sessionStorage: put the cursor in the next page's text (set by the jumps, Ctrl+Shift+M and so on). */
+const FOCUS_ON_ARRIVAL = "pen:focus-on-arrival";
 
 type Props = {
   projectId: string;
@@ -81,6 +84,7 @@ export default function Pen({
   const router = useRouter();
   const lib = useLibrary();
   const focusMode = useFocusMode();
+  const keys = useKeys();
   const wide = useMedia(WIDE);
   const roomy = useMedia(ROOMY);
   const [headings, setHeadings] = useState<Heading[]>([]);
@@ -374,35 +378,22 @@ export default function Pen({
     if (panelEntry) setLast((l) => ({ id: panelEntry, title: panelTitle || (l?.id === panelEntry ? l.title : panelEntry) }));
   }, [panelEntry, panelTitle]);
 
-  /** Manuscript ⇄ the last entry: a page of its own on phones, the side panel where there's room. */
+  /** The Codex panel's editor was used last (not the manuscript's). */
+  const inPanel = panelFocused && !!panelEditor && !!panelEntry;
+  /**
+   * Manuscript ⇄ the last entry: a page of its own on phones, the side panel where there's
+   * room. With the panel open, the cursor goes between the two and the panel stays.
+   */
   const switchView = () => {
-    const beside = window.matchMedia(WIDE).matches;
-    if (isEntry) return go(beside ? `/d/${projectId}?entry=${encodeURIComponent(initial.id)}` : `/d/${projectId}`);
-    if (beside && panelEntry) return closeEntry();
-    if (!last) {
-      // Nothing viewed yet: show the list instead.
-      setDrawerTab("codex");
-      setOutlineOpen(true);
-      return;
-    }
-    return beside ? openEntry(last.id) : go(`/d/${projectId}/codex/${last.id}`);
+    if (isEntry) return toManuscript();
+    return panelEntry && inPanel ? toManuscript() : toCodex();
   };
-  const switchRef = useRef(switchView);
-  switchRef.current = switchView;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "e") {
-        e.preventDefault();
-        void switchRef.current();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
   const switchLabel = isEntry
     ? "Back to the manuscript"
     : panelEntry
-      ? "Close the Codex entry"
+      ? inPanel
+        ? "Back to the manuscript"
+        : `Codex: ${panelTitle || panelEntry}`
       : last
         ? `Codex: ${last.title}`
         : "Codex";
@@ -451,7 +442,6 @@ export default function Pen({
       panelEditor.off("focus", onPanel);
     };
   }, [panelEditor]);
-  const inPanel = panelFocused && !!panelEditor && !!panelEntry;
   const toolEditor = inPanel ? panelEditor : editor;
   const onPanelTyping = useCallback(() => setTyping(true), []);
 
@@ -525,6 +515,7 @@ export default function Pen({
   const [palette, setPalette] = useState<PaletteMode | null>(null);
   /** The editor that had the cursor when the palette opened, to give it back. */
   const paletteFrom = useRef<Editor | null>(null);
+  const paletteFocus = useRef<HTMLElement | null>(null);
   const lists = usePaletteLists(projectId, !!palette);
   const [recent, setRecent] = useState(recentEntries ?? []);
   useEffect(() => {
@@ -542,13 +533,20 @@ export default function Pen({
 
   const togglePalette = (mode: PaletteMode) => {
     if (palette === mode) return closePalette(true);
-    if (!palette) paletteFrom.current = toolEditor?.isFocused ? toolEditor : null;
+    if (!palette) {
+      paletteFrom.current = toolEditor?.isFocused ? toolEditor : null;
+      // Anything else that had focus (Construct's input, a button) gets it back too.
+      const el = document.activeElement;
+      paletteFocus.current = !paletteFrom.current && el instanceof HTMLElement && el !== document.body ? el : null;
+    }
     setPalette(mode);
   };
   const closePalette = (refocus: boolean) => {
     setPalette(null);
     const ed = paletteFrom.current;
+    const el = paletteFocus.current;
     if (refocus && ed && !ed.isDestroyed) requestAnimationFrame(() => ed.view.focus());
+    else if (refocus && el?.isConnected) requestAnimationFrame(() => el.focus());
   };
   const paletteKeys = useRef(togglePalette);
   paletteKeys.current = togglePalette;
@@ -562,6 +560,92 @@ export default function Pen({
       e.preventDefault();
       e.stopPropagation();
       paletteKeys.current(mode);
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
+  // ─── Jumping between the manuscript, the Codex and Construct ───
+  /** The cursor into `ed`; not on touch screens, where it would bring up the keyboard. */
+  const focusText = (ed: Editor | null) => {
+    if (!ed || ed.isDestroyed || window.matchMedia("(hover: none)").matches) return;
+    requestAnimationFrame(() => !ed.isDestroyed && ed.view.focus());
+  };
+  /** To another page, with the cursor in its text once it opens. */
+  const goAndFocus = (href: string) => {
+    try {
+      sessionStorage.setItem(FOCUS_ON_ARRIVAL, String(Date.now()));
+    } catch {}
+    return go(href);
+  };
+  useEffect(() => {
+    if (!editor) return;
+    try {
+      const at = Number(sessionStorage.getItem(FOCUS_ON_ARRIVAL));
+      sessionStorage.removeItem(FOCUS_ON_ARRIVAL);
+      if (Date.now() - at < 10_000) focusText(editor);
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+  // The panel's editor appears once its entry has loaded.
+  const panelFocusWanted = useRef(false);
+  useEffect(() => {
+    if (!panelEditor || !panelFocusWanted.current) return;
+    panelFocusWanted.current = false;
+    focusText(panelEditor);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelEditor]);
+
+  const toManuscript = () => {
+    setOutlineOpen(false);
+    if (isEntry) {
+      const beside = window.matchMedia(WIDE).matches;
+      return goAndFocus(beside ? `/d/${projectId}?entry=${encodeURIComponent(initial.id)}` : `/d/${projectId}`);
+    }
+    if (preview) closePreview();
+    focusText(editor);
+  };
+  /** The entry beside the manuscript, else the one viewed last, else the Codex's list. */
+  const toCodex = () => {
+    if (isEntry) {
+      setOutlineOpen(false);
+      return focusText(editor);
+    }
+    const beside = window.matchMedia(WIDE).matches;
+    if (beside && panelEntry) {
+      setOutlineOpen(false);
+      if (panelEditor) return focusText(panelEditor);
+      panelFocusWanted.current = true;
+      return;
+    }
+    if (!last) return showTab("codex");
+    if (!beside) return goAndFocus(`/d/${projectId}/codex/${last.id}`);
+    panelFocusWanted.current = true;
+    return openEntry(last.id);
+  };
+  /** Closed from its ✕ or the palette: the cursor goes back to the text. */
+  const closeConstruct = () => {
+    setConstructOpen(false);
+    focusText(toolEditor);
+  };
+  const [constructFocus, setConstructFocus] = useState(0);
+  const toConstruct = () => {
+    if (constructOpen) setOutlineOpen(false);
+    else toggleConstruct();
+    setConstructFocus((n) => n + 1);
+  };
+  const jumps = useRef({ switchView, toManuscript, toCodex, toConstruct, closePalette });
+  jumps.current = { switchView, toManuscript, toCodex, toConstruct, closePalette };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey) return;
+      const j = jumps.current;
+      const jump = { e: j.switchView, m: j.toManuscript, x: j.toCodex, a: j.toConstruct }[e.key.toLowerCase()];
+      if (!jump) return;
+      e.preventDefault();
+      e.stopPropagation();
+      j.closePalette(false);
+      void jump();
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
@@ -607,7 +691,7 @@ export default function Pen({
         key: "switch",
         section: "Recent",
         label: switchLabel,
-        hint: "Ctrl+Shift+E",
+        hint: keys.key("switch"),
         when: isEntry ? undefined : "empty",
         run: switchView,
       });
@@ -691,7 +775,7 @@ export default function Pen({
         section: "Go",
         label: "Go to…",
         keywords: "quick switcher open chapter entry book",
-        hint: "Ctrl+O",
+        hint: keys.key("goTo"),
         run: () => togglePalette("go"),
       },
       !!(isEntry || panelEntry || last) && {
@@ -699,8 +783,33 @@ export default function Pen({
         section: "Go",
         label: switchLabel,
         keywords: "switch codex manuscript",
-        hint: "Ctrl+Shift+E",
+        hint: keys.key("switch"),
         run: switchView,
+      },
+      // On an entry's page, the switch above is the way back.
+      !isEntry && {
+        key: "to-manuscript",
+        section: "Go",
+        label: "Go to the manuscript",
+        keywords: "editor text write cursor",
+        hint: keys.key("manuscript"),
+        run: toManuscript,
+      },
+      !isEntry && {
+        key: "to-codex",
+        section: "Go",
+        label: "Go to the Codex",
+        keywords: `entry notes panel ${panelTitle ?? last?.title ?? ""}`,
+        hint: keys.key("codex"),
+        run: () => void toCodex(),
+      },
+      {
+        key: "to-construct",
+        section: "Go",
+        label: "Go to Construct",
+        keywords: "open ai assistant chat panel ask",
+        hint: keys.key("construct"),
+        run: toConstruct,
       },
       { key: "library", section: "Go", label: "Library", keywords: "books shelves home", run: goLibrary },
       {
@@ -723,7 +832,7 @@ export default function Pen({
         section: "Selection",
         label: `Look up “${picked.text}”`,
         keywords: "dictionary define wordnet",
-        hint: "Ctrl+Shift+D",
+        hint: keys.key("lookUp"),
         refocus: true,
         run: () => requestLookUp(ed!),
       },
@@ -749,12 +858,13 @@ export default function Pen({
         run: () => askConstruct(ed!)(askDraft(picked.text), picked, false),
       },
 
-      {
+      // Opening is "Go to Construct", above.
+      constructOpen && {
         key: "construct",
         section: "Construct",
-        label: constructOpen ? "Close Construct" : "Open Construct",
+        label: "Close Construct",
         keywords: "ai assistant chat panel",
-        run: toggleConstruct,
+        run: closeConstruct,
       },
       {
         key: "new-chat",
@@ -837,7 +947,7 @@ export default function Pen({
         section: "View",
         label: focusMode.focus ? "Leave focus mode" : "Focus mode",
         keywords: "distraction free zen",
-        hint: "Ctrl+Shift+F",
+        hint: keys.key("focus"),
         refocus: true,
         run: toggleFocus,
       },
@@ -923,7 +1033,7 @@ export default function Pen({
             onClick={() => togglePalette("go")}
             aria-label="Go to…"
             aria-haspopup="dialog"
-            title={`Go to… (Ctrl+O) · ${switchLabel} (Ctrl+Shift+E)`}
+            title={`${keys.title("Go to…", "goTo")} · ${keys.title(switchLabel, "switch")}`}
           >
             {isEntry ? <IconManuscript /> : <IconCodex />}
           </button>
@@ -937,7 +1047,7 @@ export default function Pen({
               className="icon-btn"
               onClick={toggleFocus}
               aria-label="Focus mode"
-              title="Focus mode (Ctrl+Shift+F)"
+              title={keys.title("Focus mode", "focus")}
             >
               <IconFocus />
             </button>
@@ -961,7 +1071,7 @@ export default function Pen({
               onClick={toggleConstruct}
               aria-label="Construct"
               aria-expanded={constructOpen}
-              title="Construct"
+              title={keys.title("Construct", "construct")}
             >
               <IconConstruct />
             </button>
@@ -1113,7 +1223,7 @@ export default function Pen({
       <Construct
         projectId={projectId}
         open={constructOpen}
-        onClose={() => setConstructOpen(false)}
+        onClose={closeConstruct}
         getContext={constructContext}
         beforeSend={beforeConstruct}
         onCodexChange={onCodexChange}
@@ -1122,6 +1232,8 @@ export default function Pen({
         request={constructRequest}
         newChat={newChat}
         compact={compactChat}
+        focus={constructFocus}
+        onEscape={() => focusText(toolEditor)}
       />
 
       {palette && (
