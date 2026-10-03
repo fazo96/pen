@@ -34,8 +34,8 @@ export const viewport: Viewport = {
   ],
 };
 
-// Runs before paint so a stored theme or focus mode never flashes the wrong UI.
-const themeScript = `try{var d=document.documentElement,t=localStorage.getItem("pen:theme");if(t==="light"||t==="dark")d.dataset.theme=t;if(localStorage.getItem("pen:focus"))d.dataset.focus=""}catch(e){}`;
+// Runs before paint so a stored theme, focus mode or steady chrome never flashes the wrong UI.
+const themeScript = `try{var d=document.documentElement,t=localStorage.getItem("pen:theme");if(t==="light"||t==="dark")d.dataset.theme=t;if(localStorage.getItem("pen:focus"))d.dataset.focus="";if(localStorage.getItem("pen:steady"))d.dataset.steady=""}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

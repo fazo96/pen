@@ -278,12 +278,13 @@ button {
   }
 }
 
-/* Typing fades the chrome; moving the pointer or scrolling brings it back. */
-.is-typing .topbar,
-.is-typing .progress {
+/* Typing fades the chrome; moving the pointer or scrolling brings it back.
+   Not with <html data-steady> (the setting in /settings, lib/useSteady.ts). */
+:where(:root:not([data-steady])) .is-typing .topbar,
+:where(:root:not([data-steady])) .is-typing .progress {
   opacity: 0.22;
 }
-.is-typing .topbar:hover {
+:where(:root:not([data-steady])) .is-typing .topbar:hover {
   opacity: 1;
 }
 
@@ -2232,10 +2233,10 @@ a.btn {
   .scrim {
     display: none;
   }
-  .is-typing .outline {
+  :where(:root:not([data-steady])) .is-typing .outline {
     opacity: 0.35;
   }
-  .is-typing .outline:hover {
+  :where(:root:not([data-steady])) .is-typing .outline:hover {
     opacity: 1;
   }
   .page {
@@ -2958,10 +2959,10 @@ a.btn {
   .codex-open .page {
     padding-right: var(--codex-w);
   }
-  .is-typing .codex-panel:not(:focus-within) {
+  :where(:root:not([data-steady])) .is-typing .codex-panel:not(:focus-within) {
     opacity: 0.35;
   }
-  .is-typing .codex-panel:hover {
+  :where(:root:not([data-steady])) .is-typing .codex-panel:hover {
     opacity: 1;
   }
 }

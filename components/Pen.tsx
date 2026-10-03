@@ -18,6 +18,7 @@ import { useKeys } from "@/lib/useKeys";
 import { useLibrary } from "@/lib/useLibrary";
 import { useMedia } from "@/lib/useMedia";
 import { useSpot } from "@/lib/useSpot";
+import { setSteady, useSteady } from "@/lib/useSteady";
 import { roman } from "@/lib/outline";
 import { HEADINGS, usePenEditor } from "@/lib/usePenEditor";
 import { useTheme, THEME_LABEL, type Theme } from "@/lib/useTheme";
@@ -87,6 +88,7 @@ export default function Pen({
   const lib = useLibrary();
   const focusMode = useFocusMode();
   const keys = useKeys();
+  const steady = useSteady();
   const wide = useMedia(WIDE);
   const roomy = useMedia(ROOMY);
   const [headings, setHeadings] = useState<Heading[]>([]);
@@ -1027,6 +1029,14 @@ export default function Pen({
         hint: keys.key("focus"),
         refocus: true,
         run: toggleFocus,
+      },
+      {
+        key: "steady",
+        section: "View",
+        label: steady ? "Turn the typing fade on" : "Turn the typing fade off",
+        keywords: "dim chrome top bar distraction steady",
+        refocus: true,
+        run: () => setSteady(!steady),
       },
       {
         key: "theme",
