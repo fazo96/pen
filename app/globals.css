@@ -1309,6 +1309,7 @@ button {
   color: var(--accent);
 }
 .book-meta {
+  display: block;
   font-family: var(--font-ui);
   font-size: 10.5px;
   letter-spacing: 0.06em;

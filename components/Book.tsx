@@ -80,8 +80,12 @@ export default function Book(p: Props) {
         <Cover doc={d} />
         <span className="book-caption">
           <span className="book-title">{d.title}</span>
-          <span className="book-meta" title={wordsPagesTitle(d.words)} suppressHydrationWarning>
-            {wordsPages(d.words)} · {ago(d.modified, p.now)}
+          <span className="book-meta" title={wordsPagesTitle(d.words)}>
+            {wordsPages(d.words)}
+          </span>
+          {/* A row of its own: beside the counts it wrapped mid-phrase on longer books. */}
+          <span className="book-meta" suppressHydrationWarning>
+            {ago(d.modified, p.now)}
           </span>
         </span>
       </Link>
