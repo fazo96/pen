@@ -24,7 +24,21 @@ export type ChatItem =
       input?: Record<string, string>;
     }
   | { id: string; type: "plan"; entries: { content: string; status: string }[] }
-  | { id: string; type: "notice"; text: string; tone: "info" | "error" };
+  | { id: string; type: "notice"; text: string; tone: "info" | "error" }
+  | {
+      id: string;
+      /** The agent summarized the conversation so far to make room in its context. */
+      type: "compaction";
+      status: "in_progress" | "completed" | "failed" | "cancelled";
+      /** What it kept, as markdown. */
+      summary?: string;
+      error?: string;
+      /** The writer asked for it; otherwise the agent did it on its own. */
+      manual?: boolean;
+    };
+
+/** How full the agent's context window is, in tokens. */
+export type ContextUsage = { used: number; size: number };
 
 export type ChatMeta = { id: string; title: string; created: number; updated: number };
 
@@ -37,6 +51,8 @@ export type ConstructState = {
   error?: string;
   /** Model / effort pickers the agent offers. */
   config: SessionConfigOption[];
+  /** The agent's latest reading for the chat shown, once there is one. */
+  context?: ContextUsage;
 };
 
 export type ConstructEvent =

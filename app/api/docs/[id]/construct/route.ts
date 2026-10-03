@@ -60,6 +60,7 @@ export async function GET(req: Request, { params }: Ctx) {
 type Action =
   | { action: "start"; agent?: string }
   | { action: "prompt"; text: string; context?: PromptContext }
+  | { action: "compact" }
   | { action: "cancel" }
   | { action: "reset" }
   | { action: "open-chat"; chatId: string }
@@ -96,6 +97,10 @@ export async function POST(req: Request, { params }: Ctx) {
         void session.prompt(text.slice(0, 20_000), context);
         break;
       }
+      case "compact":
+        if (session.busy) return Response.json({ error: "Construct is still answering." }, { status: 409 });
+        void session.compact();
+        break;
       case "cancel":
         await session.cancel();
         break;

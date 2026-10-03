@@ -87,6 +87,7 @@ export function useConstruct(projectId: string, enabled: boolean, onCodexChange:
     start: (agent?: string) => post({ action: "start", agent }),
     send: (text: string, context: PromptContext) => post({ action: "prompt", text, context }),
     cancel: () => post({ action: "cancel" }),
+    compact: () => post({ action: "compact" }),
     reset: () => post({ action: "reset" }),
     openChat: (chatId: string) => post({ action: "open-chat", chatId }),
     deleteChat: (chatId: string) => post({ action: "delete-chat", chatId }),

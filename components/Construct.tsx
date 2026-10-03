@@ -26,6 +26,8 @@ type Props = {
   request?: ConstructRequest | null;
   /** Bumped to start a new chat (from the command palette). */
   newChat?: number;
+  /** Bumped to compact the conversation (from the command palette). */
+  compact?: number;
 };
 
 export type ConstructRequest = { id: number; text: string; context: PromptContext; send: boolean };
@@ -118,6 +120,13 @@ function when(t: number) {
     : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
+/** 460, 12k, 1.2M: token counts at a glance. */
+function tokens(n: number) {
+  if (n < 1000) return String(n);
+  if (n < 1_000_000) return `${n < 10_000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") : Math.round(n / 1000)}k`;
+  return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
+}
+
 const isTouch = () => typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
 
 export default function Construct({
@@ -131,6 +140,7 @@ export default function Construct({
   onCite,
   request,
   newChat,
+  compact,
 }: Props) {
   const c = useConstruct(projectId, open, onCodexChange);
   const [draft, setDraft] = useState("");
@@ -210,7 +220,20 @@ export default function Construct({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newChat, c.state]);
 
+  // The command palette's Compact: once the conversation has loaded.
+  const handledCompact = useRef(0);
+  useEffect(() => {
+    if (!compact || compact === handledCompact.current || !c.state) return;
+    handledCompact.current = compact;
+    setShowChats(false);
+    stick.current = true;
+    if (c.items.length && !busy) void c.compact();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compact, c.state]);
+
   const config = c.state?.config ?? [];
+  const context = c.state?.context;
+  const filled = context ? Math.min(1, context.used / context.size) : 0;
 
   /** Citation chips in replies: open the entry, or jump to the passage. */
   const onLogClick = async (e: React.MouseEvent) => {
@@ -266,7 +289,7 @@ export default function Construct({
           </div>
         </div>
 
-        {config.length > 0 && (
+        {(config.length > 0 || context) && (
           <div className="construct-config">
             {config.map((o) =>
               o.type === "select" ? (
@@ -285,6 +308,37 @@ export default function Construct({
                   </select>
                 </label>
               ) : null,
+            )}
+            {context && (
+              <div className={`construct-context ${filled >= 0.8 ? "is-full" : ""}`}>
+                <span className="label">Context</span>
+                <span
+                  className="construct-context-meter"
+                  role="meter"
+                  aria-label="Context used"
+                  aria-valuemin={0}
+                  aria-valuemax={context.size}
+                  aria-valuenow={context.used}
+                  title={`${context.used.toLocaleString()} of ${context.size.toLocaleString()} tokens`}
+                >
+                  <span style={{ width: `${filled * 100}%` }} />
+                </span>
+                <span className="construct-context-text">
+                  {Math.round(filled * 100)}% · {tokens(context.used)} / {tokens(context.size)}
+                </span>
+                <button
+                  type="button"
+                  className="construct-context-compact"
+                  onClick={() => {
+                    stick.current = true;
+                    void c.compact();
+                  }}
+                  disabled={busy || !c.items.length}
+                  title="Summarize the conversation so far, to free up context"
+                >
+                  Compact
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -410,6 +464,32 @@ export default function Construct({
                       </li>
                     ))}
                   </ol>
+                );
+              case "compaction":
+                return (
+                  <div key={item.id} className={`construct-compaction is-${item.status}`}>
+                    <p className="label">
+                      {item.status === "in_progress"
+                        ? "Compacting the conversation…"
+                        : item.status === "failed"
+                          ? "Compacting failed"
+                          : item.status === "cancelled"
+                            ? "Compacting stopped"
+                            : item.manual
+                              ? "Conversation compacted"
+                              : "Compacted to make room"}
+                    </p>
+                    {item.error && <p className="construct-notice is-error">{item.error}</p>}
+                    {item.status === "completed" && (
+                      <p className="construct-notice">Construct now remembers what’s above only as a summary.</p>
+                    )}
+                    {item.summary && (
+                      <details className="construct-thought construct-compaction-summary">
+                        <summary className="label">Summary</summary>
+                        <Markdown text={item.summary} />
+                      </details>
+                    )}
+                  </div>
                 );
               case "notice":
                 return (

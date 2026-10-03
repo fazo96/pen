@@ -8,6 +8,7 @@ import { Readable, Writable } from "node:stream";
 import {
   type Client,
   ClientSideConnection,
+  type ContentBlock,
   ndJsonStream,
   PROTOCOL_VERSION,
   type RequestPermissionRequest,
@@ -20,7 +21,7 @@ import { agentHome, readChats, readDoc, readVersion, trashChat, writeChat } from
 import { titleOf } from "../text";
 import type { CodexChange, ToolContext } from "./tools";
 import { type AgentId, type AgentPreset, AGENTS, systemPrompt } from "./agents";
-import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, PromptContext } from "./types";
+import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, ContextUsage, PromptContext } from "./types";
 
 // One Construct conversation at a time per project, driving an ACP agent over
 // stdio. Lives in the server process (on globalThis, so dev reloads keep it);
@@ -34,7 +35,15 @@ const MAX_ITEMS = 400;
 const SAVE_EVERY_MS = 1500;
 
 /** A chat as stored in <project>/construct/<id>.json. */
-type StoredChat = ChatMeta & { v: 1; agent: string; sessionId: string | null; seq: number; items: ChatItem[] };
+type StoredChat = ChatMeta & {
+  v: 1;
+  agent: string;
+  sessionId: string | null;
+  seq: number;
+  items: ChatItem[];
+  /** The last context reading: the agent doesn't repeat it when a chat is resumed. */
+  context?: ContextUsage;
+};
 
 const newChatId = () => `${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`;
 
@@ -69,6 +78,8 @@ class ConstructSession {
   private cwd = "";
   private seq = 0;
   private running = false;
+  /** The turn running is the writer's Compact, not a message. */
+  private compacting = false;
   /** The message or thought currently streaming, to append chunks to. */
   private streaming: { id: string; type: "agent" | "thought" } | null = null;
   /** The chat shown; `sessionId` is the agent's, kept to resume it later. */
@@ -103,12 +114,16 @@ class ConstructSession {
   private adopt(c: StoredChat) {
     this.chat = { id: c.id, created: c.created, sessionId: c.sessionId };
     this.seq = c.seq;
-    // A turn cut short by a restart leaves tools that will never finish.
+    // A turn cut short by a restart leaves tools (or a compaction) that will never finish.
     this.items = c.items.map((i) =>
-      i.type === "tool" && (i.status === "pending" || i.status === "in_progress") ? { ...i, status: "failed" } : i,
+      i.type === "tool" && (i.status === "pending" || i.status === "in_progress")
+        ? { ...i, status: "failed" }
+        : i.type === "compaction" && i.status === "in_progress"
+          ? { ...i, status: "cancelled" }
+          : i,
     );
     this.streaming = null;
-    this.state = { ...this.state, chatId: c.id };
+    this.state = { ...this.state, chatId: c.id, context: c.context };
   }
 
   private title() {
@@ -146,6 +161,7 @@ class ConstructSession {
       sessionId: this.chat.sessionId,
       seq: this.seq,
       items: this.items,
+      ...(this.state.context && { context: this.state.context }),
     };
     try {
       await writeChat(this.projectId, this.chat.id, data);
@@ -163,7 +179,7 @@ class ConstructSession {
       this.chat = { id: newChatId(), created: Date.now(), sessionId: null };
       this.items = [];
       this.streaming = null;
-      this.state = { ...this.state, chatId: this.chat.id };
+      this.state = { ...this.state, chatId: this.chat.id, context: undefined };
     }
     this.emit({ t: "snapshot", items: this.items, state: this.state });
     if (this.conn) {
@@ -257,7 +273,7 @@ class ConstructSession {
       void this.save();
       this.chat = { id: newChatId(), created: Date.now(), sessionId: null };
       this.items = [];
-      this.state = { ...this.state, chatId: this.chat.id };
+      this.state = { ...this.state, chatId: this.chat.id, context: undefined };
       this.emit({ t: "snapshot", items: this.items, state: this.state });
     }
     if (this.conn && this.sessionId) return Promise.resolve();
@@ -310,7 +326,9 @@ class ConstructSession {
       const init = await Promise.race([
         conn.initialize({
           protocolVersion: PROTOCOL_VERSION,
-          clientCapabilities: {}, // no fs, no terminal: everything goes through pen's tools
+          // No fs, no terminal: everything goes through pen's tools. Compaction
+          // comes as its own updates rather than a made-up tool call.
+          clientCapabilities: { session: { compaction: {} } },
           clientInfo: { name: "pen", version: "0.1.0" },
         }),
         exited.then((why) => Promise.reject(new Error(why))),
@@ -418,6 +436,29 @@ class ConstructSession {
       this.notice((err as Error).message || "Construct failed.", "error");
     } finally {
       await this.anchorCitations(userId).catch((err) => console.error("construct: couldn't anchor citations", err));
+      this.running = false;
+      await this.save();
+    }
+  }
+
+  /** Have the agent summarize the conversation so far, to free its context. */
+  async compact() {
+    if (this.running) return;
+    this.running = true;
+    this.compacting = true;
+    this.streaming = null;
+    try {
+      await this.start();
+      this.setState({ status: "busy" });
+      // Claude Code's own command; it has to be the whole prompt to count as one.
+      await this.conn!.prompt({ sessionId: this.sessionId!, prompt: [{ type: "text", text: "/compact" }] });
+      this.streaming = null;
+      if (this.state.status === "busy") this.setState({ status: "ready" });
+    } catch (err) {
+      if (this.conn) this.setState({ status: "ready" });
+      this.notice((err as Error).message || "Construct couldn’t compact the conversation.", "error");
+    } finally {
+      this.compacting = false;
       this.running = false;
       await this.save();
     }
@@ -535,8 +576,35 @@ class ConstructSession {
       case "config_option_update":
         this.setState({ config: visibleConfig(u.configOptions) });
         return;
+      case "usage_update":
+        if (u.size > 0) {
+          this.setState({ context: { used: u.used, size: u.size } });
+          this.persist();
+        }
+        return;
+      case "compaction_update":
+      case "compaction_summary_chunk": {
+        this.streaming = null;
+        const id = `compact-${u.compactionId}`;
+        const prev = this.items.find((x) => x.id === id);
+        const base = prev?.type === "compaction" ? prev : null;
+        const item: Extract<ChatItem, { type: "compaction" }> = base
+          ? { ...base }
+          : { id, type: "compaction", status: "in_progress", ...(this.compacting && { manual: true }) };
+        if (u.sessionUpdate === "compaction_summary_chunk") {
+          if (u.content.type === "text") item.summary = (item.summary ?? "") + u.content.text;
+        } else {
+          const status = u.status;
+          item.status = status === "completed" || status === "failed" || status === "cancelled" ? status : "in_progress";
+          // Patches: left out keeps the old value, null clears it.
+          if (u.summary !== undefined) item.summary = textOf(u.summary ?? []) || undefined;
+          if (u.error !== undefined) item.error = u.error ?? undefined;
+        }
+        this.upsert(item);
+        return;
+      }
       default:
-        return; // user_message_chunk (echo), usage, commands, modes…
+        return; // user_message_chunk (echo), commands, modes…
     }
   }
 }
@@ -546,6 +614,9 @@ function toolNameOf(call: { _meta?: { [k: string]: unknown } | null; title?: str
   if (typeof meta?.toolName === "string") return meta.toolName;
   return call.title?.startsWith("mcp__") ? call.title : undefined;
 }
+
+const textOf = (blocks: ContentBlock[]) =>
+  blocks.map((b) => (b.type === "text" ? b.text : "")).join("").trim();
 
 /** The writer only picks the model and how hard it thinks; modes stay default. */
 function visibleConfig(options: SessionConfigOption[] | null | undefined) {

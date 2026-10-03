@@ -525,6 +525,7 @@ export default function Pen({
     if (visited) setRecent((r) => [visited, ...r.filter((e) => e !== visited)]);
   }, [visited]);
   const [newChat, setNewChat] = useState(0);
+  const [compactChat, setCompactChat] = useState(0);
   const { cycle: cycleTheme } = useTheme();
   const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
@@ -757,6 +758,16 @@ export default function Pen({
         run: () => {
           if (!constructOpen) toggleConstruct();
           setNewChat((n) => n + 1);
+        },
+      },
+      {
+        key: "compact-chat",
+        section: "Construct",
+        label: "Compact Construct’s conversation",
+        keywords: "ai assistant context summarize memory",
+        run: () => {
+          if (!constructOpen) toggleConstruct();
+          setCompactChat((n) => n + 1);
         },
       },
 
@@ -1102,6 +1113,7 @@ export default function Pen({
         onCite={cite}
         request={constructRequest}
         newChat={newChat}
+        compact={compactChat}
       />
 
       {palette && (
