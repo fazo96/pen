@@ -7,7 +7,7 @@ import { COVER_ACCEPT, isImage } from "@/lib/cover";
 import type { DocMeta } from "@/lib/docs";
 import type { Stats as Figures } from "@/lib/library";
 import { findBook, type Layout, moveBook } from "@/lib/shelfLayout";
-import { slugify } from "@/lib/text";
+import { pageCount, slugify } from "@/lib/text";
 import { useLibrary } from "@/lib/useLibrary";
 import { ago, Cover } from "./Book";
 import { IconBack, IconBooks, IconClose, IconExport, IconImage, IconPencil, IconShelf, IconTrash } from "./icons";
@@ -122,7 +122,7 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
           <span className="label">pen · book settings</span>
           <h1 className="welcome-title">{doc.title}</h1>
           <p className="welcome-lede" suppressHydrationWarning>
-            {doc.words.toLocaleString()} {doc.words === 1 ? "word" : "words"}, last written {ago(doc.modified, Date.now())}.
+            {doc.words.toLocaleString()} {doc.words === 1 ? "word" : "words"} (about {pageCount(doc.words).toLocaleString()} {pageCount(doc.words) === 1 ? "page" : "pages"}), last written {ago(doc.modified, Date.now())}.
             The title is the manuscript’s first heading: <Link href={`/d/${doc.id}`}>change it there</Link>.
           </p>
 

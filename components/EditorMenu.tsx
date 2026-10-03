@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/lib/useTheme";
+import WordStats from "./WordStats";
 import { IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconMore, IconTheme } from "./icons";
 
 type Props = {
@@ -62,7 +63,7 @@ function Items({ status, words, constructOpen, grammarOn, onFocus, onGrammar, on
   return (
     <div className="popover-menu editor-menu-list" role="menu">
       <p className="editor-menu-head label">
-        {status} · {words.toLocaleString()} {words === 1 ? "word" : "words"}
+        <WordStats words={words} lead={status} />
       </p>
       <button type="button" role="menuitem" onClick={pick(onFocus)}>
         <IconFocus /> Focus mode

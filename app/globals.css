@@ -739,6 +739,85 @@ button {
   border-top: 1px solid var(--rule);
 }
 
+/* Word, reading time and page counts, explained on hover or tap */
+.word-stats {
+  position: relative;
+  display: inline-block;
+}
+.word-stats-btn {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: help;
+}
+.word-stats-pop {
+  position: absolute;
+  left: -10px;
+  z-index: 30;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 32px));
+  white-space: normal;
+  padding: 10px 12px;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  text-transform: none;
+  color: var(--ink-soft);
+}
+.word-stats-pop > span {
+  display: grid;
+  grid-template-columns: 2.8em 1fr;
+}
+.word-stats-pop b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.word-stats.is-above .word-stats-pop {
+  bottom: calc(100% + 8px);
+}
+.word-stats.is-below .word-stats-pop {
+  top: calc(100% + 8px);
+}
+/* The top bar's sits near the right edge */
+.words .word-stats-pop {
+  left: auto;
+  right: -10px;
+}
+.word-stats.is-open .word-stats-pop,
+.word-stats-btn:focus-visible + .word-stats-pop {
+  display: flex;
+}
+/* Inside the editor menu it opens in place, pushing the items down */
+.editor-menu-head .word-stats {
+  display: block;
+}
+.editor-menu-head .word-stats-pop {
+  position: static;
+  width: auto;
+  max-width: none;
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: none;
+}
+@media (hover: hover) {
+  .word-stats:hover:not(.editor-menu-head *) .word-stats-pop {
+    display: flex;
+  }
+}
+
 /* Drawer header controls */
 .drawer-back,
 .drawer-action {

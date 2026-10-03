@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { isImage } from "@/lib/cover";
 import type { DocMeta } from "@/lib/docs";
+import { wordsPages, wordsPagesTitle } from "@/lib/text";
 import { IconGear } from "./icons";
 
 export function ago(ms: number, now: number) {
@@ -79,8 +80,8 @@ export default function Book(p: Props) {
         <Cover doc={d} />
         <span className="book-caption">
           <span className="book-title">{d.title}</span>
-          <span className="book-meta" suppressHydrationWarning>
-            {d.words.toLocaleString()} w · {ago(d.modified, p.now)}
+          <span className="book-meta" title={wordsPagesTitle(d.words)} suppressHydrationWarning>
+            {wordsPages(d.words)} · {ago(d.modified, p.now)}
           </span>
         </span>
       </Link>

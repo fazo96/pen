@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropZone } from "@/lib/useDropZone";
 import { IMPORT_ACCEPT, IMPORT_EXT, importProblem } from "@/lib/useLibrary";
 import type { VersionMeta } from "@/lib/versions";
+import { wordsPages, wordsPagesTitle } from "@/lib/text";
 import { IconPencil, IconTrash } from "./icons";
 
 function when(ms: number) {
@@ -269,8 +270,8 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
                       onClick={() => onPreview(v)}
                     >
                       <span className="library-title">{v.label || "Saved version"}</span>
-                      <span className="library-meta" suppressHydrationWarning>
-                        {when(v.created)} · {v.words.toLocaleString()} w
+                      <span className="library-meta" title={wordsPagesTitle(v.words)} suppressHydrationWarning>
+                        {when(v.created)} · {wordsPages(v.words)}
                         {older ? ` · ${delta(v.words - older.words)}` : ""}
                       </span>
                     </button>

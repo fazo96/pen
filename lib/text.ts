@@ -44,6 +44,23 @@ export function wordCount(text: string): number {
   return m ? m.length : 0;
 }
 
+/** Standard manuscript format (12pt Courier, double-spaced) runs about 250 words a page. */
+export const WORDS_PER_PAGE = 250;
+const WORDS_PER_MINUTE = 230;
+
+/** Manuscript pages: at least 1 once there's a word. */
+export const pageCount = (words: number) => (words ? Math.max(1, Math.round(words / WORDS_PER_PAGE)) : 0);
+
+/** Minutes to read, at least 1. */
+export const readMinutes = (words: number) => Math.max(1, Math.round(words / WORDS_PER_MINUTE));
+
+/** Words and pages, as book cards and versions show them: "12,345 w · 49 p". */
+export const wordsPages = (words: number) => `${words.toLocaleString()} w · ${pageCount(words).toLocaleString()} p`;
+
+/** What `wordsPages` abbreviates, for a hover title. */
+export const wordsPagesTitle = (words: number) =>
+  `${words.toLocaleString()} ${words === 1 ? "word" : "words"}, about ${pageCount(words).toLocaleString()} manuscript ${pageCount(words) === 1 ? "page" : "pages"} (${WORDS_PER_PAGE} words a page)`;
+
 /**
  * Imported text with an H1 at the top: its own if the first line of text (past
  * any comments) is one, otherwise one made from the file name ("Mara Voss.md" →

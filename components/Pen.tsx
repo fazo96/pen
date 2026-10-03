@@ -25,6 +25,7 @@ import Codex, { createEntry } from "./Codex";
 import CodexPanel, { type CodexPanelHandle } from "./CodexPanel";
 import Construct, { type ConstructRequest } from "./Construct";
 import Drawer from "./Drawer";
+import WordStats from "./WordStats";
 import DropImport from "./DropImport";
 import EditorMenu from "./EditorMenu";
 import FocusControls from "./FocusControls";
@@ -923,7 +924,9 @@ export default function Pen({
           </button>
           {/* Inline on wider screens; folded into EditorMenu on phones (CSS picks one). */}
           <div className="topbar-tools">
-            <span className="words label">{words.toLocaleString()} w</span>
+            <span className="words label">
+              <WordStats words={words} />
+            </span>
             <button
               type="button"
               className="icon-btn"
@@ -1013,7 +1016,7 @@ export default function Pen({
             </button>
           )
         }
-        foot={`${words.toLocaleString()} words · ${Math.max(1, Math.round(words / 230))} min read`}
+        foot={<WordStats words={words} side="above" />}
       >
         <div className="drawer-tabs" role="tablist">
           {(["contents", "codex", ...(isEntry ? [] : ["history"]), "grammar"] as DrawerTab[]).map((tab) => (
