@@ -28,6 +28,8 @@ type Props = {
   /** The entry's live title ("" without an H1), once its editor has it. */
   onTitle: (entryId: string, title: string) => void;
   onChange: () => void;
+  /** Over the entry, under the head: the find bar. */
+  children?: React.ReactNode;
 };
 
 /** A codex entry beside the manuscript, on screens wide enough for both. */
@@ -86,6 +88,7 @@ function EntryEditor({
   onEditor,
   onTitle,
   onChange,
+  children,
 }: Props & { entry: Story }) {
   const [title, setTitle] = useState<string | null>(null);
   const touchRef = useRef<() => void>(() => {});
@@ -190,6 +193,7 @@ function EntryEditor({
         </div>
       )}
 
+      {children}
       <div className="codex-panel-body">
         {editor ? <EditorContent editor={editor} /> : <div className="prose loading" aria-busy />}
       </div>

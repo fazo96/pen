@@ -263,3 +263,9 @@ export const IconKeyboard = (p: P) => (
     <path d="M5.5 8.5h1M9.5 8.5h1M13.5 8.5h1M7 11.5h6" />
   </svg>
 );
+export const IconSearch = (p: P) => (
+  <svg {...base} {...p}>
+    <circle cx="8.5" cy="8.5" r="5" />
+    <path d="m12.2 12.2 4.3 4.3" />
+  </svg>
+);

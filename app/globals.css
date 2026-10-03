@@ -1541,6 +1541,133 @@ button {
   margin-top: 0.8em;
 }
 
+/* ─── Find and replace ─────────────────────────────────────── */
+.prose .find-match {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-radius: 2px;
+}
+.prose .find-current {
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+/* Over the text it searches: stuck under the top bar, or atop the Codex panel. */
+.find-bar {
+  position: sticky;
+  z-index: 16;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top) + 10px);
+  max-width: var(--measure);
+  margin: -16px auto 28px;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: color-mix(in srgb, var(--paper-raised) 94%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.08);
+}
+.codex-panel .find-bar {
+  position: static;
+  margin: 8px 12px 0;
+}
+.find-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.find-input {
+  flex: 1;
+  min-width: 4rem;
+  padding: 6px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-body);
+  /* 16px keeps iOS from zooming in on focus. */
+  font-size: 16px;
+  outline: none;
+}
+.find-input::placeholder {
+  color: var(--ink-faint);
+}
+.find-count {
+  flex: none;
+  padding: 0 6px;
+  white-space: nowrap;
+}
+.find-bar .icon-btn {
+  width: 34px;
+  height: 34px;
+  flex: none;
+}
+.find-bar .icon-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+.find-expand svg {
+  transform: rotate(-90deg);
+  transition: transform 0.2s;
+}
+.find-expand.is-on svg {
+  transform: none;
+}
+.find-option,
+.find-action {
+  flex: none;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-faint);
+  transition: color 0.15s, background-color 0.15s;
+}
+.find-option:hover,
+.find-action:hover {
+  color: var(--ink);
+  background: var(--accent-wash);
+}
+.find-option.is-on {
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+.find-option-word {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.find-action {
+  color: var(--ink-soft);
+}
+.find-action:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+.find-replace {
+  padding-left: 36px;
+  border-top: 1px solid var(--rule);
+}
+/* Phones: above the toolbar, where the thumb and the keyboard are. */
+@media (max-width: 719px) {
+  .find-bar {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    top: auto;
+    bottom: calc(var(--kb) + 62px + env(safe-area-inset-bottom));
+    margin: 0;
+    max-width: none;
+  }
+  .find-count {
+    padding: 0 2px;
+  }
+  .find-option {
+    padding: 0 5px;
+  }
+}
+
 /* ─── Version preview ──────────────────────────────────────── */
 .preview-bar {
   position: sticky;

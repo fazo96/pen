@@ -1,7 +1,13 @@
 // Keyboard shortcuts, written once for tooltips, the command palette and the list in /settings:
 // pure, so tests load it with plain Node.
 
-type Shortcut = { keys: string; what: string; group: "Go" | "Write" | "Format" };
+type Shortcut = {
+  keys: string;
+  /** Where a Mac takes other keys (⌘H hides the app). */
+  mac?: string;
+  what: string;
+  group: "Go" | "Find" | "Write" | "Format";
+};
 
 /** "Mod" is Ctrl, or ⌘ on a Mac. Most are handled in `Pen.tsx`; the formatting ones are Tiptap's own. */
 export const SHORTCUTS = {
@@ -12,6 +18,10 @@ export const SHORTCUTS = {
   manuscript: { keys: "Mod+Shift+M", what: "Go to the manuscript", group: "Go" },
   codex: { keys: "Mod+Shift+X", what: "Go to the Codex entry", group: "Go" },
   construct: { keys: "Mod+Shift+A", what: "Go to Construct", group: "Go" },
+  find: { keys: "Mod+F", what: "Find", group: "Find" },
+  replace: { keys: "Mod+H", mac: "Mod+Alt+F", what: "Find and replace", group: "Find" },
+  findNext: { keys: "Mod+G", what: "Next match", group: "Find" },
+  findPrevious: { keys: "Mod+Shift+G", what: "Previous match", group: "Find" },
   focus: { keys: "Mod+Shift+F", what: "Focus mode", group: "Write" },
   lookUp: { keys: "Mod+Shift+D", what: "Look up the selected words", group: "Write" },
   undo: { keys: "Mod+Z", what: "Undo", group: "Write" },
@@ -35,7 +45,8 @@ const MAC_ORDER = ["Ctrl", "Alt", "Shift", "Mod"];
 
 /** "Ctrl+Shift+E", or "⇧⌘E" on a Mac. */
 export function keyLabel(id: ShortcutId, mac: boolean): string {
-  const parts = SHORTCUTS[id].keys.split("+");
+  const s: Shortcut = SHORTCUTS[id];
+  const parts = ((mac && s.mac) || s.keys).split("+");
   const key = parts.pop()!;
   if (!mac) return [...parts.map((p) => (p === "Mod" ? "Ctrl" : p)), key].join("+");
   return MAC_ORDER.filter((m) => parts.includes(m)).map((m) => MAC[m]).join("") + key;

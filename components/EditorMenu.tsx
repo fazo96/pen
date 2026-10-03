@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "@/lib/useTheme";
 import WordStats from "./WordStats";
-import { IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconMore, IconTheme } from "./icons";
+import { IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconMore, IconSearch, IconTheme } from "./icons";
 
 type Props = {
   status: string;
@@ -15,6 +15,7 @@ type Props = {
   onExport: () => void;
   onConstruct: () => void;
   onSettings: () => void;
+  onFind: () => void;
 };
 
 /** On phones, the editor's top-bar tools folded into one "⋯" menu. */
@@ -53,7 +54,7 @@ export default function EditorMenu(props: Props) {
 }
 
 // Mounted only while open, so the theme label is read fresh each time.
-function Items({ status, words, constructOpen, grammarOn, onFocus, onGrammar, onExport, onConstruct, onSettings, close }: Props & { close: () => void }) {
+function Items({ status, words, constructOpen, grammarOn, onFocus, onGrammar, onExport, onConstruct, onSettings, onFind, close }: Props & { close: () => void }) {
   const theme = useTheme();
   const pick = (fn: () => void) => () => {
     close();
@@ -65,6 +66,9 @@ function Items({ status, words, constructOpen, grammarOn, onFocus, onGrammar, on
       <p className="editor-menu-head label">
         <WordStats words={words} lead={status} />
       </p>
+      <button type="button" role="menuitem" onClick={pick(onFind)}>
+        <IconSearch /> Find
+      </button>
       <button type="button" role="menuitem" onClick={pick(onFocus)}>
         <IconFocus /> Focus mode
       </button>

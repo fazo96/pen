@@ -19,10 +19,15 @@ test("lists them by group, with keys for the same thing on one row", () => {
   assert.deepEqual(go.rows.find((r) => r.what === "Commands")?.keys, ["Ctrl+K", "Ctrl+P"]);
   assert.deepEqual(
     shortcutList(false).map((g) => g.group),
-    ["Go", "Write", "Format"],
+    ["Go", "Find", "Write", "Format"],
   );
 });
 
 test("adds the keys to a tooltip", () => {
   assert.equal(withKeys("Construct", "construct", false), "Construct (Ctrl+Shift+A)");
+});
+
+test("takes other keys on a Mac where it must", () => {
+  assert.equal(keyLabel("replace", false), "Ctrl+H");
+  assert.equal(keyLabel("replace", true), "⌥⌘F");
 });

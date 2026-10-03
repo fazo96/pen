@@ -6,6 +6,7 @@ import Typography from "@tiptap/extension-typography";
 import { Placeholder } from "@tiptap/extensions";
 import { useRef } from "react";
 import { CommentExtensions } from "./comments";
+import { Find } from "./findPlugin";
 import { Grammar } from "./grammar";
 import { PenMarkdown } from "./markdownEscape";
 import { PenOrderedList } from "./orderedList";
@@ -63,6 +64,7 @@ export function usePenEditor(kind: "manuscript" | "entry", content: string, onCh
       }),
       StraightQuotes,
       CitedPassage,
+      Find,
       Grammar, // also sets spellcheck on the editor
       Placeholder.configure({
         placeholder: ({ node }) =>
