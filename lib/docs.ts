@@ -158,6 +158,15 @@ export function createDoc(content: string, name?: string): Promise<Doc> {
   });
 }
 
+/**
+ * A save based on an older version than the file's, unless the file already holds
+ * exactly this text: then it overwrites nothing. That happens when one change arrives
+ * twice, as when a page being left saves it and the next one sends its backup.
+ */
+function stale(current: { content: string; version: string } | null, content: string, baseVersion: string | null, force: boolean): boolean {
+  return !!current && !force && baseVersion !== null && baseVersion !== current.version && current.content !== content;
+}
+
 export type WriteResult = { ok: true; version: string } | { ok: false; current: Doc };
 
 /**
@@ -173,9 +182,7 @@ export function writeDoc(
 ): Promise<WriteResult> {
   return serialize(async () => {
     const current = await readDoc(id);
-    if (current && !force && baseVersion !== null && baseVersion !== current.version) {
-      return { ok: false, current };
-    }
+    if (stale(current, content, baseVersion, force)) return { ok: false, current: current! };
     if (current?.content !== content) {
       if (current) {
         const { mtimeMs } = await stat(fileOf(id));
@@ -479,9 +486,7 @@ export function writeEntry(
 ): Promise<WriteResult> {
   return serialize(async () => {
     const current = await readEntry(id, eid);
-    if (current && !force && baseVersion !== null && baseVersion !== current.version) {
-      return { ok: false, current };
-    }
+    if (stale(current, content, baseVersion, force)) return { ok: false, current: current! };
     if (current?.content !== content) await atomicWrite(entryFile(id, eid), content);
     return { ok: true, version: versionOf(content) };
   });
