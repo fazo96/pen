@@ -2052,6 +2052,13 @@ a.btn {
   font-size: 19px;
   color: var(--ink);
 }
+.construct-name.is-chat {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 17px;
+}
 .construct-head-actions {
   display: flex;
   gap: 2px;

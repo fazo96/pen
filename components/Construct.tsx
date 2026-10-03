@@ -304,6 +304,8 @@ export default function Construct({
   }, [compact, c.state]);
 
   const config = c.state?.config ?? [];
+  // A chat is listed once it has a message; until then the header says "Construct".
+  const chatTitle = c.state?.chats.find((x) => x.id === c.state?.chatId)?.title;
   const context = c.state?.context;
   const filled = context ? Math.min(1, context.used / context.size) : 0;
 
@@ -324,8 +326,16 @@ export default function Construct({
       <aside className={`construct ${open ? "is-open" : ""}`} aria-label="Construct" aria-hidden={!open}>
         <div className="construct-head">
           <div className="construct-title">
-            <span className="construct-name">Construct</span>
-            <span className="label">{AGENT_NAMES[c.state?.agent ?? "claude"] ?? c.state?.agent}</span>
+            {chatTitle ? (
+              <span className="construct-name is-chat" title={chatTitle}>
+                {chatTitle}
+              </span>
+            ) : (
+              <>
+                <span className="construct-name">Construct</span>
+                <span className="label">{AGENT_NAMES[c.state?.agent ?? "claude"] ?? c.state?.agent}</span>
+              </>
+            )}
           </div>
           <div className="construct-head-actions">
             <button
