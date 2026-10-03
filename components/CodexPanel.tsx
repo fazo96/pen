@@ -25,7 +25,8 @@ type Props = {
   /** The entry is gone (deleted elsewhere). */
   onMissing: () => void;
   onEditor: (editor: Editor | null) => void;
-  onTitle: (title: string) => void;
+  /** The entry's live title ("" without an H1), once its editor has it. */
+  onTitle: (entryId: string, title: string) => void;
   onChange: () => void;
 };
 
@@ -86,7 +87,7 @@ function EntryEditor({
   onTitle,
   onChange,
 }: Props & { entry: Story }) {
-  const [title, setTitle] = useState("Untitled");
+  const [title, setTitle] = useState<string | null>(null);
   const touchRef = useRef<() => void>(() => {});
   const editor = usePenEditor("entry", entry.content, () => {
     touchRef.current();
@@ -134,7 +135,7 @@ function EntryEditor({
           found = textWithoutComments(node).trim();
         }
       });
-      setTitle(found || "Untitled");
+      setTitle(found);
     };
     const onTx = ({ transaction }: { transaction: { docChanged: boolean } }) => {
       if (!transaction.docChanged) return;
@@ -149,13 +150,15 @@ function EntryEditor({
     };
   }, [editor]);
 
-  useEffect(() => onTitle(title), [title, onTitle]);
+  useEffect(() => {
+    if (title !== null) onTitle(entry.id, title);
+  }, [entry.id, title, onTitle]);
 
   return (
     <aside className="codex-panel" aria-label="Codex entry">
       <div className="codex-panel-head">
-        <span className="codex-panel-title label" title={title}>
-          Codex · {title}
+        <span className="codex-panel-title label" title={title || "Untitled"}>
+          Codex · {title || "Untitled"}
         </span>
         <div className="construct-head-actions">
           <span className={`status status-${status}`} role="status" aria-live="polite" title={STATUS_LABEL[status]}>

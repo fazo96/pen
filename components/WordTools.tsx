@@ -62,13 +62,16 @@ export default function WordTools({ editor, onAsk }: { editor: Editor; onAsk: As
     editor.on("selectionUpdate", sync);
     editor.on("transaction", sync);
     editor.on("blur", sync);
-    editor.view.dom.addEventListener("mousedown", down);
+    // Kept for the cleanup: by then a panel's editor may be destroyed, and its
+    // `view` throws.
+    const dom = editor.view.dom;
+    dom.addEventListener("mousedown", down);
     window.addEventListener("mouseup", up);
     return () => {
       editor.off("selectionUpdate", sync);
       editor.off("transaction", sync);
       editor.off("blur", sync);
-      editor.view.dom.removeEventListener("mousedown", down);
+      dom.removeEventListener("mousedown", down);
       window.removeEventListener("mouseup", up);
     };
   }, [editor]);
@@ -93,8 +96,9 @@ export default function WordTools({ editor, onAsk }: { editor: Editor; onAsk: As
       e.preventDefault();
       setLookUp(p);
     };
-    editor.view.dom.addEventListener("keydown", onKey);
-    return () => editor.view.dom.removeEventListener("keydown", onKey);
+    const dom = editor.view.dom;
+    dom.addEventListener("keydown", onKey);
+    return () => dom.removeEventListener("keydown", onKey);
   }, [editor]);
 
   const showBar = !!picked && !pressing && !lookUp && typeof window !== "undefined" && finePointer();

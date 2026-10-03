@@ -99,7 +99,10 @@ export default function Pen({
   // The codex entry open beside the manuscript, and which editor the toolbar serves.
   const [panelEntry, setPanelEntry] = useState<string | null>(isEntry ? null : (initialEntry ?? null));
   const [panelEditor, setPanelEditor] = useState<Editor | null>(null);
-  const [panelTitle, setPanelTitle] = useState<string | undefined>();
+  // Tagged with its entry, so one opening never shows the last one's title.
+  const [panelTitled, setPanelTitled] = useState<{ id: string; title: string } | null>(null);
+  const panelTitle = panelTitled?.id === panelEntry ? panelTitled.title || undefined : undefined;
+  const onPanelTitle = useCallback((id: string, title: string) => setPanelTitled({ id, title }), []);
   const [panelFocused, setPanelFocused] = useState(false);
   const panel = useRef<CodexPanelHandle>(null);
 
@@ -234,7 +237,9 @@ export default function Pen({
     return () => window.removeEventListener("mousemove", wake);
   }, []);
 
-  const title = headings.find((h) => h.level === 1)?.text || "Untitled";
+  // Empty until the editor has been scanned.
+  const h1 = headings.find((h) => h.level === 1)?.text;
+  const title = h1 || "Untitled";
 
   const exportMarkdown = () => {
     if (!editor) return;
@@ -366,7 +371,7 @@ export default function Pen({
     }).catch(() => {});
   }, [spotUrl, visited]);
   useEffect(() => {
-    if (panelEntry) setLast({ id: panelEntry, title: panelTitle || panelEntry });
+    if (panelEntry) setLast((l) => ({ id: panelEntry, title: panelTitle || (l?.id === panelEntry ? l.title : panelEntry) }));
   }, [panelEntry, panelTitle]);
 
   /** Manuscript ⇄ the last entry: a page of its own on phones, the side panel where there's room. */
@@ -1042,7 +1047,7 @@ export default function Pen({
           <Codex
             projectId={projectId}
             activeId={isEntry ? initial.id : panelEntry}
-            activeTitle={isEntry ? title : panelTitle}
+            activeTitle={isEntry ? h1 || undefined : panelTitle}
             onOpen={open}
             refreshKey={codexKey}
           />
@@ -1091,7 +1096,7 @@ export default function Pen({
           onExpand={() => go(`/d/${projectId}/codex/${panelEntry}`)}
           onMissing={dropEntry}
           onEditor={setPanelEditor}
-          onTitle={setPanelTitle}
+          onTitle={onPanelTitle}
           onChange={onPanelTyping}
         />
       )}

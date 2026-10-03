@@ -48,9 +48,17 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     }
   }, [base]);
 
+  // Reloaded when the open entry changes too: the one left behind was just saved.
   useEffect(() => {
     void load();
-  }, [load, refreshKey]);
+  }, [load, refreshKey, activeId]);
+
+  // Keep the open entry's live title, so a rename shows after switching away
+  // without waiting for the reload.
+  useEffect(() => {
+    if (!activeId || !activeTitle) return;
+    setList((l) => l && l.map((e) => (e.id === activeId && e.title !== activeTitle ? { ...e, title: activeTitle } : e)));
+  }, [activeId, activeTitle]);
 
   const create = async () => {
     setBusy(true);
