@@ -91,6 +91,7 @@ export function useConstruct(projectId: string, enabled: boolean, onCodexChange:
     reset: () => post({ action: "reset" }),
     openChat: (chatId: string) => post({ action: "open-chat", chatId }),
     deleteChat: (chatId: string) => post({ action: "delete-chat", chatId }),
+    renameChat: (chatId: string, title: string) => post({ action: "rename-chat", chatId, title }),
     setConfig: (configId: string, value: string) => post({ action: "config", configId, value }),
   };
 }

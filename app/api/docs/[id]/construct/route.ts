@@ -65,6 +65,7 @@ type Action =
   | { action: "reset" }
   | { action: "open-chat"; chatId: string }
   | { action: "delete-chat"; chatId: string }
+  | { action: "rename-chat"; chatId: string; title: string }
   | { action: "config"; configId: string; value: string };
 
 /** Drive the conversation. Replies come back over the event stream. */
@@ -111,6 +112,11 @@ export async function POST(req: Request, { params }: Ctx) {
       case "delete-chat":
         if (typeof body.chatId !== "string" || !isValidId(body.chatId)) return bad("chatId required");
         await (body.action === "open-chat" ? session.openChat(body.chatId) : session.deleteChat(body.chatId));
+        break;
+      case "rename-chat":
+        if (typeof body.chatId !== "string" || !isValidId(body.chatId)) return bad("chatId required");
+        if (typeof body.title !== "string") return bad("title required");
+        await session.renameChat(body.chatId, body.title);
         break;
       case "config":
         if (typeof body.configId !== "string" || typeof body.value !== "string") return bad("configId and value required");

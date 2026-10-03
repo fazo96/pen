@@ -190,6 +190,13 @@ export const IconDown = (p: P) => (
   </svg>
 );
 
+/** Compact: two arrows pressing a line between them. */
+export const IconCompact = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M10 2.5v5M7 5l3 2.5L13 5M10 17.5v-5M7 15l3-2.5 3 2.5M4 10h12" />
+  </svg>
+);
+
 export const IconGrammar = (p: P) => (
   <svg {...base} {...p}>
     <path d="m5 8.5 3 3 6-6.5M3 15.5c1.2-1.2 2.3-1.2 3.5 0s2.3 1.2 3.5 0 2.3-1.2 3.5 0 2.3 1.2 3.5 0" />

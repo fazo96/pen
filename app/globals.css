@@ -2061,17 +2061,60 @@ a.btn {
   pointer-events: none;
 }
 
+/* One line: the model button on the left, the context meter on the right. */
 .construct-config {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 16px;
-  padding: 8px 20px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 0 8px 0 20px;
   border-bottom: 1px solid var(--rule);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.construct-model {
+  position: relative;
+  min-width: 0;
+}
+.construct-model-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 4px 0;
+  color: var(--ink-soft);
+}
+.construct-model-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.construct-model-btn svg {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+.construct-model-btn:hover,
+.construct-model-btn[aria-expanded="true"] {
+  color: var(--ink);
+}
+.construct-model-menu {
+  top: calc(100% + 4px);
+  left: -10px;
+  gap: 2px;
+  min-width: 220px;
+  padding: 6px 12px;
 }
 .construct-select {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 12px;
+}
+.construct-select .label {
+  flex: none;
+  width: 5.5em;
 }
 .construct-select select {
   max-width: 14em;
@@ -2080,7 +2123,7 @@ a.btn {
   color: var(--ink-soft);
   background: transparent;
   border: none;
-  padding: 4px 0;
+  padding: 6px 0;
   cursor: pointer;
 }
 .construct-select select option {
@@ -2088,15 +2131,14 @@ a.btn {
   color: var(--ink);
 }
 .construct-context {
+  flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  color: var(--ink-soft);
+  gap: 6px;
+  margin-left: auto;
 }
 .construct-context-meter {
-  width: 48px;
+  width: 40px;
   height: 3px;
   border-radius: 2px;
   background: var(--rule);
@@ -2114,17 +2156,26 @@ a.btn {
 .construct-context.is-full .construct-context-text {
   color: var(--warn);
 }
-.construct-context-compact {
-  color: var(--ink-soft);
-  border-bottom: 1px solid var(--rule);
+.construct-context-text {
+  white-space: nowrap;
 }
-.construct-context-compact:hover {
-  color: var(--accent);
-  border-bottom-color: currentColor;
+.construct-context-compact {
+  width: 30px;
+  height: 30px;
+}
+.construct-context-compact svg {
+  width: 16px;
+  height: 16px;
 }
 .construct-context-compact:disabled {
   opacity: 0.35;
   pointer-events: none;
+}
+/* Phones: the percentage is enough; the counts are in the meter's title. */
+@media (max-width: 479px) {
+  .construct-context-tokens {
+    display: none;
+  }
 }
 
 .construct-log {
@@ -2546,11 +2597,11 @@ a.btn {
 .construct-chats .is-current .construct-chat-title {
   color: var(--accent);
 }
-.construct-chat-delete {
+.construct-chat-action {
   flex: none;
   opacity: 0.5;
 }
-.construct-chat-delete:hover {
+.construct-chat-action:hover {
   opacity: 1;
 }
 .construct-chat-confirm {
@@ -2572,6 +2623,23 @@ a.btn {
 }
 .construct-chat-confirm .is-danger {
   color: var(--accent);
+}
+.construct-chat-rename {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 4px 6px 12px;
+}
+.construct-chat-rename input {
+  width: 100%;
+  padding: 6px 8px;
+  font-family: var(--font-body);
+  /* 16px keeps iOS from zooming in on focus. */
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  outline: none;
 }
 
 :root[data-focus] .app-editor .construct {

@@ -43,7 +43,21 @@ type StoredChat = ChatMeta & {
   items: ChatItem[];
   /** The last context reading: the agent doesn't repeat it when a chat is resumed. */
   context?: ContextUsage;
+  /** The writer's name for it, and the agent's; see chatTitle. */
+  name?: string;
+  autoTitle?: string;
 };
+
+type ChatNames = { name?: string; autoTitle?: string };
+
+/** The writer's name, else the agent's title, else the opening of the first message. */
+function chatTitle({ name, autoTitle }: ChatNames, items: ChatItem[]) {
+  if (name) return name;
+  if (autoTitle) return autoTitle;
+  const first = items.find((i) => i.type === "user");
+  const text = first?.type === "user" ? first.text.replace(/\s+/g, " ").trim() : "";
+  return text.length > 60 ? `${text.slice(0, 57).trimEnd()}…` : text || "New chat";
+}
 
 const newChatId = () => `${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`;
 
@@ -83,7 +97,7 @@ class ConstructSession {
   /** The message or thought currently streaming, to append chunks to. */
   private streaming: { id: string; type: "agent" | "thought" } | null = null;
   /** The chat shown; `sessionId` is the agent's, kept to resume it later. */
-  private chat: { id: string; created: number; sessionId: string | null };
+  private chat: { id: string; created: number; sessionId: string | null } & ChatNames;
   private canResume = false;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   readonly loaded: Promise<void>;
@@ -112,7 +126,7 @@ class ConstructSession {
   }
 
   private adopt(c: StoredChat) {
-    this.chat = { id: c.id, created: c.created, sessionId: c.sessionId };
+    this.chat = { id: c.id, created: c.created, sessionId: c.sessionId, name: c.name, autoTitle: c.autoTitle };
     this.seq = c.seq;
     // A turn cut short by a restart leaves tools (or a compaction) that will never finish.
     this.items = c.items.map((i) =>
@@ -127,9 +141,7 @@ class ConstructSession {
   }
 
   private title() {
-    const first = this.items.find((i) => i.type === "user");
-    const text = first?.type === "user" ? first.text.replace(/\s+/g, " ").trim() : "";
-    return text.length > 60 ? `${text.slice(0, 57).trimEnd()}…` : text || "New chat";
+    return chatTitle(this.chat, this.items);
   }
 
   /** Note a change: refresh the chat list now, write the file shortly. */
@@ -162,6 +174,8 @@ class ConstructSession {
       seq: this.seq,
       items: this.items,
       ...(this.state.context && { context: this.state.context }),
+      ...(this.chat.name && { name: this.chat.name }),
+      ...(this.chat.autoTitle && { autoTitle: this.chat.autoTitle }),
     };
     try {
       await writeChat(this.projectId, this.chat.id, data);
@@ -205,6 +219,24 @@ class ConstructSession {
     const found = (await this.stored()).find((c) => c.id === chatId);
     if (!found) throw new Error("That chat is gone.");
     await this.show(found);
+  }
+
+  /** Name a chat; an empty name gives it back its automatic title. */
+  async renameChat(chatId: string, name: string) {
+    const clean = name.replace(/\s+/g, " ").trim().slice(0, 80) || undefined;
+    let title: string;
+    if (chatId === this.chat.id) {
+      this.chat.name = clean;
+      title = this.title();
+      await this.save();
+    } else {
+      const found = (await this.stored()).find((c) => c.id === chatId);
+      if (!found) throw new Error("That chat is gone.");
+      const next: StoredChat = { ...found, name: clean };
+      title = next.title = chatTitle(next, next.items);
+      await writeChat(this.projectId, chatId, next);
+    }
+    this.setState({ chats: this.state.chats.map((c) => (c.id === chatId ? { ...c, title } : c)) });
   }
 
   async deleteChat(chatId: string) {
@@ -575,6 +607,13 @@ class ConstructSession {
         return;
       case "config_option_update":
         this.setState({ config: visibleConfig(u.configOptions) });
+        return;
+      case "session_info_update":
+        // Claude Code names the session after its first exchange.
+        if (u.title !== undefined) {
+          this.chat.autoTitle = u.title?.trim() || undefined;
+          this.persist();
+        }
         return;
       case "usage_update":
         if (u.size > 0) {

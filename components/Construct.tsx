@@ -3,9 +3,10 @@
 import { Marked } from "marked";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Citation, parseCitation } from "@/lib/cite";
+import type { SessionConfigOption } from "@agentclientprotocol/sdk";
 import type { ChatItem, ConstructEvent, PromptContext } from "@/lib/construct/types";
 import { useConstruct } from "@/lib/useConstruct";
-import { IconChats, IconClose, IconPlus, IconSend, IconStop, IconTrash } from "./icons";
+import { IconChats, IconClose, IconCompact, IconDown, IconPencil, IconPlus, IconSend, IconStop, IconTrash } from "./icons";
 
 type CodexChange = Extract<ConstructEvent, { t: "codex" }>["change"];
 
@@ -127,6 +128,74 @@ function tokens(n: number) {
   return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
 }
 
+/** The model and effort pickers, folded behind one button: "Opus 5.5 · High". */
+function ModelMenu({
+  config,
+  disabled,
+  onChange,
+}: {
+  config: SessionConfigOption[];
+  disabled: boolean;
+  onChange: (configId: string, value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("pointerdown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+
+  const selects = config.flatMap((o) => (o.type === "select" ? [o] : []));
+  const flat = (o: (typeof selects)[number]) => o.options.flatMap((opt) => ("group" in opt ? opt.options : [opt]));
+  // Only what's been changed ("Opus 5.5 · High"); all defaults is "Default model".
+  const summary =
+    selects
+      .map((o) => flat(o).find((opt) => opt.value === o.currentValue)?.name ?? String(o.currentValue))
+      .filter((name) => !/^default\b/i.test(name))
+      .join(" · ") || "Default model";
+
+  return (
+    <div className="construct-model" ref={root}>
+      <button
+        type="button"
+        className="construct-model-btn"
+        onClick={() => setOpen((x) => !x)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        title="Model and effort"
+      >
+        <span>{summary}</span>
+        <IconDown />
+      </button>
+      {open && (
+        <div className="popover-menu construct-model-menu" role="dialog" aria-label="Model and effort">
+          {selects.map((o) => (
+            <label key={o.id} className="construct-select">
+              <span className="label">{o.name}</span>
+              <select value={o.currentValue} disabled={disabled} onChange={(e) => onChange(o.id, e.target.value)}>
+                {flat(o).map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const isTouch = () => typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
 
 export default function Construct({
@@ -147,6 +216,9 @@ export default function Construct({
   const [sending, setSending] = useState(false);
   const [showChats, setShowChats] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
+  /** The chat whose name is being edited, and the name so far. */
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const renameCancelled = useRef(false);
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const stick = useRef(true);
@@ -291,27 +363,9 @@ export default function Construct({
 
         {(config.length > 0 || context) && (
           <div className="construct-config">
-            {config.map((o) =>
-              o.type === "select" ? (
-                <label key={o.id} className="construct-select">
-                  <span className="label">{o.name}</span>
-                  <select
-                    value={o.currentValue}
-                    disabled={busy}
-                    onChange={(e) => void c.setConfig(o.id, e.target.value)}
-                  >
-                    {o.options.flatMap((opt) => ("group" in opt ? opt.options : [opt])).map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null,
-            )}
+            {config.length > 0 && <ModelMenu config={config} disabled={busy} onChange={(id, v) => void c.setConfig(id, v)} />}
             {context && (
               <div className={`construct-context ${filled >= 0.8 ? "is-full" : ""}`}>
-                <span className="label">Context</span>
                 <span
                   className="construct-context-meter"
                   role="meter"
@@ -319,24 +373,29 @@ export default function Construct({
                   aria-valuemin={0}
                   aria-valuemax={context.size}
                   aria-valuenow={context.used}
-                  title={`${context.used.toLocaleString()} of ${context.size.toLocaleString()} tokens`}
+                  title={`Context: ${context.used.toLocaleString()} of ${context.size.toLocaleString()} tokens`}
                 >
                   <span style={{ width: `${filled * 100}%` }} />
                 </span>
                 <span className="construct-context-text">
-                  {Math.round(filled * 100)}% · {tokens(context.used)} / {tokens(context.size)}
+                  {Math.round(filled * 100)}%
+                  <span className="construct-context-tokens">
+                    {" "}
+                    · {tokens(context.used)}/{tokens(context.size)}
+                  </span>
                 </span>
                 <button
                   type="button"
-                  className="construct-context-compact"
+                  className="icon-btn construct-context-compact"
                   onClick={() => {
                     stick.current = true;
                     void c.compact();
                   }}
                   disabled={busy || !c.items.length}
-                  title="Summarize the conversation so far, to free up context"
+                  aria-label="Compact the conversation"
+                  title="Compact: summarize the conversation so far, to free up context"
                 >
-                  Compact
+                  <IconCompact />
                 </button>
               </div>
             )}
@@ -347,7 +406,37 @@ export default function Construct({
           <ol className="construct-chats" aria-label="Chats">
             {(c.state?.chats ?? []).map((chat) => (
               <li key={chat.id} className={chat.id === c.state?.chatId ? "is-current" : ""}>
-                {confirming === chat.id ? (
+                {renaming?.id === chat.id ? (
+                  <form
+                    className="construct-chat-rename"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.querySelector("input")?.blur();
+                    }}
+                  >
+                    <input
+                      autoFocus
+                      value={renaming.name}
+                      maxLength={80}
+                      placeholder="Automatic name"
+                      aria-label="Chat name"
+                      onFocus={(e) => e.currentTarget.select()}
+                      onChange={(e) => setRenaming({ id: chat.id, name: e.target.value })}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          e.stopPropagation();
+                          renameCancelled.current = true;
+                          setRenaming(null);
+                        }
+                      }}
+                      onBlur={() => {
+                        setRenaming(null);
+                        if (renameCancelled.current) renameCancelled.current = false;
+                        else if (renaming.name.trim() !== chat.title) void c.renameChat(chat.id, renaming.name);
+                      }}
+                    />
+                  </form>
+                ) : confirming === chat.id ? (
                   <div className="construct-chat-confirm">
                     <span>Delete this chat?</span>
                     <button type="button" onClick={() => setConfirming(null)}>
@@ -381,7 +470,19 @@ export default function Construct({
                     </button>
                     <button
                       type="button"
-                      className="icon-btn construct-chat-delete"
+                      className="icon-btn construct-chat-action"
+                      onClick={() => {
+                        setConfirming(null);
+                        renameCancelled.current = false;
+                        setRenaming({ id: chat.id, name: chat.title });
+                      }}
+                      aria-label={`Rename “${chat.title}”`}
+                    >
+                      <IconPencil />
+                    </button>
+                    <button
+                      type="button"
+                      className="icon-btn construct-chat-action"
                       disabled={busy && chat.id === c.state?.chatId}
                       onClick={() => setConfirming(chat.id)}
                       aria-label={`Delete “${chat.title}”`}
