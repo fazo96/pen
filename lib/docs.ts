@@ -24,6 +24,7 @@ export type DocMeta = {
   id: string;
   title: string;
   words: number;
+  /** Last written: the manuscript or any Codex entry. */
   modified: number;
   /** mtime of the cover image, to cache-bust its URL; null without one. */
   cover: number | null;
@@ -84,6 +85,29 @@ function ready(): Promise<void> {
   return migrated;
 }
 
+/** When a Codex entry was last written; 0 without any. */
+async function lastCodexEdit(id: string): Promise<number> {
+  let names: string[];
+  try {
+    names = await readdir(codexDir(id));
+  } catch (err) {
+    if (isMissing(err)) return 0;
+    throw err;
+  }
+  const times = await Promise.all(
+    names
+      .filter((n) => n.endsWith(".md"))
+      .map((n) =>
+        stat(path.join(codexDir(id), n)).then(
+          (s) => s.mtimeMs,
+          () => 0, // deleted meanwhile
+        ),
+      ),
+  );
+  return Math.max(0, ...times);
+}
+
+/** Every project, the most recently written first (the manuscript or any Codex entry). */
 export async function listDocs(): Promise<DocMeta[]> {
   await ready();
   let entries;
@@ -99,12 +123,17 @@ export async function listDocs(): Promise<DocMeta[]> {
       .map(async ({ name: id }): Promise<DocMeta | null> => {
         try {
           const file = fileOf(id);
-          const [content, info, cover] = await Promise.all([readFile(file, "utf8"), stat(file), findCover(id)]);
+          const [content, info, cover, codex] = await Promise.all([
+            readFile(file, "utf8"),
+            stat(file),
+            findCover(id),
+            lastCodexEdit(id),
+          ]);
           return {
             id,
             title: titleOf(content, id),
             words: wordCount(content),
-            modified: info.mtimeMs,
+            modified: Math.max(info.mtimeMs, codex),
             cover: cover?.mtime ?? null,
           };
         } catch (err) {

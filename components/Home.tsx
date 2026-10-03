@@ -6,10 +6,14 @@ import type { DocMeta } from "@/lib/docs";
 import type { Layout } from "@/lib/shelfLayout";
 import { IMPORT_ACCEPT, useLibrary } from "@/lib/useLibrary";
 import DropImport from "./DropImport";
+import LastEdited from "./LastEdited";
 import { IconGithub, IconImport, IconPlus, IconSettings } from "./icons";
 import Logo from "./Logo";
 import Shelves from "./Shelves";
 import ThemeButton from "./ThemeButton";
+
+/** Books in the library before the last edited one is shown over the shelves. */
+const LAST_EDITED_FROM = 4;
 
 /** The welcome page, and the library as a shelf once there's something on it. */
 export default function Home({ docs, shelves }: { docs: DocMeta[]; shelves: Layout }) {
@@ -19,6 +23,8 @@ export default function Home({ docs, shelves }: { docs: DocMeta[]; shelves: Layo
   const [title, setTitle] = useState("");
   const total = docs.reduce((n, d) => n + d.words, 0);
   const shelved = docs.length > 0;
+  // With a few books it would only repeat the shelf.
+  const last = docs.length >= LAST_EDITED_FROM ? docs.reduce((a, b) => (b.modified > a.modified ? b : a)) : null;
 
   return (
     <div className="app">
@@ -126,6 +132,8 @@ export default function Home({ docs, shelves }: { docs: DocMeta[]; shelves: Layo
               {lib.error}
             </p>
           )}
+
+          {last && <LastEdited doc={last} />}
 
           {shelved && (
             <Shelves
