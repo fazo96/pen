@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 
-// Installable, no service worker: saves need the server anyway, and a cache
-// would only get in the way of autosave's conflict checks.
+// Installable. The service worker (public/sw.js) keeps pages for offline use
+// but never touches the API, so saves and their conflict checks go to the server.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "pen",

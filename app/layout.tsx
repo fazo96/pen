@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import ServiceWorker from "@/components/ServiceWorker";
 // Fonts from npm (@fontsource-variable) rather than next/font/google, so a build
 // never has to reach Google; the families are named in styles/base.css.
 import "@fontsource-variable/literata/wght.css";
@@ -46,7 +47,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: a constant script of ours, run before paint so the theme doesn't flash */}
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <ServiceWorker />
+      </body>
     </html>
   );
 }

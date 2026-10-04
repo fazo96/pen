@@ -59,6 +59,16 @@ export function useCodexPanel({ projectId, enabled, initialEntry, editor }: Opti
     setFocused(false);
   };
 
+  // Offline, the page may be the service worker's kept copy, rendered without
+  // ?entry: take it from the address. (Before the effect below rewrites it.)
+  useEffect(() => {
+    if (!enabled || initialEntry) return;
+    const eid = new URLSearchParams(window.location.search).get("entry");
+    if (eid) setEntry(eid);
+    // Once, on opening.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Keep the open entry in the address, so a reload brings it back.
   useEffect(() => {
     if (!enabled) return;

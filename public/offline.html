@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>pen · offline</title>
+    <!-- Served by public/sw.js when there's no connection and no kept copy of the page. Self-contained: offline, nothing else can load. -->
+    <style>
+      :root {
+        --paper: #f3ead3;
+        --ink: #1f2433;
+        --ink-soft: #4b4f5e;
+        --accent: #8a3324;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --paper: #16130f;
+          --ink: #e7dbc1;
+          --ink-soft: #b5a88f;
+          --accent: #e2a55a;
+        }
+      }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        box-sizing: border-box;
+        background: var(--paper);
+        color: var(--ink);
+        font: 1.1rem/1.6 "Iowan Old Style", Georgia, serif;
+      }
+      main {
+        max-width: 26rem;
+        text-align: center;
+      }
+      h1 {
+        font-size: 1.5rem;
+        font-weight: 500;
+        font-style: italic;
+        margin: 0 0 12px;
+      }
+      p {
+        color: var(--ink-soft);
+        margin: 0 0 20px;
+      }
+      a {
+        color: var(--accent);
+        font: 0.85rem ui-monospace, "SF Mono", Menlo, monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>No connection</h1>
+      <p>This page hasn’t been opened on this device yet, so there’s no copy of it here. Books and Codex entries you’ve opened before still work.</p>
+      <a href="/">Back to pen</a>
+    </main>
+  </body>
+</html>

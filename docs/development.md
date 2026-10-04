@@ -18,6 +18,10 @@ When stopping a background server with `pkill -f`, pick a pattern that won't als
 
 Node isn't on PATH (NixOS): `nix develop` gives a shell with Node 24 and `node_modules/.bin` on PATH (or one-off: `nix develop --command npx ...`).
 
+## The service worker
+
+`public/sw.js` ([editor](editor.md#offline)) registers only in production builds, so `next dev` never runs it unless localStorage `pen:sw` is `1`. A browser keeps it until it fetches a changed `sw.js` (it checks on every page load). If a bad one ever wedges the app, publish a `sw.js` that unregisters itself (`self.addEventListener("install", () => self.skipWaiting()); self.addEventListener("activate", (e) => e.waitUntil(self.registration.unregister().then(() => caches.keys()).then((ks) => Promise.all(ks.map((k) => caches.delete(k)))))));`), or clear the site's data in the browser.
+
 ## Fonts
 
 Fonts (Literata, JetBrains Mono) come from npm (`@fontsource-variable/*`, imported in `app/layout.tsx`, named in `app/styles/base.css`), not `next/font/google`, so a build never needs to reach Google.

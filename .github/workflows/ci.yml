@@ -51,3 +51,35 @@ jobs:
           name: playwright-traces
           path: test-results/
           retention-days: 7
+
+  # Offline (e2e/offline.spec.ts) needs a production build: a page kept from
+  # next dev doesn't come back to life offline, so the e2e job skips it.
+  e2e-offline:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      PEN_E2E_URL: http://localhost:3102
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24 # same as flake.nix
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Start the build over a throwaway library
+        run: |
+          lib=$(mktemp -d)
+          PEN_DIR=$lib/data PEN_CACHE_DIR=$lib/cache nohup npx next start -p 3102 > "$RUNNER_TEMP/server.log" 2>&1 &
+          for _ in $(seq 60); do curl -sf -o /dev/null "$PEN_E2E_URL/api/docs" && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/server.log"; exit 1
+      - run: npx playwright test e2e/offline.spec.ts
+      - if: failure()
+        run: cat "$RUNNER_TEMP/server.log"
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-traces-offline
+          path: test-results/
+          retention-days: 7

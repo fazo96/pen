@@ -10,4 +10,4 @@ Pages: `/` is the library (with exactly one book it redirects to it, unless `?li
 
 ## Optional lock
 
-Optional lock: a password set from `/settings` is stored as a scrypt hash in `PEN_DIR/.pen-auth.json`; `proxy.ts` gates every request and route handlers re-check. pen has no Server Actions, so `proxy.ts` also 404s any request with a `Next-Action` header (internet scanners probing for RSC exploits), `/unlock` included. To reset a forgotten password, delete that file.
+Optional lock: a password set from `/settings` is stored as a scrypt hash in `PEN_DIR/.pen-auth.json`; `proxy.ts` gates every request and route handlers re-check. pen has no Server Actions, so `proxy.ts` also 404s any request with a `Next-Action` header (internet scanners probing for RSC exploits), `/unlock` included. To reset a forgotten password, delete that file. `proxy.ts` leaves `/sw.js` and `/offline.html` public (they hold nothing private). Pages the service worker kept open offline without the password, on the device that opened them; signing out (`/unlock`) drops them ([editor](editor.md#offline)).

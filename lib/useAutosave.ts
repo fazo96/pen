@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { newerCopy, saveCopy } from "./offline";
 import { local } from "./storage";
 
 export type SaveStatus = "saved" | "unsaved" | "saving" | "offline" | "conflict" | "locked";
@@ -110,6 +111,7 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
       const data = (await res.json()) as { version: string };
       version.current = data.version;
       saved.current = content;
+      void saveCopy(url, { id: initial.id, content, version: data.version });
       blocked.current = false;
       setConflict(null);
       if (dirty.current) {
@@ -138,20 +140,30 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
     timer.current = setTimeout(() => void flush(), IDLE_MS);
   }, [flush]);
 
-  /** Pull the server copy if it changed and we have nothing unsaved. */
-  const pull = useCallback(async () => {
-    if (dirty.current || inFlight.current || blocked.current) return;
-    try {
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) return;
-      const remote = (await res.json()) as Story;
-      if (remote.version === version.current || dirty.current) return;
+  /**
+   * Pull the server copy if it changed and we have nothing unsaved. `opening`:
+   * offline, take this device's newer copy over a page the service worker kept.
+   */
+  const pull = useCallback(
+    async (opening = false) => {
+      if (dirty.current || inFlight.current || blocked.current) return;
+      let remote: Story | null;
+      try {
+        const res = await fetch(url, { cache: "no-store" });
+        if (!res.ok) return;
+        remote = (await res.json()) as Story;
+        void saveCopy(url, remote);
+      } catch {
+        remote = opening === true ? await newerCopy<Story>(url) : null;
+      }
+      if (!remote || remote.version === version.current || dirty.current) return;
       version.current = remote.version;
       saved.current = remote.content;
       setContent(remote.content);
       setStatus("saved");
-    } catch {}
-  }, [setContent]);
+    },
+    [setContent],
+  );
 
   const resolveConflict = useCallback(
     (choice: "theirs" | "mine") => {
@@ -162,6 +174,7 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
         dirty.current = false;
         blocked.current = false;
         backup(null);
+        void saveCopy(url, conflict);
         setContent(conflict.content);
         setConflict(null);
         setStatus("saved");
@@ -173,25 +186,23 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
     [conflict, flush, setContent],
   );
 
-  // On first load, recover work that never reached the server.
+  // On first load, recover work that never reached the server, or catch up
+  // with it: offline, the page may be an older copy the service worker kept.
   useEffect(() => {
     if (!ready) return;
     const stash = readBackup(backupKey);
     if (!stash || stash.content === initial.content) {
       backup(null);
+      void pull(true);
       return;
     }
+    // Finish the interrupted save on the version it was based on (not the
+    // page's, which may be a kept copy): if the server moved on since, it
+    // answers 409 and the writer chooses. Offline, it retries until it can.
     setContent(stash.content);
+    version.current = stash.baseVersion;
     dirty.current = true;
-    if (stash.baseVersion === initial.version) {
-      // Server hasn't moved; just finish the interrupted save.
-      void flush();
-    } else {
-      // Server moved on while this device had unsaved edits.
-      blocked.current = true;
-      setConflict(initial);
-      setStatus("conflict");
-    }
+    void flush();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
@@ -218,11 +229,12 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
     };
     document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("pagehide", onPageHide);
-    window.addEventListener("focus", pull);
+    const onFocus = () => void pull();
+    window.addEventListener("focus", onFocus);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", onPageHide);
-      window.removeEventListener("focus", pull);
+      window.removeEventListener("focus", onFocus);
     };
   }, [flush, pull, getContent]);
 
@@ -245,6 +257,7 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
       dirty.current = false;
       blocked.current = false;
       backup(null);
+      void saveCopy(url, doc);
       setContent(doc.content);
       setConflict(null);
       setStatus("saved");

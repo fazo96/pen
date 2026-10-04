@@ -37,9 +37,10 @@ async function followRename(req: NextRequest) {
 
 export const config = {
   // api/construct/mcp is called by the Construct agent process, with its own token.
-  // The manifest is fetched without cookies, so it and the icons stay public.
+  // The manifest is fetched without cookies, so it and the icons stay public;
+  // so do the service worker and its offline page, which hold nothing private.
   matcher: [
     "/unlock",
-    "/((?!_next/|unlock(?:$|/)|api/auth(?:$|/)|api/construct/mcp$|favicon\\.ico$|icon\\.svg$|icon-[a-z0-9-]+\\.png$|apple-icon\\.png$|manifest\\.webmanifest$).*)",
+    "/((?!_next/|unlock(?:$|/)|api/auth(?:$|/)|api/construct/mcp$|favicon\\.ico$|icon\\.svg$|icon-[a-z0-9-]+\\.png$|apple-icon\\.png$|manifest\\.webmanifest$|sw\\.js$|offline\\.html$).*)",
   ],
 };
