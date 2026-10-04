@@ -21,7 +21,7 @@ export const GET = route<Params>(async (req, { id, job }) => {
   let push = (e: ImportEvent) => void early.push(e);
   const stop = watchImport(id, job, (e) => push(e));
   if (!stop) return gone();
-  return ndjsonResponse(
+  return ndjsonResponse<ImportEvent>(
     (send) =>
       new Promise<void>((resolve) => {
         const end = () => {

@@ -6,9 +6,9 @@
 
 export const HEARTBEAT_MS = 20_000;
 
-/** A response that streams what `run` sends, one JSON value per line. */
-export function ndjsonResponse(
-  run: (send: (value: unknown) => void) => Promise<void>,
+/** A response that streams what `run` sends, one JSON value per line (a failure ends it with `{ t: "error", error }`). */
+export function ndjsonResponse<T = unknown>(
+  run: (send: (value: T) => void) => Promise<void>,
   { heartbeatMs = HEARTBEAT_MS }: { heartbeatMs?: number } = {},
 ): Response {
   const enc = new TextEncoder();

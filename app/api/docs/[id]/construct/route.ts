@@ -1,6 +1,7 @@
 import { aiEnabled, aiOffResponse, isAgentId } from "@/lib/construct/agents";
 import { getSession } from "@/lib/construct/session";
-import type { ConstructEvent, PromptContext } from "@/lib/construct/types";
+import { promptContextFrom } from "@/lib/construct/prompts";
+import type { ConstructAction, ConstructEvent } from "@/lib/construct/types";
 import { isValidId, readDoc } from "@/lib/docs";
 import { badRequest, fail, noContent, notFound, readJson, route } from "@/lib/route";
 
@@ -46,23 +47,12 @@ export const GET = route<{ id: string }>(async (req, { id }) => {
   });
 });
 
-type Action =
-  | { action: "start" }
-  | { action: "switch"; agent: string; model?: string }
-  | { action: "prompt"; text: string; context?: PromptContext }
-  | { action: "compact" }
-  | { action: "cancel" }
-  | { action: "reset" }
-  | { action: "open-chat"; chatId: string }
-  | { action: "delete-chat"; chatId: string }
-  | { action: "rename-chat"; chatId: string; title: string }
-  | { action: "config"; configId: string; value: string };
 
 /** Drive the conversation. Replies come back over the event stream. */
 export const POST = route<{ id: string }>(async (req, { id }) => {
   if (!aiEnabled()) return aiOffResponse();
   if (!(await readDoc(id))) return notFound();
-  const body = (await readJson(req)) as Action | undefined;
+  const body = (await readJson(req)) as ConstructAction | undefined;
   if (!body || typeof body !== "object") return badRequest("invalid json");
   const session = await getSession(id, internalUrl(req));
 
@@ -80,12 +70,7 @@ export const POST = route<{ id: string }>(async (req, { id }) => {
         const text = typeof body.text === "string" ? body.text.trim() : "";
         if (!text) return badRequest("empty prompt");
         if (session.busy) return fail(409, "Construct is still answering.");
-        const c = body.context ?? {};
-        const context: PromptContext = {
-          ...(typeof c.entry === "string" && isValidId(c.entry) ? { entry: c.entry } : {}),
-          ...(typeof c.selection === "string" && c.selection.trim() ? { selection: c.selection.slice(0, 4000) } : {}),
-          ...(typeof c.paragraph === "string" && c.paragraph.trim() ? { paragraph: c.paragraph.slice(0, 8000) } : {}),
-        };
+        const context = promptContextFrom(body.context);
         // Runs to the end of the turn in the background; the stream shows progress.
         void session.prompt(text.slice(0, 20_000), context);
         break;

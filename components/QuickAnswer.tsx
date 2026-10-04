@@ -4,7 +4,7 @@ import { TextSelection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { PromptContext } from "@/lib/construct/types";
+import type { PromptContext, QuickLine } from "@/lib/construct/types";
 import { readNdjson } from "@/lib/ndjson";
 import { useAnchored } from "@/lib/useAnchored";
 import { alternativesIn, matchCase, type QuickKind } from "@/lib/wordTools";
@@ -23,8 +23,6 @@ export type Quick = {
   context: PromptContext;
   kind?: QuickKind;
 };
-
-type Line = { t: "text"; text: string } | { t: "done" } | { t: "error"; error: string };
 
 // A self-hosted model may be loading: say so if nothing has come by then.
 const SLOW_MS = 10_000;
@@ -67,7 +65,7 @@ export default function QuickAnswer({
       if (res.status === 401) throw new Error("Locked. Unlock pen to ask Construct.");
       if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn’t ask Construct.");
       let ended = false;
-      await readNdjson<Line>(res, (line) => {
+      await readNdjson<QuickLine>(res, (line) => {
         if (line.t === "text") {
           clearTimeout(slow);
           setAnswer((a) => a + line.text);

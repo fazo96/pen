@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
-import type { ChatItem, ConstructEvent, ConstructState, PromptContext } from "./construct/types";
+import type { ChatItem, ConstructAction, ConstructEvent, ConstructState, PromptContext } from "./construct/types";
 
 type CodexChange = Extract<ConstructEvent, { t: "codex" }>["change"];
 
@@ -60,7 +60,7 @@ export function useConstruct(projectId: string, enabled: boolean, onCodexChange:
   }, [url, active]);
 
   const post = useCallback(
-    async (body: Record<string, unknown>) => {
+    async (body: ConstructAction) => {
       setError(null);
       try {
         await api(url, { method: "POST", json: body });

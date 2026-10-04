@@ -1,6 +1,7 @@
 // Construct's wire format between the server session and the panel.
 
 import type { SessionConfigOption } from "@agentclientprotocol/sdk";
+import type { AgentId } from "./agentInfo.ts";
 
 /** pen's tools, as Construct's agent calls them (served by ./tools.ts, described in the panel by Construct.tsx). */
 export type ToolName =
@@ -60,7 +61,7 @@ export type ContextUsage = { used: number; size: number };
 export type ChatMeta = { id: string; title: string; created: number; updated: number };
 
 export type ConstructState = {
-  agent: string;
+  agent: AgentId;
   /** The conversation shown, and the stored ones (newest first). */
   chatId: string;
   chats: ChatMeta[];
@@ -78,3 +79,19 @@ export type ConstructEvent =
   | { t: "append"; id: string; text: string }
   | { t: "state"; state: ConstructState }
   | { t: "codex"; change: { entry: string; action: string; to?: string } };
+
+/** What the panel asks of the session (POST /api/docs/<id>/construct); replies come over the event stream. */
+export type ConstructAction =
+  | { action: "start" }
+  | { action: "switch"; agent: string; model?: string }
+  | { action: "prompt"; text: string; context?: PromptContext }
+  | { action: "compact" }
+  | { action: "cancel" }
+  | { action: "reset" }
+  | { action: "open-chat"; chatId: string }
+  | { action: "delete-chat"; chatId: string }
+  | { action: "rename-chat"; chatId: string; title: string }
+  | { action: "config"; configId: string; value: string };
+
+/** A quick question's answer (POST /api/docs/<id>/construct/quick), as JSON lines. */
+export type QuickLine = { t: "text"; text: string } | { t: "done" } | { t: "error"; error: string };

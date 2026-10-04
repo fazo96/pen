@@ -9,9 +9,10 @@ import { type AgentLaunch, type AgentProcess, initialize, modelOption, optionVal
 import { titleOf } from "../text";
 import { type CodexChange, listTools, type ToolContext } from "./tools";
 import { DEFAULT_AGENT } from "./agentInfo";
-import { type AgentId, type AgentPreset, AGENTS, fallbackAgent, isAgentId, launchFor, MCP_NAME, penToolName, systemPrompt, toolNameOf } from "./agents";
+import { type AgentId, type AgentPreset, AGENTS, fallbackAgent, isAgentId, launchFor, MCP_NAME, penToolName, toolNameOf } from "./agents";
 import { type ChatNames, chatTitle, cleanChatName, isStoredChat, metaOf, newChatId, type StoredChat } from "./chats";
 import { modelFor } from "./ask";
+import { describeContext, systemPrompt } from "./prompts";
 import { type Change, settled, Transcript, visibleConfig } from "./transcript";
 import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, PromptContext } from "./types";
 
@@ -539,16 +540,6 @@ class ConstructSession {
     });
     for (const change of changes) this.tell(change);
   }
-}
-
-function describeContext(c: PromptContext) {
-  const where = c.entry ? `the Codex entry "${c.entry}"` : "the manuscript";
-  const lines = [`[The writer is looking at ${where}.`];
-  if (c.selection) lines.push(`They have selected this text:\n"""\n${c.selection}\n"""`);
-  if (c.paragraph && c.paragraph.trim() !== c.selection?.trim()) {
-    lines.push(`It's in this paragraph (search for it to find its line):\n"""\n${c.paragraph}\n"""`);
-  }
-  return `${lines.join(" ")}]`;
 }
 
 // ─── Registry ────────────────────────────────────────────────

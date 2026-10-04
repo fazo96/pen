@@ -3,7 +3,7 @@
 // "claude:opus" or "pi:namyra/muse-glimmer-30b-q4"; unset is Claude Code's
 // own default. Pure, so the server, the browser and tests can all use it.
 
-import { DEFAULT_AGENT } from "./agentInfo.ts";
+import { type AgentId, DEFAULT_AGENT } from "./agentInfo.ts";
 
 export const USES = ["chat", "transcribe", "quick"] as const;
 export type ModelUse = (typeof USES)[number];
@@ -11,7 +11,7 @@ export type ModelUse = (typeof USES)[number];
 export type ModelSettings = Partial<Record<ModelUse, string>>;
 
 /** One agent's models, as its model picker lists them; `error` when it couldn't be asked. */
-export type AgentModels = { agent: string; name: string; models: { value: string; name: string }[]; error?: string };
+export type AgentModels = { agent: AgentId; name: string; models: { value: string; name: string }[]; error?: string };
 
 export type ModelRef = { agent: string; model?: string };
 
