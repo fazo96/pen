@@ -62,10 +62,10 @@ All fixed (October 2026), except the last, which turned out not to be one.
 
 ## AGENTS.md
 - Done: the stale route-map fragment is its own "Pages" bullet; the export whitelist names `.pen-construct.json`; new modules described as they landed.
-- Left: the format. One huge bullet list (Construct alone ~3 KB in one bullet); per-feature docs with a short index would make drift easier to catch.
+- Done: split into `docs/` (one page per area, one section per old bullet; the Construct bullet broken into subsections), with `AGENTS.md` a table of contents plus the four hard rules.
 
 ## Suggested order
 1. ~~**Quick wins**~~: done (the bugs, `lib/queue.ts`, `lib/ids.ts`, `npm run typecheck`, tests for the pure modules).
 2. ~~**Foundations**~~: A, B, F and testable server modules done.
 3. ~~**The big files**~~: C, D, E, G done.
-4. **Any time**: ~~H, the CSS split~~ done; left: the CSS clean-ups above, restructuring AGENTS.md, lint and CI.
+4. **Any time**: ~~H, the CSS split, the AGENTS.md split~~ done; left: the CSS clean-ups above, lint and CI.

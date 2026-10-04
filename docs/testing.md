@@ -1,0 +1,9 @@
+# Tests
+
+## Unit tests
+
+Tests: `npm test` runs `tests/**/*.test.ts` with Node's built-in runner (Node strips the types, so no `enum` or constructor parameter properties in modules tests load). `tests/setup.mjs` runs first in every test process: it points `PEN_DIR` and `PEN_CACHE_DIR` at a fresh temporary folder (removed on exit; without it `lib/paths.ts` would use `./data`) and registers `tests/hooks.mjs`, which resolves `@/`, extensionless relative imports and an empty `server-only`, so server modules load too (`tests/store.test.ts` drives the library on disk; the store runs its old-layout migration once per process, hence `store-migration.test.ts` on its own). `npm run typecheck` runs `tsc --noEmit`. Fixtures in `tests/fixtures/` must be anonymized, never copied from real manuscripts or crits.
+
+## Browser tests
+
+Browser tests: `nix develop .#e2e --command npm run test:e2e` runs the Playwright suite in `e2e/` (`playwright.config.ts`; the `e2e` shell adds nixpkgs' Chromium as `PEN_E2E_CHROMIUM`, since Playwright's own browsers don't run on NixOS). It starts its own `next dev` on :3101 over a temporary library, with AI on but Claude Code replaced by `tests/fixtures/stub-acp-agent.mjs` in its echo mode (`PEN_CONSTRUCT_CLAUDE`; next dev builds into `.next/dev`, so the production `.next` on :3000 is untouched), one test at a time; `PEN_E2E_URL` points it at a server already running instead (e.g. a scratch-worktree production build, which also checks what only `next build` checks). `e2e/api.spec.ts` covers every route's answers without a browser. Each test makes its own books (`uniqueId`); the lock test removes its lock afterwards. Add a test there for a new flow. The Tiptap instance is reachable in tests as `document.querySelector(".ProseMirror").editor`.
