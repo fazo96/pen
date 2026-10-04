@@ -1,10 +1,20 @@
 import type { Metadata, Viewport } from "next";
 // Fonts from npm (@fontsource-variable) rather than next/font/google, so a build
-// never has to reach Google; the families are named in globals.css.
+// never has to reach Google; the families are named in styles/base.css.
 import "@fontsource-variable/literata/wght.css";
 import "@fontsource-variable/literata/wght-italic.css";
 import "@fontsource-variable/jetbrains-mono/wght.css";
-import "./globals.css";
+// pen's styles, one file per part of the app. Order matters (later rules win
+// ties), so keep it: it's the order they were written in.
+import "./styles/base.css";
+import "./styles/editor.css";
+import "./styles/library.css";
+import "./styles/drawer.css";
+import "./styles/lock.css";
+import "./styles/page-states.css";
+import "./styles/construct.css";
+import "./styles/settings.css";
+import "./styles/tools.css";
 
 export const metadata: Metadata = {
   title: "pen",

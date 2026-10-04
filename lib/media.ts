@@ -1,5 +1,5 @@
 // The media queries pen's layout turns on, named once. Keep the widths in step
-// with the breakpoints in globals.css. `useMedia` (lib/useMedia.ts) follows one
+// with the breakpoints in app/styles/. `useMedia` (lib/useMedia.ts) follows one
 // as state; `matches` asks once, for event handlers.
 
 /** Room for a Codex entry beside the manuscript. */

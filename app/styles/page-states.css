@@ -1,0 +1,293 @@
+/* ─── Drop to import ───────────────────────────────────────── */
+.dropzone {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.dropzone.is-over {
+  opacity: 1;
+}
+.dropzone-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 26rem);
+  padding: 48px 24px;
+  border: 1px dashed var(--accent);
+  border-radius: 14px;
+}
+.dropzone-text {
+  font-size: 1.3rem;
+  font-style: italic;
+}
+
+.toast {
+  position: fixed;
+  z-index: 25;
+  left: 50%;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top) + 12px);
+  transform: translateX(-50%);
+  max-width: calc(100% - 24px);
+  padding: 10px 14px;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  font-style: italic;
+  cursor: pointer;
+}
+
+/* ─── Conflict notice ──────────────────────────────────────── */
+.conflict {
+  position: fixed;
+  z-index: 25;
+  top: calc(var(--topbar-h) + env(safe-area-inset-top) + 10px);
+  left: 12px;
+  right: 12px;
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: 14px 16px;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-left: 2px solid var(--accent);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  font-size: 15px;
+}
+.conflict p {
+  margin: 0 0 12px;
+}
+.conflict .label {
+  color: var(--accent);
+  margin-right: 10px;
+}
+.conflict-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.conflict-actions button {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--rule);
+}
+.conflict-actions button.primary {
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+/* ─── Focus mode ───────────────────────────────────────────
+   Only the manuscript remains. The toolbar returns when the pointer
+   nears the bottom edge or the corner button pins it. */
+:root[data-focus] .app-editor .topbar,
+:root[data-focus] .app-editor .progress,
+:root[data-focus] .app-editor .outline,
+:root[data-focus] .app-editor .scrim {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.5s ease, visibility 0s linear 0.5s;
+}
+:root[data-focus] .app-editor .page {
+  padding-left: 22px;
+}
+:root[data-focus] .app-editor:not(.toolbar-shown) .toolbar {
+  transform: translateY(calc(100% + 24px));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.focus-controls {
+  position: fixed;
+  z-index: 22;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(var(--kb) + max(12px, env(safe-area-inset-bottom)));
+  display: flex;
+  gap: 6px;
+  transition: bottom 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.focus-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--paper-raised) 70%, transparent);
+  border: 1px solid var(--rule);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0.4;
+  transition: opacity 0.3s ease, color 0.2s ease;
+}
+.focus-btn:hover,
+.focus-btn:focus-visible {
+  opacity: 1;
+  color: var(--ink);
+}
+.focus-btn[aria-pressed="true"] {
+  opacity: 0.9;
+  color: var(--accent);
+}
+.focus-btn svg {
+  width: 16px;
+  height: 16px;
+}
+.focus-glyph {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1;
+}
+@media (hover: none) {
+  .focus-btn {
+    opacity: 0.6;
+  }
+}
+/* On phones the toolbar spans the bottom edge; sit above it when it's up. */
+@media (max-width: 719px) {
+  .toolbar-shown .focus-controls {
+    bottom: calc(var(--kb) + 62px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ─── Editor tools ─────────────────────────────────────────────
+   Phones: just the save dot and a "⋯" menu. Wider: the tools inline. */
+.topbar-tools {
+  display: none;
+  align-items: center;
+  gap: 4px;
+}
+.editor-menu {
+  position: relative;
+}
+.editor-menu-list {
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 232px;
+}
+.editor-menu-head {
+  margin: 4px 12px 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--rule);
+}
+.editor-menu-value {
+  margin-left: auto;
+  padding-left: 12px;
+  color: var(--ink-faint);
+}
+@media (max-width: 719px) {
+  .status-label {
+    display: none;
+  }
+}
+@media (min-width: 720px) {
+  .topbar-tools {
+    display: flex;
+  }
+  .editor-menu {
+    display: none;
+  }
+}
+
+/* ─── Larger screens ───────────────────────────────────────── */
+@media (min-width: 720px) {
+  :root {
+    --topbar-h: 56px;
+  }
+  .prose {
+    font-size: 1.1875rem;
+  }
+  .prose h1 {
+    font-size: 2.5rem;
+  }
+  .page {
+    padding-top: calc(var(--topbar-h) + 72px);
+  }
+  .topbar {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* Toolbar floats as a pill */
+  .toolbar {
+    left: 50%;
+    right: auto;
+    bottom: calc(var(--kb) + 22px);
+    transform: translateX(-50%);
+    padding: 5px 8px;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    box-shadow: var(--shadow);
+  }
+  :root[data-focus] .app-editor:not(.toolbar-shown) .toolbar {
+    transform: translate(-50%, calc(100% + 40px));
+  }
+  .tool {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+  }
+}
+
+/* Outline becomes a permanent rail */
+@media (min-width: 1180px) {
+  .outline {
+    top: calc(var(--topbar-h) + env(safe-area-inset-top));
+    width: 272px;
+    padding-top: 28px;
+    transform: none;
+    background: transparent;
+    border-right: 1px solid var(--rule);
+    box-shadow: none;
+    transition: opacity 0.6s ease;
+  }
+  .outline-head {
+    min-height: 0;
+    padding: 0 20px 12px;
+  }
+  .outline-close,
+  .outline-toggle,
+  .scrim {
+    display: none;
+  }
+  :where(:root:not([data-steady])) .is-typing .outline {
+    opacity: 0.35;
+  }
+  :where(:root:not([data-steady])) .is-typing .outline:hover {
+    opacity: 1;
+  }
+  .page {
+    padding-left: 272px;
+  }
+  /* Pages without the rail (library, settings) */
+  .page-bare {
+    padding-left: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+

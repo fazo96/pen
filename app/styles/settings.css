@@ -1,0 +1,191 @@
+/* ─── New manuscript ───────────────────────────────────────── */
+.new-book {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 28rem;
+  margin-top: 1.6rem;
+}
+.new-book .lock-actions {
+  margin-top: 0;
+}
+
+/* ─── Book settings ────────────────────────────────────────── */
+.book-settings .welcome-lede a,
+.book-settings .lock-text a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+.book-settings .welcome-lede a:hover,
+.book-settings .lock-text a:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+.book-settings .lock {
+  margin-top: 2.6rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--rule);
+}
+.book-settings-cover {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  margin-top: 1rem;
+}
+.book-settings-cover .lock-text {
+  margin-top: 0;
+}
+.book-settings-art {
+  flex: none;
+  width: 96px;
+}
+.book-settings-art.is-drop .book-cover {
+  outline: 1.5px dashed var(--accent);
+  outline-offset: 5px;
+}
+.book-settings-art.is-binding .book-cover {
+  opacity: 0.5;
+}
+.book-settings-field {
+  max-width: 22rem;
+}
+.book-settings-field .lock-text {
+  margin: 0.8rem 0 0.4rem;
+}
+.field select {
+  font: inherit;
+  font-size: 1.05rem;
+  color: var(--ink);
+  min-height: 46px;
+  padding: 0 14px;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  outline: none;
+}
+.field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+.book-settings-address {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  max-width: 28rem;
+}
+.book-settings-address .field {
+  flex: 1;
+  min-width: 0;
+}
+.book-settings-url {
+  display: flex;
+  align-items: center;
+  min-height: 46px;
+  padding-left: 14px;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  color: var(--ink-faint);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.book-settings-url:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+.book-settings-url:has(input[aria-invalid="true"]) {
+  border-color: var(--accent);
+}
+.field .book-settings-url input {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 14px 0 1px;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.welcome-actions .btn.is-on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.link-btn {
+  font: inherit;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+.link-btn:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+.book-settings-address + .lock-hint {
+  margin-top: 10px;
+}
+
+/* ─── Stats ────────────────────────────────────────────────── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 14px 24px;
+  margin: 1rem 0 0.4rem;
+}
+.stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.stats dd {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.4;
+  color: var(--ink);
+}
+
+/* ─── Keyboard shortcuts (/settings) ──────────────────────── */
+.keys {
+  margin: 0 0 1.2rem;
+}
+.keys-group {
+  display: block;
+  margin-bottom: 6px;
+}
+.keys > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.keys dt {
+  color: var(--ink-soft);
+  min-width: 0;
+}
+.keys dd {
+  margin: 0;
+  flex: none;
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+}
+.keys kbd {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+}
+/* Shortcuts mean nothing without a keyboard. */
+@media (hover: none) {
+  .key-settings {
+    display: none;
+  }
+}
+

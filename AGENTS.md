@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # pen
 
-A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Tiptap 3 with `@tiptap/markdown` (`contentType: "markdown"`, `editor.getMarkdown()`). Plain CSS in `app/globals.css`; no UI kit.
+A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Tiptap 3 with `@tiptap/markdown` (`contentType: "markdown"`, `editor.getMarkdown()`). Plain CSS in `app/styles/` (one file per part of the app, imported in order from `app/layout.tsx`); no UI kit.
 
 ## Layout
 
@@ -32,7 +32,7 @@ A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Ti
 - **Never write to `data/`.** It holds the user's real manuscripts, and they often write in the running server while you work. Test against a throwaway library instead, built outside this checkout (see below): `PEN_DIR=<scratch dir> PEN_CACHE_DIR=<scratch dir> next start -p 3001`.
 - Writing in `PEN_DIR`: whole files through `writeAtomic`/`createExclusive` (`lib/files.ts`: a `*.tmp` beside it, renamed over; exports skip `*.tmp`), read-modify-writes through a named queue (`lib/queue.ts`, kept on `globalThis` so a module loaded twice still shares it; `lib/store/core.ts` has one that every project shares), and the library-wide `.pen-*.json` files (shelves, renames, grammar, Construct's models) through `jsonStore` (`lib/jsonStore.ts`: read through a sanitizer, missing or corrupt reads as the default, updates queued). Ids are checked by `isValidId` (`lib/ids.ts`).
 - `cache/` (`PEN_CACHE_DIR`, `CACHE_DIR` in `lib/paths.ts`, git-ignored) holds what pen can make again: `wordnet/` (the Look up index) and `grammar/` (Harper's flags per paragraph). Safe to delete; never part of exports. Docker sets it to `/cache`.
-- Fonts (Literata, JetBrains Mono) come from npm (`@fontsource-variable/*`, imported in `app/layout.tsx`, named in `globals.css`), not `next/font/google`, so a build never needs to reach Google.
+- Fonts (Literata, JetBrains Mono) come from npm (`@fontsource-variable/*`, imported in `app/layout.tsx`, named in `app/styles/base.css`), not `next/font/google`, so a build never needs to reach Google.
 - Tests: `npm test` runs `tests/**/*.test.ts` with Node's built-in runner (Node strips the types, so no `enum` or constructor parameter properties in modules tests load). `tests/setup.mjs` runs first in every test process: it points `PEN_DIR` and `PEN_CACHE_DIR` at a fresh temporary folder (removed on exit; without it `lib/paths.ts` would use `./data`) and registers `tests/hooks.mjs`, which resolves `@/`, extensionless relative imports and an empty `server-only`, so server modules load too (`tests/store.test.ts` drives the library on disk; the store runs its old-layout migration once per process, hence `store-migration.test.ts` on its own). `npm run typecheck` runs `tsc --noEmit`. Fixtures in `tests/fixtures/` must be anonymized, never copied from real manuscripts or crits.
 - Node isn't on PATH (NixOS): `nix develop` gives a shell with Node 24 and `node_modules/.bin` on PATH (or one-off: `nix develop --command npx ...`).
 - Docker: `Dockerfile` builds with `PEN_STANDALONE=1`, which turns on `output: "standalone"` in `next.config.ts` (left off otherwise, since `next start` warns about it). The image keeps everything, Construct's agent state included (`CLAUDE_CONFIG_DIR=/data/.claude`), in the `/data` volume, and the cache in `/cache` (`PEN_CACHE_DIR`; the README suggests a volume).

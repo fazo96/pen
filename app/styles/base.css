@@ -1,0 +1,177 @@
+/* ─── Palette ───────────────────────────────────────────────
+   Paper: warm, slightly yellowed stock. Ink: iron-gall blue-black.
+   Night: a lamp-lit study, never cold grey. */
+:root {
+  --paper: #f3ead3;
+  --paper-raised: #f8f1de;
+  --ink: #1f2433;
+  --ink-soft: #4b4f5e;
+  --ink-faint: rgb(31 36 51 / 0.46);
+  --rule: rgb(31 36 51 / 0.13);
+  --accent: #8a3324;
+  --accent-wash: rgb(138 51 36 / 0.09);
+  --signal: #2f6f68;
+  --warn: #b0701c;
+  --selection: rgb(138 51 36 / 0.16);
+  --grain-opacity: 0.32;
+  --shadow: 0 10px 30px -12px rgb(60 40 10 / 0.28), 0 1px 0 rgb(255 255 255 / 0.4) inset;
+  --vignette: radial-gradient(ellipse at 50% 35%, transparent 55%, rgb(120 85 30 / 0.1));
+
+  --font-serif: "Literata Variable";
+  --font-mono: "JetBrains Mono Variable";
+  --font-ui: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-body: var(--font-serif), "Iowan Old Style", Georgia, serif;
+  --topbar-h: 52px;
+  --kb: 0px;
+  --measure: 34rem;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #16130f;
+    --paper-raised: #1f1b16;
+    --ink: #e7dbc1;
+    --ink-soft: #b5a88f;
+    --ink-faint: rgb(231 219 193 / 0.42);
+    --rule: rgb(231 219 193 / 0.11);
+    --accent: #e2a55a;
+    --accent-wash: rgb(226 165 90 / 0.1);
+    --signal: #7fc4b5;
+    --warn: #e2a55a;
+    --selection: rgb(226 165 90 / 0.22);
+    --grain-opacity: 0.1;
+    --shadow: 0 12px 34px -12px rgb(0 0 0 / 0.7), 0 1px 0 rgb(255 240 210 / 0.04) inset;
+    --vignette: radial-gradient(ellipse at 50% 30%, rgb(226 165 90 / 0.035), transparent 60%);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #16130f;
+  --paper-raised: #1f1b16;
+  --ink: #e7dbc1;
+  --ink-soft: #b5a88f;
+  --ink-faint: rgb(231 219 193 / 0.42);
+  --rule: rgb(231 219 193 / 0.11);
+  --accent: #e2a55a;
+  --accent-wash: rgb(226 165 90 / 0.1);
+  --signal: #7fc4b5;
+  --warn: #e2a55a;
+  --selection: rgb(226 165 90 / 0.22);
+  --grain-opacity: 0.1;
+  --shadow: 0 12px 34px -12px rgb(0 0 0 / 0.7), 0 1px 0 rgb(255 240 210 / 0.04) inset;
+  --vignette: radial-gradient(ellipse at 50% 30%, rgb(226 165 90 / 0.035), transparent 60%);
+  color-scheme: dark;
+}
+
+/* ─── Base ─────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Chromium's default scrollbars are wide and grey; Firefox draws thin
+   overlay ones already, so leave it alone. */
+@supports not (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ink-faint) transparent;
+  }
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--topbar-h) + 32px);
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--paper);
+  background-image: var(--vignette);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* Paper grain. No mix-blend-mode: blending a fixed full-screen layer made
+   every scroll frame re-blend the page (half the frame rate), and plain
+   opacity looks the same to within 1/255. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .36 0 0 0 0 .2 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: var(--selection);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+.label {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: var(--ink-soft);
+  transition: color 0.2s, background-color 0.2s;
+}
+.icon-btn:hover {
+  color: var(--ink);
+  background: var(--accent-wash);
+}
+
+.app {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Progress hairline ────────────────────────────────────── */
+.progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  z-index: 30;
+  background: var(--accent);
+  transform-origin: 0 50%;
+  transition: transform 0.15s linear;
+  opacity: 0.8;
+}
+

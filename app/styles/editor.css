@@ -1,0 +1,680 @@
+/* ─── Top bar ──────────────────────────────────────────────── */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  height: calc(var(--topbar-h) + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  border-bottom: 1px solid var(--rule);
+  transition: opacity 0.6s ease;
+}
+
+.topbar-left,
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wordmark {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-right: 4px;
+  border-radius: 10px;
+}
+.wordmark svg {
+  display: block;
+}
+
+.topbar-title {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-left: 10px;
+  border-left: 1px solid var(--rule);
+  min-width: 0;
+}
+
+.words {
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal) 18%, transparent);
+  transition: background-color 0.3s, box-shadow 0.3s;
+}
+.status-unsaved .status-dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.status-saving .status-dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+  animation: pulse 1s ease-in-out infinite;
+}
+.status-offline .status-dot {
+  background: var(--warn);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.status-conflict {
+  color: var(--accent);
+}
+.status-conflict .status-dot {
+  background: var(--accent);
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Typing fades the chrome; moving the pointer or scrolling brings it back.
+   Not with <html data-steady> (the setting in /settings, lib/useSteady.ts). */
+:where(:root:not([data-steady])) .is-typing .topbar,
+:where(:root:not([data-steady])) .is-typing .progress {
+  opacity: 0.22;
+}
+:where(:root:not([data-steady])) .is-typing .topbar:hover {
+  opacity: 1;
+}
+
+/* ─── Page & manuscript ────────────────────────────────────── */
+.page {
+  padding: calc(var(--topbar-h) + env(safe-area-inset-top) + 40px) 22px
+    calc(40vh + var(--kb) + env(safe-area-inset-bottom));
+}
+
+.prose {
+  max-width: var(--measure);
+  margin: 0 auto;
+  outline: none;
+  font-family: var(--font-body);
+  font-size: 1.125rem;
+  line-height: 1.72;
+  font-optical-sizing: auto;
+  font-variant-ligatures: common-ligatures;
+  hanging-punctuation: first;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: break-word;
+  caret-color: var(--accent);
+  counter-reset: part chapter;
+}
+
+.prose.loading {
+  min-height: 60vh;
+}
+
+.prose > * + * {
+  margin-top: 0;
+}
+
+/* Book-style paragraphs: no gaps, indented continuations. */
+.prose p {
+  margin: 0;
+}
+.prose p + p {
+  text-indent: 1.5em;
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  font-weight: 450;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  scroll-margin-top: calc(var(--topbar-h) + 32px);
+}
+
+.prose h1 {
+  font-size: 2.1rem;
+  font-weight: 400;
+  text-align: center;
+  margin: 1.5rem 0 2.75rem;
+}
+.prose h1::after {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 1px;
+  margin: 1.1rem auto 0;
+  background: var(--accent);
+}
+
+/* Part: a quiet title page inside the book. */
+.prose h2 {
+  counter-increment: part;
+  font-size: 1.75rem;
+  font-weight: 400;
+  text-align: center;
+  margin: 5rem 0 3.25rem;
+}
+.prose h2:not(.is-empty)::before {
+  content: "Part " counter(part, upper-roman);
+  display: block;
+  margin-bottom: 0.8rem;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.prose h2::after {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 1px;
+  margin: 1.1rem auto 0;
+  background: var(--rule);
+}
+
+/* Chapter: numbered straight through the book. */
+.prose h3 {
+  counter-increment: chapter;
+  font-size: 1.5rem;
+  margin: 3.5rem 0 1.4rem;
+}
+.prose h3:not(.is-empty)::before {
+  content: counter(chapter, decimal-leading-zero) " —";
+  display: block;
+  margin-bottom: 0.55rem;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+}
+.prose h2 + h3 {
+  margin-top: 0;
+}
+
+.prose h1:first-child,
+.prose h2:first-child,
+.prose h3:first-child {
+  margin-top: 0.5rem;
+}
+
+.prose blockquote {
+  margin: 1.4rem 0;
+  padding: 0.1rem 0 0.1rem 1.2rem;
+  border-left: 1px solid var(--accent);
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.prose ul,
+.prose ol {
+  margin: 1rem 0;
+  padding-left: 1.4em;
+}
+.prose li::marker {
+  color: var(--ink-faint);
+  font-family: var(--font-ui);
+  font-size: 0.8em;
+}
+.prose li p + p {
+  text-indent: 0;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose s {
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 1px;
+}
+
+.prose a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.prose code {
+  font-family: var(--font-ui);
+  font-size: 0.82em;
+  padding: 0.1em 0.3em;
+  border-radius: 4px;
+  background: var(--accent-wash);
+}
+.prose pre {
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  padding: 1rem 1.1rem;
+  margin: 1.4rem 0;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.prose pre code {
+  padding: 0;
+  background: none;
+}
+
+/* Comments: kept in the file, not part of the prose. */
+.prose .comment-block {
+  margin: 1.2rem 0;
+  padding: 0.15rem 0 0.15rem 0.9rem;
+  border-left: 1px dashed var(--accent);
+  font-size: 0.9em;
+  font-style: italic;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+}
+.prose .comment-inline {
+  font-size: 0.9em;
+  font-style: italic;
+  color: var(--ink-soft);
+  background: var(--accent-wash);
+  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 60%, transparent);
+  border-radius: 2px;
+  padding: 0 0.2em;
+}
+
+/* Scene break */
+.prose hr {
+  border: 0;
+  height: auto;
+  margin: 2.2rem 0;
+  text-align: center;
+  line-height: 1;
+}
+.prose hr::after {
+  content: "⁂";
+  font-size: 1.35rem;
+  color: var(--accent);
+  letter-spacing: 0;
+}
+.prose hr + p {
+  text-indent: 0;
+}
+.prose hr.ProseMirror-selectednode::after {
+  outline: 1px solid var(--accent);
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
+.prose p.is-empty::before,
+.prose h1.is-empty::before,
+.prose h2.is-empty::before,
+.prose h3.is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+/* ─── Toolbar ──────────────────────────────────────────────── */
+.toolbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--kb);
+  z-index: 20;
+  padding: 4px max(6px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom))
+    max(6px, env(safe-area-inset-left));
+  background: color-mix(in srgb, var(--paper-raised) 88%, transparent);
+  backdrop-filter: blur(12px) saturate(1.1);
+  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  border-top: 1px solid var(--rule);
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
+}
+
+.toolbar-scroll {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  justify-content: safe center;
+}
+.toolbar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.tool {
+  flex: none;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  color: var(--ink-soft);
+  transition: color 0.15s, background-color 0.15s;
+}
+.tool:hover:not(:disabled) {
+  color: var(--ink);
+  background: var(--accent-wash);
+}
+.tool[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+.tool[aria-pressed="true"]::after {
+  content: "";
+  position: absolute;
+  bottom: 5px;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.tool:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.glyph {
+  font-family: var(--font-body);
+  font-size: 19px;
+  line-height: 1;
+}
+.glyph-h {
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.tool-sep {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--rule);
+}
+
+/* ─── Outline ──────────────────────────────────────────────── */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(20 14 6 / 0.28);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.scrim.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.outline {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  width: min(84vw, 320px);
+  display: flex;
+  flex-direction: column;
+  padding: calc(env(safe-area-inset-top) + 8px) 0 calc(env(safe-area-inset-bottom) + 14px)
+    env(safe-area-inset-left);
+  background: var(--paper-raised);
+  border-right: 1px solid var(--rule);
+  box-shadow: var(--shadow);
+  transform: translateX(-102%);
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.outline.is-open {
+  transform: none;
+}
+
+.outline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 8px 20px;
+  min-height: var(--topbar-h);
+  border-bottom: 1px solid var(--rule);
+}
+
+.outline-body {
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.outline-list {
+  list-style: none;
+  margin: 0;
+  padding: 12px 0;
+}
+
+.outline-item {
+  position: relative;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 2.2em 1fr;
+  align-items: baseline;
+  gap: 4px;
+  padding: 9px 20px;
+  text-align: left;
+  color: var(--ink-soft);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.35;
+  transition: color 0.2s, background-color 0.2s;
+}
+.outline-item:hover {
+  color: var(--ink);
+  background: var(--accent-wash);
+}
+.outline-item.is-title {
+  color: var(--ink);
+}
+.outline-item.is-part {
+  grid-template-columns: 1fr;
+  gap: 2px;
+  margin-top: 10px;
+  color: var(--ink);
+}
+.outline-item.is-part .outline-num {
+  color: var(--accent);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+.outline-item.is-part .outline-text {
+  font-style: italic;
+}
+.outline-item.is-active {
+  color: var(--accent);
+}
+.outline-item.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  background: var(--accent);
+}
+
+.outline-num {
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+.outline-item.is-active .outline-num {
+  color: var(--accent);
+}
+
+.outline-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.outline-empty {
+  margin: 0;
+  padding: 20px;
+  color: var(--ink-faint);
+  font-style: italic;
+  font-size: 15px;
+}
+
+.outline-foot {
+  padding: 12px 20px 0;
+  border-top: 1px solid var(--rule);
+}
+
+/* Word, reading time and page counts, explained on hover or tap */
+.word-stats {
+  position: relative;
+  display: inline-block;
+}
+.word-stats-btn {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: help;
+}
+.word-stats-pop {
+  position: absolute;
+  left: -10px;
+  z-index: 30;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  width: max-content;
+  max-width: min(280px, calc(100vw - 32px));
+  white-space: normal;
+  padding: 10px 12px;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  text-transform: none;
+  color: var(--ink-soft);
+}
+.word-stats-pop > span {
+  display: grid;
+  grid-template-columns: 2.8em 1fr;
+}
+.word-stats-pop b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.word-stats.is-above .word-stats-pop {
+  bottom: calc(100% + 8px);
+}
+.word-stats.is-below .word-stats-pop {
+  top: calc(100% + 8px);
+}
+/* The top bar's sits near the right edge */
+.words .word-stats-pop {
+  left: auto;
+  right: -10px;
+}
+.word-stats.is-open .word-stats-pop,
+.word-stats-btn:focus-visible + .word-stats-pop {
+  display: flex;
+}
+/* Inside the editor menu it opens in place, pushing the items down */
+.editor-menu-head .word-stats {
+  display: block;
+}
+.editor-menu-head .word-stats-pop {
+  position: static;
+  width: auto;
+  max-width: none;
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: none;
+}
+@media (hover: hover) {
+  .word-stats:hover:not(.editor-menu-head *) .word-stats-pop {
+    display: flex;
+  }
+}
+
+/* Drawer header controls */
+.drawer-back,
+.drawer-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 10px 0 4px;
+  margin-left: -6px;
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  transition: color 0.2s, background-color 0.2s;
+}
+.drawer-action {
+  margin-left: auto;
+  margin-right: 4px;
+  padding: 0 10px 0 6px;
+  color: var(--accent);
+}
+.drawer-back:hover,
+.drawer-action:hover {
+  color: var(--accent);
+  background: var(--accent-wash);
+}
+.drawer-back svg,
+.drawer-action svg {
+  width: 16px;
+  height: 16px;
+}
+
