@@ -1,10 +1,11 @@
 "use client";
 
 import { type Editor, useEditorState } from "@tiptap/react";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FindOptions } from "@/lib/find";
 import { clearSearch, findState, replaceAll, replaceCurrent, selectCurrent, setSearch, step } from "@/lib/findPlugin";
 import { useKeys } from "@/lib/useKeys";
+import { useWindowKeys } from "@/lib/useWindowKeys";
 import { IconClose, IconDown, IconUp } from "./icons";
 
 export type FindMode = "find" | "replace";
@@ -250,7 +251,7 @@ export function useFind({
     if (gone) setFind(null);
   }, [gone]);
 
-  const onKey = useEffectEvent((e: KeyboardEvent) => {
+  useWindowKeys((e) => {
     if (!(e.ctrlKey || e.metaKey)) return;
     const mod = !e.shiftKey && !e.altKey;
     if (mod && e.code === "KeyF") {
@@ -265,11 +266,6 @@ export function useFind({
     } else return;
     e.stopPropagation();
   });
-  useEffect(() => {
-    const listener = (e: KeyboardEvent) => onKey(e);
-    window.addEventListener("keydown", listener, true);
-    return () => window.removeEventListener("keydown", listener, true);
-  }, []);
 
   const findBar = (ed: Editor | null) =>
     find &&

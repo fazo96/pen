@@ -23,6 +23,7 @@ import { useSpot } from "@/lib/useSpot";
 import { setSteady, useSteady } from "@/lib/useSteady";
 import { HEADINGS } from "@/lib/usePenEditor";
 import { useTheme, THEME_LABEL, type Theme } from "@/lib/useTheme";
+import { useWindowKeys } from "@/lib/useWindowKeys";
 import type { VersionMeta } from "@/lib/types";
 import { askDraft, constructPrompt, pickedWords, type QuickKind, requestLookUp } from "@/lib/wordTools";
 import Codex from "./Codex";
@@ -521,22 +522,16 @@ export default function Pen({
     if (refocus && ed && !ed.isDestroyed) requestAnimationFrame(() => ed.view.focus());
     else if (refocus && el?.isConnected) requestAnimationFrame(() => el.focus());
   };
-  const paletteKeys = useRef(togglePalette);
-  paletteKeys.current = togglePalette;
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
-      const k = e.key.toLowerCase();
-      const mode: PaletteMode | null = k === "o" ? "go" : k === "p" || k === "k" ? "do" : null;
-      if (!mode) return;
-      // Before the browser's Open and Print, and before the editor sees it.
-      e.preventDefault();
-      e.stopPropagation();
-      paletteKeys.current(mode);
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
+  useWindowKeys((e) => {
+    if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    const mode: PaletteMode | null = k === "o" ? "go" : k === "p" || k === "k" ? "do" : null;
+    if (!mode) return;
+    // Before the browser's Open and Print, and before the editor sees it.
+    e.preventDefault();
+    e.stopPropagation();
+    togglePalette(mode);
+  });
 
   // ─── Jumping between the manuscript, the Codex and Construct ───
   /** The cursor into `ed`; not on touch screens, where it would bring up the keyboard. */
@@ -606,22 +601,15 @@ export default function Pen({
     else toggleConstruct();
     construct.current?.focus();
   };
-  const jumps = useRef({ switchView, toManuscript, toCodex, toConstruct, closePalette });
-  jumps.current = { switchView, toManuscript, toCodex, toConstruct, closePalette };
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey) return;
-      const j = jumps.current;
-      const jump = { e: j.switchView, m: j.toManuscript, x: j.toCodex, a: ai ? j.toConstruct : undefined }[e.key.toLowerCase()];
-      if (!jump) return;
-      e.preventDefault();
-      e.stopPropagation();
-      j.closePalette(false);
-      void jump();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, [ai]);
+  useWindowKeys((e) => {
+    if (!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey) return;
+    const jump = { e: switchView, m: toManuscript, x: toCodex, a: ai ? toConstruct : undefined }[e.key.toLowerCase()];
+    if (!jump) return;
+    e.preventDefault();
+    e.stopPropagation();
+    closePalette(false);
+    void jump();
+  });
 
   // ─── Find and replace (Ctrl+F, Ctrl+H) ─────────────────────
   // In the editor used last; none while a version preview covers the manuscript.
