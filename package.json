@@ -8,7 +8,8 @@
     "build": "next build",
     "dictionary": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/build-dictionary.ts",
     "start": "next start",
-    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test 'tests/**/*.test.ts'"
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test 'tests/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.5.1",
