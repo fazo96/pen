@@ -71,10 +71,13 @@ type Props = {
   lastEntry?: { id: string; title: string };
   /** Codex entries by when they were viewed, the most recent first (for the quick switcher). */
   recentEntries?: string[];
+  /** Whether pen's AI features are on (an agent was found on the server): Construct and its questions. */
+  ai: boolean;
 };
 
 export default function Pen({
   projectId,
+  ai,
   kind,
   initial,
   initialEntry,
@@ -654,7 +657,7 @@ export default function Pen({
     const onKey = (e: KeyboardEvent) => {
       if (!(e.ctrlKey || e.metaKey) || !e.shiftKey || e.altKey) return;
       const j = jumps.current;
-      const jump = { e: j.switchView, m: j.toManuscript, x: j.toCodex, a: j.toConstruct }[e.key.toLowerCase()];
+      const jump = { e: j.switchView, m: j.toManuscript, x: j.toCodex, a: ai ? j.toConstruct : undefined }[e.key.toLowerCase()];
       if (!jump) return;
       e.preventDefault();
       e.stopPropagation();
@@ -663,7 +666,7 @@ export default function Pen({
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
+  }, [ai]);
 
   // ─── Find and replace (Ctrl+F, Ctrl+H) ─────────────────────
   /** The editor searched, and a key bumped by each Ctrl+F to refocus the bar. */
@@ -875,7 +878,7 @@ export default function Pen({
         hint: keys.key("codex"),
         run: () => void toCodex(),
       },
-      {
+      ai && {
         key: "to-construct",
         section: "Go",
         label: "Go to Construct",
@@ -925,21 +928,21 @@ export default function Pen({
         refocus: true,
         run: () => requestLookUp(ed!),
       },
-      !!picked && {
+      ai && !!picked && {
         key: "ask-synonyms",
         section: "Selection",
         label: `Ask Construct for synonyms of “${picked.text}”`,
         keywords: "ai",
         run: () => askConstruct(ed!)(constructPrompt("synonyms", picked.text), picked, true, "synonyms"),
       },
-      !!picked && {
+      ai && !!picked && {
         key: "ask-meaning",
         section: "Selection",
         label: `Ask Construct what “${picked.text}” means`,
         keywords: "ai meaning",
         run: () => askConstruct(ed!)(constructPrompt("meaning", picked.text), picked, true, "meaning"),
       },
-      !!picked && {
+      ai && !!picked && {
         key: "ask",
         section: "Selection",
         label: `Ask Construct about “${picked.text}”…`,
@@ -955,7 +958,7 @@ export default function Pen({
         keywords: "ai assistant chat panel",
         run: closeConstruct,
       },
-      {
+      ai && {
         key: "new-chat",
         section: "Construct",
         label: "New Construct chat",
@@ -965,7 +968,7 @@ export default function Pen({
           setNewChat((n) => n + 1);
         },
       },
-      {
+      ai && {
         key: "compact-chat",
         section: "Construct",
         label: "Compact Construct’s conversation",
@@ -1162,16 +1165,18 @@ export default function Pen({
             <button type="button" className="icon-btn" onClick={exportMarkdown} aria-label="Export markdown" title="Export .md">
               <IconExport />
             </button>
-            <button
-              type="button"
-              className={`icon-btn construct-toggle ${constructOpen ? "is-on" : ""}`}
-              onClick={toggleConstruct}
-              aria-label="Construct"
-              aria-expanded={constructOpen}
-              title={keys.title("Construct", "construct")}
-            >
-              <IconConstruct />
-            </button>
+            {ai && (
+              <button
+                type="button"
+                className={`icon-btn construct-toggle ${constructOpen ? "is-on" : ""}`}
+                onClick={toggleConstruct}
+                aria-label="Construct"
+                aria-expanded={constructOpen}
+                title={keys.title("Construct", "construct")}
+              >
+                <IconConstruct />
+              </button>
+            )}
             <button
               type="button"
               className="icon-btn"
@@ -1190,7 +1195,7 @@ export default function Pen({
             grammarOn={grammarOn}
             onGrammar={toggleGrammar}
             onExport={exportMarkdown}
-            onConstruct={toggleConstruct}
+            onConstruct={ai ? toggleConstruct : undefined}
             onSettings={openSettings}
             onFind={() => openFind("find")}
           />
@@ -1258,6 +1263,7 @@ export default function Pen({
             activeTitle={isEntry ? h1 || undefined : panelTitle}
             onOpen={open}
             refreshKey={codexKey}
+            ai={ai}
           />
         )}
         {drawerTab === "history" && !isEntry && (
@@ -1316,26 +1322,28 @@ export default function Pen({
         <Toolbar
           key={inPanel ? "panel" : "main"}
           editor={toolEditor}
-          onAsk={askConstruct(toolEditor)}
+          onAsk={ai ? askConstruct(toolEditor) : undefined}
           headingNames={inPanel ? HEADINGS.entry : headingNames}
         />
       )}
 
-      <Construct
-        projectId={projectId}
-        open={constructOpen}
-        onClose={closeConstruct}
-        getContext={constructContext}
-        beforeSend={beforeConstruct}
-        onCodexChange={onCodexChange}
-        onOpen={open}
-        onCite={cite}
-        request={constructRequest}
-        newChat={newChat}
-        compact={compactChat}
-        focus={constructFocus}
-        onEscape={() => focusText(toolEditor)}
-      />
+      {ai && (
+        <Construct
+          projectId={projectId}
+          open={constructOpen}
+          onClose={closeConstruct}
+          getContext={constructContext}
+          beforeSend={beforeConstruct}
+          onCodexChange={onCodexChange}
+          onOpen={open}
+          onCite={cite}
+          request={constructRequest}
+          newChat={newChat}
+          compact={compactChat}
+          focus={constructFocus}
+          onEscape={() => focusText(toolEditor)}
+        />
+      )}
 
       {palette && (
         <Palette key={palette} mode={palette} places={places()} commands={commands()} onClose={closePalette} />
@@ -1359,12 +1367,17 @@ export default function Pen({
         />
       )}
       <DropImport onFile={importFile} />
-      {editor && <GrammarPopover editor={editor} onAsk={(text, range) => askConstruct(editor)(text, range, true, "grammar")} />}
-      {panelEditor && (
-        <GrammarPopover editor={panelEditor} onAsk={(text, range) => askConstruct(panelEditor)(text, range, true, "grammar")} />
+      {editor && (
+        <GrammarPopover editor={editor} onAsk={ai ? (text, range) => askConstruct(editor)(text, range, true, "grammar") : undefined} />
       )}
-      {editor && <WordTools editor={editor} onAsk={askConstruct(editor)} />}
-      {panelEditor && <WordTools editor={panelEditor} onAsk={askConstruct(panelEditor)} />}
+      {panelEditor && (
+        <GrammarPopover
+          editor={panelEditor}
+          onAsk={ai ? (text, range) => askConstruct(panelEditor)(text, range, true, "grammar") : undefined}
+        />
+      )}
+      {editor && <WordTools editor={editor} onAsk={ai ? askConstruct(editor) : undefined} />}
+      {panelEditor && <WordTools editor={panelEditor} onAsk={ai ? askConstruct(panelEditor) : undefined} />}
       {quick && !quick.editor.isDestroyed && (
         <QuickAnswer
           key={quick.id}

@@ -1,4 +1,4 @@
-import { quickPrompt } from "@/lib/construct/agents";
+import { aiEnabled, aiOffResponse, quickPrompt } from "@/lib/construct/agents";
 import { askOnce } from "@/lib/construct/ask";
 import { isValidId, readDoc } from "@/lib/docs";
 import { ndjsonResponse } from "@/lib/ndjson";
@@ -18,6 +18,7 @@ const clip = (x: unknown, max: number) => (typeof x === "string" ? x.trim().slic
  */
 export async function POST(req: Request, { params }: Ctx) {
   if (!(await hasSession())) return lockedResponse();
+  if (!aiEnabled()) return aiOffResponse();
   const { id } = await params;
   const doc = isValidId(id) ? await readDoc(id) : null;
   if (!doc) return Response.json({ error: "not found" }, { status: 404 });

@@ -23,7 +23,7 @@ function suggestionLabel(s: Suggestion, problem: string) {
 }
 
 /** What the grammar checker says about the flag last clicked in `editor`, with its fixes. */
-export default function GrammarPopover({ editor, onAsk }: { editor: Editor; onAsk: (text: string, range: { from: number; to: number }) => void }) {
+export default function GrammarPopover({ editor, onAsk }: { editor: Editor; onAsk?: (text: string, range: { from: number; to: number }) => void }) {
   const [active, setActive] = useState<ActiveFlag | null>(null);
   const box = useRef<HTMLDivElement>(null);
 
@@ -92,24 +92,26 @@ export default function GrammarPopover({ editor, onAsk }: { editor: Editor; onAs
           Turn off this rule
         </button>
       )}
-      <button
-        type="button"
-        className="grammar-ask"
-        onClick={() => {
-          close();
-          onAsk(
-            grammarPrompt(
-              flag.problem,
-              spelling ? "spelling" : ruleLabel(flag.rule),
-              plain(flag.message),
-              flag.suggestions.filter((s) => s.kind !== "remove").map((s) => s.text),
-            ),
-            { from, to },
-          );
-        }}
-      >
-        <IconConstruct /> Ask Construct
-      </button>
+      {onAsk && (
+        <button
+          type="button"
+          className="grammar-ask"
+          onClick={() => {
+            close();
+            onAsk(
+              grammarPrompt(
+                flag.problem,
+                spelling ? "spelling" : ruleLabel(flag.rule),
+                plain(flag.message),
+                flag.suggestions.filter((s) => s.kind !== "remove").map((s) => s.text),
+              ),
+              { from, to },
+            );
+          }}
+        >
+          <IconConstruct /> Ask Construct
+        </button>
+      )}
     </div>,
     document.body,
   );

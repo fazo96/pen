@@ -83,8 +83,11 @@ Books are stored in `./data`. Point `PEN_DIR` elsewhere to keep them somewhere e
 | `PEN_SESSION_GAP_MS` | 30 minutes | Quiet time after which the next save snapshots a new version |
 | `PEN_CONSTRUCT_CLAUDE` | `npx -y @agentclientprotocol/claude-agent-acp@0.84.0` | Command that launches Construct's agent |
 | `PEN_INTERNAL_URL` | `http://127.0.0.1:<port>` | Where the agent reaches pen's tool endpoint |
+| `PEN_CLAUDE` | `claude` | Claude Code's command, looked for to turn AI features on |
+| `PEN_PI` | `pi` | pi's command, looked for to turn AI features on |
+| `PEN_AI` | | `off` keeps AI features off even with an agent installed |
 
-Construct uses [Claude Code](https://claude.com/claude-code) and its login: sign in once with `claude` on the machine running pen. Construct is built using ACP, so it's possible to add support for other agents (such as Pi) with relative ease as long as they support ACP.
+AI features (Construct, the Synonyms / Meaning / Ask buttons, transcribing photos of handwritten notes) are off unless pen finds an agent on the machine it runs on when it starts: [Claude Code](https://claude.com/claude-code) (the `claude` command, or a login it can use: `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, or credentials in `~/.claude`), or [pi](https://github.com/badlogic/pi-mono) (the `pi` command). Sign in once with `claude`, or set up your models in pi, and restart pen. Without either, everything else works and the AI buttons stay hidden; Settings explains what to install. Construct is built using ACP, so other agents can be added with relative ease as long as they support it.
 
 ## Self-hosting
 
@@ -118,7 +121,7 @@ volumes:
 - `CLAUDE_CODE_OAUTH_TOKEN`, created with `claude setup-token` on any machine where you use Claude Code, runs on your Claude subscription.
 - `ANTHROPIC_API_KEY` bills the Anthropic API instead.
 
-Without either, pen works as usual and Construct answers "Authentication required". The agent is baked into the image at the version pen is tested with, so it doesn't need downloading when the container starts.
+Without either, pen works as usual with its AI features off. The agent is baked into the image at the version pen is tested with, so it doesn't need downloading when the container starts.
 
 **Before you expose it:**
 

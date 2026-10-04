@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Pen from "@/components/Pen";
+import { aiEnabled } from "@/lib/construct/agents";
 import { readDoc, readEntry, readSpots } from "@/lib/docs";
 import { entrySpot } from "@/lib/spot";
 import { requirePageSession } from "@/lib/session";
@@ -15,6 +16,7 @@ export default async function Page({ params }: { params: Promise<{ id: string; e
     <Pen
       key={`${id}/codex/${eid}`}
       projectId={id}
+      ai={aiEnabled()}
       kind="entry"
       initial={entry}
       initialSpot={entrySpot(spots, eid)}

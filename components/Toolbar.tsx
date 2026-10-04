@@ -41,7 +41,8 @@ type Props = {
   editor: Editor;
   /** Names for heading levels 1–3, shown as tooltips. */
   headingNames: readonly string[];
-  onAsk: Ask;
+  /** Construct's questions about the selection; none when AI is off. */
+  onAsk?: Ask;
 };
 
 export default function Toolbar({ editor, headingNames, onAsk }: Props) {
@@ -84,15 +85,19 @@ export default function Toolbar({ editor, headingNames, onAsk }: Props) {
             <Button label="Look up" keys="lookUp" onPress={() => requestLookUp(editor)}>
               <IconBook />
             </Button>
-            <Button label="Synonyms (Construct)" className="tool-text" onPress={() => onAsk(constructPrompt("synonyms", picked.text), picked, true, "synonyms")}>
-              <IconConstruct /> Syn.
-            </Button>
-            <Button label="Meaning (Construct)" className="tool-text" onPress={() => onAsk(constructPrompt("meaning", picked.text), picked, true, "meaning")}>
-              <IconConstruct /> Mean.
-            </Button>
-            <Button label="Ask Construct" className="tool-text" onPress={() => onAsk(askDraft(picked.text), picked, false)}>
-              <IconConstruct /> Ask
-            </Button>
+            {onAsk && (
+              <>
+                <Button label="Synonyms (Construct)" className="tool-text" onPress={() => onAsk(constructPrompt("synonyms", picked.text), picked, true, "synonyms")}>
+                  <IconConstruct /> Syn.
+                </Button>
+                <Button label="Meaning (Construct)" className="tool-text" onPress={() => onAsk(constructPrompt("meaning", picked.text), picked, true, "meaning")}>
+                  <IconConstruct /> Mean.
+                </Button>
+                <Button label="Ask Construct" className="tool-text" onPress={() => onAsk(askDraft(picked.text), picked, false)}>
+                  <IconConstruct /> Ask
+                </Button>
+              </>
+            )}
             <span className="tool-sep" aria-hidden />
           </span>
         )}

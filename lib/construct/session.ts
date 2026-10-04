@@ -21,7 +21,7 @@ import { agentHome, readChats, readDoc, readVersion, trashChat, writeChat } from
 import { isNotice, modelOption, optionValues, startupInfoOf } from "../oneoff";
 import { titleOf } from "../text";
 import { type CodexChange, listTools, type ToolContext } from "./tools";
-import { type AgentId, type AgentPreset, AGENTS, isAgentId, type LaunchContext, penToolName, systemPrompt } from "./agents";
+import { type AgentId, type AgentPreset, AGENTS, fallbackAgent, isAgentId, type LaunchContext, penToolName, systemPrompt } from "./agents";
 import { modelFor } from "./ask";
 import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, ContextUsage, PromptContext } from "./types";
 
@@ -148,7 +148,7 @@ class ConstructSession {
 
   private adopt(c: StoredChat) {
     // A chat stays with the agent it was started on: only that one can resume it.
-    const agent = isAgentId(c.agent) && AGENTS[c.agent].available() ? c.agent : "claude";
+    const agent = isAgentId(c.agent) && AGENTS[c.agent].available() ? c.agent : fallbackAgent();
     this.chat = { id: c.id, created: c.created, sessionId: c.sessionId, agent, name: c.name, autoTitle: c.autoTitle };
     this.seq = c.seq;
     // A turn cut short by a restart leaves tools (or a compaction) that will never finish.

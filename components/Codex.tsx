@@ -5,7 +5,7 @@ import { isImage, prepareNote } from "@/lib/cover";
 import type { EntryMeta } from "@/lib/docs";
 import type { ImportMeta } from "@/lib/imports";
 import { useDropZone } from "@/lib/useDropZone";
-import { CODEX_IMPORT_ACCEPT, HTML_EXT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";
+import { CODEX_IMPORT_ACCEPT, CODEX_NOTE_ACCEPT, HTML_EXT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";
 import { IconTrash } from "./icons";
 
 type Props = {
@@ -17,6 +17,8 @@ type Props = {
   onOpen: (href: string) => void | Promise<void>;
   /** Bump to reload the list (e.g. after Construct changed it). */
   refreshKey?: number;
+  /** Whether pen's AI features are on here: photos of notes need them. */
+  ai?: boolean;
 };
 
 /** A new, untitled entry (from here or the command palette); its id. */
@@ -31,7 +33,7 @@ export async function createEntry(projectId: string): Promise<string> {
 }
 
 /** Plot outlines, character notes and the like: one markdown file each. */
-export default function Codex({ projectId, activeId, activeTitle, onOpen, refreshKey = 0 }: Props) {
+export default function Codex({ projectId, activeId, activeTitle, onOpen, refreshKey = 0, ai = false }: Props) {
   const [list, setList] = useState<EntryMeta[] | null>(null);
   /** Notes being transcribed, and ones that failed (until dismissed on their page). */
   const [imports, setImports] = useState<ImportMeta[]>([]);
@@ -135,6 +137,10 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
       .filter(isImage)
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     const others = files.filter((f) => !isImage(f));
+    if (!ai && pictures.length) {
+      skipped.push(`${pictures.map((p) => p.name).join(", ")}: transcribing notes needs AI, which is off (see Settings)`);
+      pictures.length = 0;
+    }
     for (const file of others) {
       const problem = importProblem(file, true);
       if (problem) {
@@ -208,7 +214,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
       <input
         ref={picker}
         type="file"
-        accept={CODEX_IMPORT_ACCEPT}
+        accept={ai ? CODEX_NOTE_ACCEPT : CODEX_IMPORT_ACCEPT}
         multiple
         hidden
         onChange={(e) => {

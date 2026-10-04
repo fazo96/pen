@@ -1,3 +1,4 @@
+import { aiEnabled, aiOffResponse } from "@/lib/construct/agents";
 import { askOnce } from "@/lib/construct/ask";
 import { critsToMarkdown, isCritiqueCirclePage } from "@/lib/critiquecircle";
 import { createEntry, listCodex, MAX_BYTES, readDoc } from "@/lib/docs";
@@ -54,6 +55,7 @@ export async function POST(req: Request, { params }: Ctx) {
  */
 async function transcribe(id: string, images: unknown): Promise<Response> {
   const error = (status: number, message: string) => Response.json({ error: message }, { status });
+  if (!aiEnabled()) return aiOffResponse();
   if (!Array.isArray(images) || !images.length || images.some((i) => typeof i !== "string")) {
     return error(400, "images must be a list of base64 strings");
   }

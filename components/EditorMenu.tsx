@@ -13,7 +13,8 @@ type Props = {
   onFocus: () => void;
   onGrammar: () => void;
   onExport: () => void;
-  onConstruct: () => void;
+  /** None when AI is off. */
+  onConstruct?: () => void;
   onSettings: () => void;
   onFind: () => void;
 };
@@ -81,9 +82,11 @@ function Items({ status, words, constructOpen, grammarOn, onFocus, onGrammar, on
       <button type="button" role="menuitem" onClick={pick(onExport)}>
         <IconExport /> Export .md
       </button>
-      <button type="button" role="menuitem" className={constructOpen ? "is-on" : ""} onClick={pick(onConstruct)}>
-        <IconConstruct /> Construct {constructOpen && <span className="editor-menu-value">Open</span>}
-      </button>
+      {onConstruct && (
+        <button type="button" role="menuitem" className={constructOpen ? "is-on" : ""} onClick={pick(onConstruct)}>
+          <IconConstruct /> Construct {constructOpen && <span className="editor-menu-value">Open</span>}
+        </button>
+      )}
       <button type="button" role="menuitem" onClick={pick(onSettings)}>
         <IconGear /> Book settings
       </button>

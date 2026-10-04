@@ -8,8 +8,9 @@ import { newManuscript, withTitle } from "./text";
 const MAX_BYTES = 5 * 1024 * 1024;
 export const IMPORT_ACCEPT = ".md,.markdown,.mdown,.txt,text/markdown,text/plain";
 export const IMPORT_EXT = /\.(md|markdown|mdown|txt)$/i;
-/** The Codex also takes saved Critique Circle pages and photos of notes, converted by the server. */
-export const CODEX_IMPORT_ACCEPT = `${IMPORT_ACCEPT},.html,.htm,text/html,image/*`;
+/** The Codex also takes saved Critique Circle pages, and photos of notes when AI is on, converted by the server. */
+export const CODEX_IMPORT_ACCEPT = `${IMPORT_ACCEPT},.html,.htm,text/html`;
+export const CODEX_NOTE_ACCEPT = `${CODEX_IMPORT_ACCEPT},image/*`;
 export const HTML_EXT = /\.html?$/i;
 
 /** Why a file can't be imported (manuscript or Codex), or null if it can. */

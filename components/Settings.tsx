@@ -11,7 +11,18 @@ import Stats from "./Stats";
 import ThemeButton from "./ThemeButton";
 
 /** Settings for the whole desk. */
-export default function Settings({ locked, stats }: { locked: boolean; stats: LibraryStats }) {
+export default function Settings({
+  locked,
+  stats,
+  agents,
+  aiSwitchedOff,
+}: {
+  locked: boolean;
+  stats: LibraryStats;
+  /** The AI agents found on the server, by name. */
+  agents: string[];
+  aiSwitchedOff: boolean;
+}) {
   return (
     <div className="app">
       <header className="topbar">
@@ -53,7 +64,7 @@ export default function Settings({ locked, stats }: { locked: boolean; stats: Li
           </section>
           <EditorSettings />
           <GrammarSettings />
-          <ConstructSettings />
+          <ConstructSettings agents={agents} switchedOff={aiSwitchedOff} />
           <KeySettings />
           <LockSettings locked={locked} />
         </section>

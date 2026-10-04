@@ -1,4 +1,4 @@
-import { isAgentId } from "@/lib/construct/agents";
+import { aiEnabled, aiOffResponse, isAgentId } from "@/lib/construct/agents";
 import { getSession } from "@/lib/construct/session";
 import type { ConstructEvent, PromptContext } from "@/lib/construct/types";
 import { isValidId, readDoc } from "@/lib/docs";
@@ -26,6 +26,7 @@ async function project(params: Ctx["params"]) {
 /** Server-sent events: a snapshot of the conversation, then every change. */
 export async function GET(req: Request, { params }: Ctx) {
   if (!(await hasSession())) return lockedResponse();
+  if (!aiEnabled()) return aiOffResponse();
   const id = await project(params);
   if (!id) return notFound();
   const session = await getSession(id, internalUrl(req));
@@ -72,6 +73,7 @@ type Action =
 /** Drive the conversation. Replies come back over the event stream. */
 export async function POST(req: Request, { params }: Ctx) {
   if (!(await hasSession())) return lockedResponse();
+  if (!aiEnabled()) return aiOffResponse();
   const id = await project(params);
   if (!id) return notFound();
   const body = (await req.json().catch(() => null)) as Action | null;

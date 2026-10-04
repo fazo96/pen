@@ -3,7 +3,7 @@ import type { ContentBlock } from "@agentclientprotocol/sdk";
 import os from "node:os";
 import path from "node:path";
 import { type AgentLaunch, probeModels, runOnce } from "../oneoff";
-import { type AgentId, type AgentPreset, AGENTS, availableAgents, isAgentId } from "./agents";
+import { type AgentId, type AgentPreset, AGENTS, availableAgents, fallbackAgent, isAgentId } from "./agents";
 import { type AgentModels, type ModelUse, parseModel } from "./models";
 import { getModelSettings } from "./settings";
 
@@ -30,7 +30,7 @@ async function launchFor(agent: AgentId, systemPrompt: string): Promise<AgentLau
 export async function modelFor(use: ModelUse): Promise<{ agent: AgentId; model?: string }> {
   const { agent, model } = parseModel((await getModelSettings())[use]);
   if (isAgentId(agent) && AGENTS[agent].available()) return { agent, model };
-  return { agent: "claude" };
+  return { agent: fallbackAgent() };
 }
 
 export async function askOnce(

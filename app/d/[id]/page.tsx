@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import Pen from "@/components/Pen";
+import { aiEnabled } from "@/lib/construct/agents";
 import { readDoc, readEntry, readSpots } from "@/lib/docs";
 import { requirePageSession } from "@/lib/session";
 import { titleOf } from "@/lib/text";
@@ -25,6 +26,7 @@ export default async function Page({
     <Pen
       key={doc.id}
       projectId={doc.id}
+      ai={aiEnabled()}
       kind="manuscript"
       initial={doc}
       initialEntry={typeof entry === "string" && entry ? entry : undefined}

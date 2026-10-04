@@ -1,7 +1,7 @@
 import "server-only";
-import { spawnSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
+import { aiSwitchedOff, claudeFound, piFound } from "./detect";
 
 // The ACP agents Construct can run on. Each one is launched with every
 // built-in tool switched off, so the only things it can touch are pen's own
@@ -29,14 +29,18 @@ export type AgentPreset = {
 const split = (cmd: string) => cmd.trim().split(/\s+/);
 
 const PI = process.env.PEN_PI ?? "pi";
-let piFound: boolean | undefined;
+// Looked for once per process: installing an agent takes a restart.
+const once = (find: () => boolean) => {
+  let found: boolean | undefined;
+  return () => (found ??= !aiSwitchedOff() && find());
+};
 
 export const AGENTS = {
   claude: {
     name: "Claude Code",
     command: split(process.env.PEN_CONSTRUCT_CLAUDE ?? "npx -y @agentclientprotocol/claude-agent-acp@0.84.0"),
     mcp: "acp",
-    available: () => true,
+    available: once(() => claudeFound()),
     sessionMeta: ({ systemPrompt }, mcpName) => ({
       systemPrompt,
       claudeCode: {
@@ -59,7 +63,7 @@ export const AGENTS = {
     name: "pi",
     command: split(process.env.PEN_CONSTRUCT_PI ?? "npx -y pi-acp@0.0.34"),
     mcp: "self",
-    available: () => (piFound ??= spawnSync(PI, ["--version"], { stdio: "ignore", timeout: 10_000 }).status === 0),
+    available: once(() => piFound()),
     async env({ cwd, systemPrompt, mcp }, mcpName) {
       const env: Record<string, string> = {
         PI_ACP_PI_COMMAND: path.join(process.cwd(), "scripts", "pi-construct"),
@@ -98,6 +102,16 @@ export type AgentId = keyof typeof AGENTS;
 export const isAgentId = (s: unknown): s is AgentId => typeof s === "string" && Object.hasOwn(AGENTS, s);
 
 export const availableAgents = () => (Object.keys(AGENTS) as AgentId[]).filter((a) => AGENTS[a].available());
+
+/** pen's AI features (Construct, quick questions, transcribing notes) are on only when an agent can run here. */
+export const aiEnabled = () => availableAgents().length > 0;
+
+/** For a chat or setting whose agent can't run here: the first one that can (Claude Code when none can). */
+export const fallbackAgent = (): AgentId => availableAgents()[0] ?? "claude";
+
+export const AI_OFF = "AI features are off: install Claude Code or pi on the server running pen, then restart it.";
+
+export const aiOffResponse = () => Response.json({ error: AI_OFF }, { status: 503 });
 
 /** A tool's name for pen (`read_manuscript`), from the agent's (`mcp__pen__read_manuscript`, `mcp__pen_read_manuscript`). */
 export function penToolName(name: string, mcpName: string): string | null {

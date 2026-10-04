@@ -46,7 +46,7 @@ const finePointer = () => window.matchMedia("(hover: hover) and (pointer: fine)"
  * up and the Construct questions, and the Look up popover with its meanings
  * and synonyms. A synonym replaces the selection, in the same form.
  */
-export default function WordTools({ editor, onAsk }: { editor: Editor; onAsk: Ask }) {
+export default function WordTools({ editor, onAsk }: { editor: Editor; onAsk?: Ask }) {
   const [picked, setPicked] = useState<Picked | null>(null);
   const [lookUp, setLookUp] = useState<Picked | null>(null);
   const [pressing, setPressing] = useState(false);
@@ -109,8 +109,8 @@ export default function WordTools({ editor, onAsk }: { editor: Editor; onAsk: As
 
   const ask = (kind: AskKind | "ask", p: Picked) => {
     setLookUp(null);
-    if (kind === "ask") onAsk(askDraft(p.text), p, false);
-    else onAsk(constructPrompt(kind, p.text), p, true, kind);
+    if (kind === "ask") onAsk?.(askDraft(p.text), p, false);
+    else onAsk?.(constructPrompt(kind, p.text), p, true, kind);
   };
 
   return (
@@ -128,21 +128,25 @@ export default function WordTools({ editor, onAsk }: { editor: Editor; onAsk: As
             <button type="button" onClick={() => setLookUp(picked)} title={keys.title("Look up", "lookUp")}>
               <IconBook /> Look up
             </button>
-            <span className="word-bar-sep" aria-hidden />
-            <IconConstruct className="word-bar-construct" aria-label="Construct" />
-            <button type="button" onClick={() => ask("synonyms", picked!)}>
-              Synonyms
-            </button>
-            <button type="button" onClick={() => ask("meaning", picked!)}>
-              Meaning
-            </button>
-            <button type="button" onClick={() => ask("ask", picked!)}>
-              Ask…
-            </button>
+            {onAsk && (
+              <>
+                <span className="word-bar-sep" aria-hidden />
+                <IconConstruct className="word-bar-construct" aria-label="Construct" />
+                <button type="button" onClick={() => ask("synonyms", picked!)}>
+                  Synonyms
+                </button>
+                <button type="button" onClick={() => ask("meaning", picked!)}>
+                  Meaning
+                </button>
+                <button type="button" onClick={() => ask("ask", picked!)}>
+                  Ask…
+                </button>
+              </>
+            )}
           </div>,
           document.body,
         )}
-      {lookUp && <LookUp editor={editor} picked={lookUp} onClose={() => setLookUp(null)} onAsk={(k) => ask(k, lookUp)} />}
+      {lookUp && <LookUp editor={editor} picked={lookUp} onClose={() => setLookUp(null)} onAsk={onAsk && ((k) => ask(k, lookUp))} />}
     </>
   );
 }
@@ -156,7 +160,7 @@ function LookUp({
   editor: Editor;
   picked: Picked;
   onClose: () => void;
-  onAsk: (kind: AskKind) => void;
+  onAsk?: (kind: AskKind) => void;
 }) {
   const [result, setResult] = useState<Result>(null);
   const [more, setMore] = useState(false);
@@ -265,15 +269,17 @@ function LookUp({
           </button>
         )}
       </div>
-      <div className="lookup-foot">
-        <IconConstruct aria-label="Construct" />
-        <button type="button" onClick={() => onAsk("synonyms")}>
-          Synonyms here
-        </button>
-        <button type="button" onClick={() => onAsk("meaning")}>
-          Meaning here
-        </button>
-      </div>
+      {onAsk && (
+        <div className="lookup-foot">
+          <IconConstruct aria-label="Construct" />
+          <button type="button" onClick={() => onAsk("synonyms")}>
+            Synonyms here
+          </button>
+          <button type="button" onClick={() => onAsk("meaning")}>
+            Meaning here
+          </button>
+        </div>
+      )}
     </div>,
     document.body,
   );
