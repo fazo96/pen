@@ -21,9 +21,16 @@ const ask = { type: "text" as const, text: "Transcribe." };
 
 test("sends the prompt and collects the answer, piece by piece", { timeout: 30_000 }, async () => {
   const pieces: string[] = [];
-  const reply = await runOnce({ launch: launch(), prompt: [jpeg, png, ask], onText: (t) => pieces.push(t) });
+  const thoughts: string[] = [];
+  const reply = await runOnce({
+    launch: launch(),
+    prompt: [jpeg, png, ask],
+    onText: (t) => pieces.push(t),
+    onThought: (t) => thoughts.push(t),
+  });
   assert.equal(reply, "Here is the transcription:\n\n# Notes\n\n2 pages: image/jpeg, image/png (on small)");
   assert.equal(pieces.join(""), reply);
+  assert.deepEqual(thoughts, ["Reading the pages."], "thinking is passed on, never part of the answer");
 });
 
 test("picks the model asked for, if the agent offers it", { timeout: 30_000 }, async () => {

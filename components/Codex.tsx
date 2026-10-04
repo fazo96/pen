@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isImage, prepareNote } from "@/lib/cover";
 import type { EntryMeta } from "@/lib/docs";
-import { readNdjson } from "@/lib/ndjson";
+import type { ImportMeta } from "@/lib/imports";
 import { useDropZone } from "@/lib/useDropZone";
 import { CODEX_IMPORT_ACCEPT, HTML_EXT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";
 import { IconTrash } from "./icons";
@@ -33,6 +33,8 @@ export async function createEntry(projectId: string): Promise<string> {
 /** Plot outlines, character notes and the like: one markdown file each. */
 export default function Codex({ projectId, activeId, activeTitle, onOpen, refreshKey = 0 }: Props) {
   const [list, setList] = useState<EntryMeta[] | null>(null);
+  /** Notes being transcribed, and ones that failed (until dismissed on their page). */
+  const [imports, setImports] = useState<ImportMeta[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
@@ -42,18 +44,30 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(base, { cache: "no-store" });
+      const [res, jobs] = await Promise.all([
+        fetch(base, { cache: "no-store" }),
+        fetch(`/api/docs/${projectId}/imports`, { cache: "no-store" }).catch(() => null),
+      ]);
       if (!res.ok) throw new Error();
       setList((await res.json()) as EntryMeta[]);
+      if (jobs?.ok) setImports(((await jobs.json()) as ImportMeta[]).filter((j) => j.status !== "done"));
     } catch {
       setError("Couldn’t load the codex.");
     }
-  }, [base]);
+  }, [base, projectId]);
 
   // Reloaded when the open entry changes too: the one left behind was just saved.
   useEffect(() => {
     void load();
   }, [load, refreshKey, activeId]);
+
+  // While a note is being transcribed, look again every few seconds: its entry shows up when it's done.
+  const running = imports.some((j) => j.status === "running");
+  useEffect(() => {
+    if (!running) return;
+    const t = setInterval(() => void load(), 3000);
+    return () => clearInterval(t);
+  }, [running, load]);
 
   // Keep the open entry's live title, so a rename shows after switching away
   // without waiting for the reload.
@@ -89,7 +103,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     return ((await res.json()) as { id: string }).id;
   };
 
-  /** Photos of a note to transcribe: the entry's id comes at the end of a stream (see the route). */
+  /** Photos of a note to transcribe: the import's id (its page follows it, see the route). */
   const postNote = async (images: string[]) => {
     const res = await fetch(base, {
       method: "POST",
@@ -100,21 +114,14 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       throw new Error(data.error ?? `request failed (${res.status})`);
     }
-    let id: string | null = null;
-    let error: string | null = null;
-    await readNdjson<{ t: string; id?: string; error?: string }>(res, (line) => {
-      if (line.t === "entry" && line.id) id = line.id;
-      if (line.t === "error") error = line.error ?? "transcription failed";
-    });
-    if (error) throw new Error(error);
-    if (!id) throw new Error("the answer was cut off");
-    return id as string;
+    return ((await res.json()) as { job: string }).job;
   };
 
   /**
    * Each file becomes an entry, except pictures: together they're the pages of
-   * one handwritten note, which Construct's agent transcribes. One entry opens
-   * it; several stay put and report back.
+   * one handwritten note, which Construct's agent transcribes on a page of its
+   * own, opened once they're sent. Otherwise one entry opens it; several stay
+   * put and report back.
    */
   const importFiles = async (files: File[]) => {
     if (!files.length) return;
@@ -146,17 +153,23 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
         skipped.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
+    let job: string | null = null;
     if (pictures.length) {
       const what = pictures.length === 1 ? "the picture" : `${pictures.length} pictures`;
-      setNotice(`Transcribing ${what}… this can take a minute, longer if a self-hosted model has to load.`);
+      setNotice(`Sending ${what}…`);
       try {
-        imported.push(await postNote(await Promise.all(pictures.map(prepareNote))));
+        job = await postNote(await Promise.all(pictures.map(prepareNote)));
       } catch (e) {
         skipped.push(`${what}: ${e instanceof Error ? e.message : String(e)}`);
       }
       setNotice(null);
     }
-    const opening = others.length + (pictures.length ? 1 : 0) === 1 && imported.length === 1;
+    if (job) {
+      setBusy(false);
+      if (skipped.length) setError(`Skipped ${skipped.join("; ")}.`);
+      return onOpen(`/d/${projectId}/import/${job}`);
+    }
+    const opening = others.length === 1 && imported.length === 1;
     if (opening) await onOpen(`/d/${projectId}/codex/${imported[0]}`);
     await load();
     setBusy(false);
@@ -216,7 +229,29 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
         </p>
       )}
 
-      {list && list.length === 0 && (
+      {imports.length > 0 && (
+        <ul className="outline-list">
+          {imports.map((j) => (
+            <li key={j.id} className="library-row">
+              <button
+                type="button"
+                className={`library-item version-item codex-import is-${j.status}`}
+                onClick={() => onOpen(`/d/${projectId}/import/${j.id}`)}
+              >
+                <span className="library-title">
+                  {j.status === "running" && <span className="codex-import-dot" aria-hidden />}
+                  {j.status === "running" ? "Transcribing" : j.error === "stopped" ? "Stopped transcribing" : "Couldn’t transcribe"}{" "}
+                  {j.pages === 1 ? "a picture" : `${j.pages} pictures`}
+                  {j.status === "running" ? "…" : ""}
+                </span>
+                <span className="library-meta">{j.status === "running" ? "in progress" : j.error === "stopped" ? "stopped" : "failed"}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {list && list.length === 0 && imports.length === 0 && (
         <p className="outline-empty">
           Nothing here yet. Keep plot outlines, character notes, places and rules of the world beside the manuscript.
         </p>

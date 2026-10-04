@@ -3807,3 +3807,96 @@ a.btn {
   color: var(--ink-faint);
   font-style: italic;
 }
+
+/* ─── A handwritten note being transcribed (/d/<id>/import/<job>) ─── */
+.import-note .welcome-lede a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+.import-note .welcome-lede a:hover {
+  color: var(--accent);
+  text-decoration-color: currentColor;
+}
+.import-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 1.4rem 0;
+}
+.import-pages a {
+  display: block;
+  border: 1px solid var(--rule);
+  line-height: 0;
+  transition: border-color 0.2s;
+}
+.import-pages a:hover {
+  border-color: var(--accent);
+}
+.import-pages img {
+  height: 128px;
+  max-width: 240px;
+  object-fit: contain;
+}
+.import-pages,
+.import-text,
+.import-thinking-fold {
+  align-self: stretch;
+}
+.import-text {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.import-thinking {
+  color: var(--ink-faint);
+  font-style: italic;
+  font-size: 14px;
+}
+.import-thinking-fold {
+  margin-bottom: 10px;
+}
+.import-thinking-fold summary {
+  cursor: pointer;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.import-thinking-fold .import-thinking {
+  display: block;
+  max-height: 30vh;
+  overflow-y: auto;
+  margin-top: 8px;
+  white-space: pre-wrap;
+}
+.import-caret,
+.codex-import-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: middle;
+  animation: construct-pulse 1.2s ease-in-out infinite;
+}
+.codex-import-dot {
+  margin: 0 8px 0 0;
+}
+.codex-import.is-failed .library-title {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.import-note .lock-actions {
+  margin-top: 1.4rem;
+}

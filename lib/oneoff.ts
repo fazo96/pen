@@ -37,6 +37,8 @@ export type OneOff = {
   model?: string;
   /** Each piece of the answer as it arrives. */
   onText?: (text: string) => void;
+  /** Each piece of the agent's thinking (a reasoning model's), which isn't part of the answer. */
+  onThought?: (text: string) => void;
   signal?: AbortSignal;
 };
 
@@ -47,7 +49,7 @@ export class TimeoutError extends Error {
 }
 
 /** Ask a fresh agent once; resolves to its whole answer. */
-export async function runOnce({ launch, prompt, model, onText, signal }: OneOff): Promise<string> {
+export async function runOnce({ launch, prompt, model, onText, onThought, signal }: OneOff): Promise<string> {
   signal?.throwIfAborted();
   await mkdir(launch.cwd, { recursive: true });
   const [cmd, ...args] = launch.command;
@@ -85,7 +87,9 @@ export async function runOnce({ launch, prompt, model, onText, signal }: OneOff)
       return reject ? { outcome: { outcome: "selected", optionId: reject.optionId } } : { outcome: { outcome: "cancelled" } };
     },
     sessionUpdate: async ({ sessionId: sid, update: u }) => {
-      if (sid !== sessionId || !asking || u.sessionUpdate !== "agent_message_chunk" || u.content.type !== "text") return;
+      if (sid !== sessionId || !asking) return;
+      if (u.sessionUpdate === "agent_thought_chunk" && u.content.type === "text") return onThought?.(u.content.text);
+      if (u.sessionUpdate !== "agent_message_chunk" || u.content.type !== "text") return;
       if (isNotice(u._meta) || u.content.text === startupInfo) return;
       reply += u.content.text;
       onText?.(u.content.text);

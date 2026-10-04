@@ -35,10 +35,17 @@ export async function modelFor(use: ModelUse): Promise<{ agent: AgentId; model?:
 
 export async function askOnce(
   use: ModelUse,
-  opts: { systemPrompt: string; prompt: ContentBlock[]; onText?: (text: string) => void; signal?: AbortSignal },
+  opts: {
+    systemPrompt: string;
+    prompt: ContentBlock[];
+    onText?: (text: string) => void;
+    onThought?: (text: string) => void;
+    signal?: AbortSignal;
+  },
 ): Promise<string> {
   const { agent, model } = await modelFor(use);
-  return runOnce({ launch: await launchFor(agent, opts.systemPrompt), prompt: opts.prompt, model, onText: opts.onText, signal: opts.signal });
+  const { systemPrompt, ...ask } = opts;
+  return runOnce({ launch: await launchFor(agent, systemPrompt), model, ...ask });
 }
 
 // ─── The models on offer ─────────────────────────────────────

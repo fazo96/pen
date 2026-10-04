@@ -53,6 +53,7 @@ new AgentSideConnection(
         const images = prompt.filter((b) => b.type === "image").map((b) => b.mimeType);
         if (pi) await say(sessionId, "MCP: 1 servers connected", { piAcp: { notify: { level: "info" } } });
         if (mode !== "silent") {
+          await conn.sessionUpdate({ sessionId, update: { sessionUpdate: "agent_thought_chunk", content: { type: "text", text: "Reading the pages." } } });
           await say(sessionId, "Here is the transcription:\n\n# Notes\n\n");
           await say(sessionId, `${images.length} pages: ${images.join(", ")} (on ${model})`);
         }

@@ -1,7 +1,7 @@
 import { askOnce } from "@/lib/construct/ask";
 import { critsToMarkdown, isCritiqueCirclePage } from "@/lib/critiquecircle";
 import { createEntry, listCodex, MAX_BYTES, readDoc } from "@/lib/docs";
-import { ndjsonResponse } from "@/lib/ndjson";
+import { startImport } from "@/lib/imports";
 import { hasSession, lockedResponse } from "@/lib/session";
 import { titleOf } from "@/lib/text";
 import { entryFromReply, imageTypeOf, MAX_PAGE_BYTES, MAX_PAGES, transcribePrompt } from "@/lib/transcribe";
@@ -21,7 +21,7 @@ export async function GET(_req: Request, { params }: Ctx) {
 /**
  * Create an entry from markdown `content`, from a saved Critique Circle page's
  * `html`, or from photos of a handwritten note (`images`, base64, in page
- * order). Photos are answered as a stream (see transcribe below).
+ * order). Photos start an import instead (see transcribe below).
  */
 export async function POST(req: Request, { params }: Ctx) {
   if (!(await hasSession())) return lockedResponse();
@@ -48,9 +48,9 @@ export async function POST(req: Request, { params }: Ctx) {
 
 /**
  * The note in the photos as a new entry. Checks answer at once; the reading
- * itself is a stream that ends with `{ t: "entry", id }` or `{ t: "error" }`,
- * since a self-hosted model may take minutes. It carries on to the end if the
- * writer closes the page.
+ * itself is a job (lib/imports.ts), since a self-hosted model may take
+ * minutes: a 202 gives its id, and /api/docs/<id>/imports/<job> follows it.
+ * It carries on to the end if the writer closes the page.
  */
 async function transcribe(id: string, images: unknown): Promise<Response> {
   const error = (status: number, message: string) => Response.json({ error: message }, { status });
@@ -58,32 +58,40 @@ async function transcribe(id: string, images: unknown): Promise<Response> {
     return error(400, "images must be a list of base64 strings");
   }
   if (images.length > MAX_PAGES) return error(413, `at most ${MAX_PAGES} pictures per note`);
-  const pages: { type: "image"; data: string; mimeType: string }[] = [];
+  const pages: { data: Buffer; mimeType: string }[] = [];
   for (const data of images as string[]) {
     const bytes = Buffer.from(data, "base64");
     if (bytes.length > MAX_PAGE_BYTES) return error(413, "picture too large (max 5 MB)");
     const mimeType = imageTypeOf(bytes);
     if (!mimeType) return error(415, "pictures must be JPEG, PNG, WebP or GIF");
-    pages.push({ type: "image", data: bytes.toString("base64"), mimeType });
+    pages.push({ data: bytes, mimeType });
   }
   const [doc, entries] = await Promise.all([readDoc(id), listCodex(id)]);
   if (!doc || !entries) return notFound();
   const prompt = transcribePrompt(pages.length, { book: titleOf(doc.content, id), entries: entries.map((e) => e.title) });
 
-  return ndjsonResponse(async (send) => {
+  const job = startImport(id, pages, async ({ onText, onThought, signal }) => {
     let reply: string;
     try {
       reply = await askOnce("transcribe", {
         systemPrompt:
           "You transcribe photos of a novelist's hard-to-read handwritten notes into markdown, giving your best reading of every word rather than leaving any out.",
-        prompt: [...pages, { type: "text", text: prompt }],
+        prompt: [
+          ...pages.map((p) => ({ type: "image" as const, data: p.data.toString("base64"), mimeType: p.mimeType })),
+          { type: "text", text: prompt },
+        ],
+        onText,
+        onThought,
+        signal,
       });
     } catch (err) {
+      if (signal.aborted) throw err;
       console.error("codex: couldn't transcribe", err);
       throw new Error(`couldn’t transcribe the note: ${err instanceof Error ? err.message : String(err)}`);
     }
     const entry = await createEntry(id, entryFromReply(reply));
     if (!entry) throw new Error("the book is gone");
-    send({ t: "entry", id: entry.id });
+    return entry.id;
   });
+  return Response.json({ job }, { status: 202 });
 }
