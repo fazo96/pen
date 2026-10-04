@@ -9,6 +9,7 @@
     "dictionary": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/build-dictionary.ts",
     "start": "next start",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test 'tests/**/*.test.ts'",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -35,6 +36,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

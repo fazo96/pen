@@ -24,6 +24,21 @@
             export PATH="$PWD/node_modules/.bin:$PATH"
           '';
         };
+      }
+      // pkgs.lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+        # The browser tests (npm run test:e2e): the same, plus a Chromium for
+        # Playwright, since the browsers it downloads don't run on NixOS. Linux
+        # only: nixpkgs has no Chromium for macOS (there, `npx playwright install`).
+        e2e = pkgs.mkShell {
+          packages = [
+            pkgs.nodejs_24
+            pkgs.chromium
+          ];
+          shellHook = ''
+            export PATH="$PWD/node_modules/.bin:$PATH"
+            export PEN_E2E_CHROMIUM=${pkgs.chromium}/bin/chromium
+          '';
+        };
       });
 
       formatter = forAllSystems (pkgs: pkgs.nixfmt-rfc-style);

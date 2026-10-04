@@ -6,3 +6,6 @@ next-env.d.ts
 data/
 # rebuildable things: the dictionary, grammar results (PEN_CACHE_DIR)
 /cache/
+# Playwright (npm run test:e2e)
+/test-results/
+/playwright-report/

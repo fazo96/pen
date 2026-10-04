@@ -1,0 +1,143 @@
+import { expect, test } from "@playwright/test";
+import { uniqueId } from "./helpers";
+
+// Every API route answers as it should: what lib/route.ts checks (ids, the
+// session), each route's validation, and the happy paths. No browser needed.
+
+test("books: create, read, save, conflict, rename, trash", async ({ request }) => {
+  const id = uniqueId("api-book");
+  expect((await request.post("/api/docs", { data: { content: "# A\n\ntext", name: id } })).status()).toBe(201);
+  expect((await request.post("/api/docs", { data: Buffer.from("not json"), headers: { "Content-Type": "application/json" } })).status()).toBe(400);
+  expect((await request.post("/api/docs", { data: { content: 5 } })).status()).toBe(400);
+  expect((await request.get("/api/docs")).status()).toBe(200);
+
+  const doc = await request.get(`/api/docs/${id}`);
+  expect(doc.status()).toBe(200);
+  const { version } = (await doc.json()) as { version: string };
+  expect((await request.get("/api/docs/no-such-book")).status()).toBe(404);
+  expect((await request.get("/api/docs/BAD_ID")).status()).toBe(404);
+
+  expect((await request.put(`/api/docs/${id}`, { data: { content: "# A\n\nmore", baseVersion: version } })).status()).toBe(200);
+  const stale = await request.put(`/api/docs/${id}`, { data: { content: "# A\n\nstale", baseVersion: "000000000000" } });
+  expect(stale.status()).toBe(409);
+  expect(((await stale.json()) as { content: string }).content).toBe("# A\n\nmore");
+  // The beacon's POST, forced.
+  expect((await request.post(`/api/docs/${id}`, { data: { content: "# A\n\nforced", baseVersion: null, force: true } })).status()).toBe(200);
+  expect((await request.put(`/api/docs/${id}`, { data: { nocontent: 1 } })).status()).toBe(400);
+
+  const other = uniqueId("api-other");
+  await request.post("/api/docs", { data: { content: "# B", name: other } });
+  expect((await request.patch(`/api/docs/${id}`, { data: { id: "BAD" } })).status()).toBe(400);
+  expect((await request.patch(`/api/docs/${id}`, { data: { id: other } })).status()).toBe(409);
+  const renamed = `${id}-x`;
+  expect((await request.patch(`/api/docs/${id}`, { data: { id: renamed } })).status()).toBe(200);
+  expect((await request.get(`/api/docs/${renamed}`)).status()).toBe(200);
+
+  expect((await request.delete(`/api/docs/${renamed}`)).status()).toBe(204);
+  expect((await request.delete(`/api/docs/${renamed}`)).status()).toBe(404);
+  await request.delete(`/api/docs/${other}`);
+});
+
+test("versions: save, import, read, rename, restore, delete", async ({ request }) => {
+  const id = uniqueId("api-versions");
+  await request.post("/api/docs", { data: { content: "# A\n\ntext", name: id } });
+  const base = `/api/docs/${id}/versions`;
+  expect((await request.get(base)).status()).toBe(200);
+  expect((await request.post(base, { data: { label: "First" } })).status()).toBe(201);
+  expect((await request.post(base)).status()).toBe(201); // no body: an unnamed version
+  expect((await request.post(base, { data: { label: "Old", content: "# A\n\nold", created: 1000 } })).status()).toBe(201);
+  expect((await request.post(base, { data: { content: 7 } })).status()).toBe(400);
+
+  const [{ id: vid }] = (await (await request.get(base)).json()) as { id: string }[];
+  expect((await request.get(`${base}/${vid}`)).status()).toBe(200);
+  expect((await request.get(`${base}/not-a-version`)).status()).toBe(404);
+  expect((await request.patch(`${base}/${vid}`, { data: { label: "Renamed" } })).status()).toBe(200);
+  expect((await request.patch(`${base}/${vid}`, { data: { label: 3 } })).status()).toBe(400);
+  expect((await request.post(`${base}/${vid}/restore`)).status()).toBe(200);
+  expect((await request.delete(`${base}/${vid}`)).status()).toBe(204);
+  expect((await request.delete(`${base}/${vid}`)).status()).toBe(404);
+  expect((await request.get(`/api/docs/no-such-book/versions`)).status()).toBe(404);
+});
+
+test("codex, spot, cover, export, imports", async ({ request }) => {
+  const id = uniqueId("api-codex");
+  await request.post("/api/docs", { data: { content: "# A\n\ntext", name: id } });
+  const codex = `/api/docs/${id}/codex`;
+  expect((await request.get(codex)).status()).toBe(200);
+  const created = await request.post(codex, { data: { content: "# Mara Voss\n\nnote" } });
+  expect(created.status()).toBe(201);
+  const entry = ((await created.json()) as { id: string; version: string }).id;
+  expect(entry).toBe("mara-voss");
+  expect((await request.post(codex, { data: { html: "<html>not a crit page</html>" } })).status()).toBe(422);
+  expect((await request.get(`/api/docs/no-such-book/codex`)).status()).toBe(404);
+  expect((await request.get(`${codex}/${entry}`)).status()).toBe(200);
+  expect((await request.get(`${codex}/Bad`)).status()).toBe(404);
+
+  const { version } = (await (await request.get(`${codex}/${entry}`)).json()) as { version: string };
+  expect((await request.put(`${codex}/${entry}`, { data: { content: "# Mara Voss\n\nedited", baseVersion: version } })).status()).toBe(200);
+  expect((await request.put(`${codex}/${entry}`, { data: { content: "x", baseVersion: "000000000000" } })).status()).toBe(409);
+
+  expect((await request.put(`/api/docs/${id}/spot`, { data: { entry } })).status()).toBe(204);
+  expect((await request.put(`/api/docs/${id}/spot`, { data: {} })).status()).toBe(400);
+  expect((await request.put(`/api/docs/${id}/spot`, { data: { entry: "BAD" } })).status()).toBe(404);
+
+  expect((await request.delete(`${codex}/${entry}`)).status()).toBe(204);
+  expect((await request.delete(`${codex}/${entry}`)).status()).toBe(404);
+
+  expect((await request.get(`/api/docs/${id}/cover`)).status()).toBe(404);
+  expect((await request.put(`/api/docs/${id}/cover`, { data: Buffer.from("not an image") })).status()).toBe(415);
+  expect((await request.delete(`/api/docs/${id}/cover`)).status()).toBe(404);
+
+  expect((await request.get(`/api/docs/${id}/export`)).headers()["content-type"]).toContain("zip");
+  expect((await request.get(`/api/export`)).status()).toBe(200);
+
+  expect((await request.get(`/api/docs/${id}/imports`)).status()).toBe(200);
+  expect((await request.get(`/api/docs/${id}/imports/no-job`)).status()).toBe(404);
+  expect((await request.delete(`/api/docs/${id}/imports/no-job`)).status()).toBe(404);
+  expect((await request.get(`/api/docs/${id}/imports/no-job/0`)).status()).toBe(404);
+});
+
+test("AI routes answer 503 with AI off", async ({ request }) => {
+  const id = uniqueId("api-ai");
+  await request.post("/api/docs", { data: { content: "# A", name: id } });
+  expect((await request.get(`/api/docs/${id}/construct`)).status()).toBe(503);
+  expect((await request.post(`/api/docs/${id}/construct`, { data: { action: "start" } })).status()).toBe(503);
+  expect((await request.post(`/api/docs/${id}/construct/quick`, { data: { text: "hi" } })).status()).toBe(503);
+  expect((await request.post(`/api/docs/${id}/codex`, { data: { images: ["aGk="] } })).status()).toBe(503);
+  expect((await request.get(`/api/construct/models`)).status()).toBe(503);
+  // Construct's MCP endpoint wants its own bearer token, not the session.
+  expect((await request.post(`/api/construct/mcp`, { data: {} })).status()).toBe(401);
+});
+
+test("library-wide settings: Construct, grammar, dictionary, shelves", async ({ request }) => {
+  expect((await request.get("/api/construct/settings")).status()).toBe(200);
+  expect((await request.patch("/api/construct/settings", { data: {} })).status()).toBe(200);
+  expect((await request.patch("/api/construct/settings", { data: Buffer.from("x"), headers: { "Content-Type": "application/json" } })).status()).toBe(400);
+
+  expect((await request.get("/api/grammar")).status()).toBe(200);
+  expect((await request.patch("/api/grammar", { data: Buffer.from("x"), headers: { "Content-Type": "application/json" } })).status()).toBe(400);
+  expect((await request.patch("/api/grammar", { data: { addWord: "Marabel" } })).status()).toBe(200);
+  expect((await request.post("/api/grammar/check", { data: { nope: 1 } })).status()).toBe(400);
+  const check = await request.post("/api/grammar/check", { data: { texts: ["The cat sat on teh mat."] } });
+  expect(check.status()).toBe(200);
+  expect(((await check.json()) as { flags: unknown[][] }).flags[0].length).toBeGreaterThan(0);
+
+  expect((await request.get("/api/dictionary?word=")).status()).toBe(400);
+  expect((await request.put("/api/shelves", { data: Buffer.from("x"), headers: { "Content-Type": "application/json" } })).status()).toBe(400);
+  expect((await request.get("/api/auth")).status()).toBe(200);
+});
+
+test("a stale page saving the shelves keeps a renamed book in its place", async ({ request }) => {
+  const [a, b] = [uniqueId("api-shelf-a"), uniqueId("api-shelf-b")];
+  for (const name of [a, b]) await request.post("/api/docs", { data: { content: "# x", name } });
+  const shelves = (books: string[][]) => ({
+    shelves: books.map((list, i) => ({ id: `s${i}`, name: `Shelf ${i}`, books: list })),
+  });
+  expect((await request.put("/api/shelves", { data: shelves([[a], [b]]) })).status()).toBe(200);
+  const renamed = `${b}-new`;
+  await request.patch(`/api/docs/${b}`, { data: { id: renamed } });
+  // A page opened before the rename still says `b`.
+  const saved = await request.put("/api/shelves", { data: shelves([[a], [b]]) });
+  const layout = (await saved.json()) as { shelves: { books: string[] }[] };
+  expect(layout.shelves[1].books).toEqual([renamed]);
+});
