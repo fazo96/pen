@@ -1,4 +1,5 @@
 import type { Node as PMNode } from "@tiptap/pm/model";
+import { ID_PATTERN } from "./ids";
 import { straightQuotes } from "./text";
 
 // Construct cites passages with markdown links:
@@ -18,7 +19,7 @@ export type Citation =
 const LINES = String.raw`L(\d+)(?:-L?(\d+))?`;
 const MANUSCRIPT_RE = new RegExp(`^${LINES}$`);
 const VERSION_RE = new RegExp(`^v/([\\w-]+)/${LINES}$`);
-const CODEX_RE = /^codex\/([a-z0-9][a-z0-9-]{0,79})$/;
+const CODEX_RE = new RegExp(`^codex/(${ID_PATTERN})$`);
 
 export function parseCitation(href: string): Citation | null {
   if (!href.startsWith("pen:")) return null;

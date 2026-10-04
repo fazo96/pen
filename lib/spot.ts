@@ -1,4 +1,5 @@
 import type { Node as PMNode } from "@tiptap/pm/model";
+import { isValidId } from "./ids.ts";
 
 // Where the writer was in the manuscript, kept in the project's spot.json so it
 // opens there again, on any device. Positions shift when the text is edited
@@ -66,7 +67,6 @@ export function sanitizeSpot(x: unknown): Spot | null {
 export type Spots = { manuscript?: Spot; entries: [string, Spot][]; last?: string };
 
 const MAX_ENTRIES = 50;
-const ENTRY_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
 
 export const noSpots = (): Spots => ({ entries: [] });
 
@@ -82,14 +82,14 @@ export function sanitizeSpots(x: unknown): Spots {
   if (Array.isArray(s.entries)) {
     const seen = new Set<string>();
     for (const e of s.entries.slice(-MAX_ENTRIES)) {
-      if (!Array.isArray(e) || typeof e[0] !== "string" || !ENTRY_RE.test(e[0]) || seen.has(e[0])) continue;
+      if (!Array.isArray(e) || typeof e[0] !== "string" || !isValidId(e[0]) || seen.has(e[0])) continue;
       const spot = sanitizeSpot(e[1]);
       if (!spot) continue;
       seen.add(e[0]);
       out.entries.push([e[0], spot]);
     }
   }
-  if (typeof s.last === "string" && ENTRY_RE.test(s.last)) out.last = s.last;
+  if (isValidId(s.last)) out.last = s.last;
   return out;
 }
 

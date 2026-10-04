@@ -4,18 +4,18 @@
 // old ids with it. Nothing here is ever imported by client code.
 import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { isValidId } from "./ids";
 import { DOCS_DIR } from "./paths";
 import { type Renames, withRename } from "./renameMap";
 
 const RENAMES_FILE = path.join(DOCS_DIR, ".pen-renames.json");
-const ID_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
 
 export async function readRenames(): Promise<Renames> {
   try {
     const data = JSON.parse(await readFile(RENAMES_FILE, "utf8")) as unknown;
     if (!data || typeof data !== "object") return {};
     return Object.fromEntries(
-      Object.entries(data).filter(([k, v]) => ID_RE.test(k) && typeof v === "string" && ID_RE.test(v)),
+      Object.entries(data).filter(([k, v]) => isValidId(k) && isValidId(v)),
     );
   } catch {
     return {};
@@ -38,7 +38,7 @@ const exists = (p: string) => stat(p).then(
 
 /** The current id of a project renamed away from `id`, or null (also when `id` is a project itself). */
 export async function renamedTo(id: string): Promise<string | null> {
-  if (!ID_RE.test(id) || (await exists(path.join(DOCS_DIR, id)))) return null;
+  if (!isValidId(id) || (await exists(path.join(DOCS_DIR, id)))) return null;
   const to = (await readRenames())[id];
   return to && (await exists(path.join(DOCS_DIR, to, "manuscript.md"))) ? to : null;
 }

@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { isValidId } from "./ids";
 import { DOCS_DIR } from "./paths";
 import { queue } from "./queue";
 import { recordRename } from "./renames";
@@ -18,7 +19,6 @@ const TRASH_DIR = path.join(DOCS_DIR, ".trash");
 const SESSION_GAP_MS = Number(process.env.PEN_SESSION_GAP_MS) || 30 * 60 * 1000;
 
 export const MAX_BYTES = 5 * 1024 * 1024;
-const ID_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
 
 export type Doc = { id: string; content: string; version: string };
 export type DocMeta = {
@@ -32,9 +32,7 @@ export type DocMeta = {
 };
 export type { VersionMeta } from "./versions";
 
-export function isValidId(id: string): boolean {
-  return ID_RE.test(id);
-}
+export { isValidId };
 
 function dirOf(id: string) {
   if (!isValidId(id)) throw new Error(`invalid id: ${id}`);

@@ -1,6 +1,8 @@
 // How the library's books are arranged on shelves. Pure functions only (no
-// pen imports), shared by the server (lib/shelves.ts) and the homepage, and
-// loaded by the tests with plain Node.
+// pen imports but ./ids.ts), shared by the server (lib/shelves.ts) and the
+// homepage, and loaded by the tests with plain Node.
+
+import { isValidId } from "./ids.ts";
 
 export type ShelfRow = { id: string; name: string; books: string[] };
 export type Layout = { shelves: ShelfRow[] };
@@ -9,7 +11,6 @@ export const MAX_SHELF_NAME = 80;
 const MAX_SHELVES = 200;
 const MAX_BOOKS = 10_000;
 const SHELF_ID_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
-const BOOK_ID_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
 
 export const newShelfId = () => `s-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -26,7 +27,7 @@ export function sanitize(input: unknown): Layout | null {
     const { id, name, books: ids } = (s ?? {}) as Record<string, unknown>;
     if (typeof id !== "string" || !SHELF_ID_RE.test(id) || shelfIds.has(id)) return null;
     if (typeof name !== "string" || !Array.isArray(ids)) return null;
-    if (!ids.every((b) => typeof b === "string" && BOOK_ID_RE.test(b))) return null;
+    if (!ids.every((b) => isValidId(b))) return null;
     books += ids.length;
     if (books > MAX_BOOKS) return null;
     shelfIds.add(id);

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { COVER_ACCEPT, isImage } from "@/lib/cover";
+import { isValidId } from "@/lib/ids";
 import type { DocMeta } from "@/lib/docs";
 import type { Stats as Figures } from "@/lib/library";
 import { findBook, type Layout, moveBook } from "@/lib/shelfLayout";
@@ -15,7 +16,6 @@ import Logo from "./Logo";
 import Stats from "./Stats";
 import ThemeButton from "./ThemeButton";
 
-const ID_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
 
 /** What an address can hold, tidied as it's typed: lowercase, hyphens for spaces. */
 const typedId = (s: string) =>
@@ -88,11 +88,11 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
   // title changed since). "the-tide-2" beside "the-tide" is left alone.
   const fromTitle = slugify(doc.title);
   const suggested =
-    fromTitle && ID_RE.test(fromTitle) && fromTitle !== doc.id && !new RegExp(`^${fromTitle}-\\d+$`).test(doc.id)
+    fromTitle && isValidId(fromTitle) && fromTitle !== doc.id && !new RegExp(`^${fromTitle}-\\d+$`).test(doc.id)
       ? fromTitle
       : address;
   const wanted = address.replace(/-+$/, "");
-  const addressOk = ID_RE.test(wanted);
+  const addressOk = isValidId(wanted);
   const rename = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addressOk || wanted === doc.id || lib.busy) return;
