@@ -84,7 +84,9 @@ export function useConstruct(projectId: string, enabled: boolean, onCodexChange:
     error,
     connected,
     clearError: () => setError(null),
-    start: (agent?: string) => post({ action: "start", agent }),
+    start: () => post({ action: "start" }),
+    /** Another agent's model: a new chat on it. */
+    switchAgent: (agent: string, model?: string) => post({ action: "switch", agent, model }),
     send: (text: string, context: PromptContext) => post({ action: "prompt", text, context }),
     cancel: () => post({ action: "cancel" }),
     compact: () => post({ action: "compact" }),

@@ -18,9 +18,11 @@ import {
 } from "@agentclientprotocol/sdk";
 import { parseCitation, withSnippets } from "../cite";
 import { agentHome, readChats, readDoc, readVersion, trashChat, writeChat } from "../docs";
+import { isNotice, modelOption, optionValues, startupInfoOf } from "../oneoff";
 import { titleOf } from "../text";
-import type { CodexChange, ToolContext } from "./tools";
-import { type AgentId, type AgentPreset, AGENTS, systemPrompt } from "./agents";
+import { type CodexChange, listTools, type ToolContext } from "./tools";
+import { type AgentId, type AgentPreset, AGENTS, isAgentId, type LaunchContext, penToolName, systemPrompt } from "./agents";
+import { modelFor } from "./ask";
 import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, ContextUsage, PromptContext } from "./types";
 
 // One Construct conversation at a time per project, driving an ACP agent over
@@ -30,7 +32,6 @@ import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, ContextUsage, 
 // picked up again after a restart (ACP session/resume).
 
 const MCP_NAME = "pen";
-const TOOL_PREFIX = `mcp__${MCP_NAME}__`;
 const MAX_ITEMS = 400;
 const SAVE_EVERY_MS = 1500;
 
@@ -89,16 +90,26 @@ class ConstructSession {
   private sessionId: string | null = null;
   private starting: Promise<void> | null = null;
   private stderr: string[] = [];
-  private cwd = "";
+  /** The agent the running process is, and how it was started. */
+  private runningAgent: AgentId | null = null;
+  private launchCtx: LaunchContext | null = null;
   private seq = 0;
   private running = false;
   /** The turn running is the writer's Compact, not a message. */
   private compacting = false;
   /** The message or thought currently streaming, to append chunks to. */
   private streaming: { id: string; type: "agent" | "thought" } | null = null;
-  /** The chat shown; `sessionId` is the agent's, kept to resume it later. */
-  private chat: { id: string; created: number; sessionId: string | null } & ChatNames;
+  /**
+   * The chat shown; `sessionId` is the agent's, kept to resume it later, and
+   * `model` the one to pick when the agent opens a new session for it.
+   */
+  private chat: { id: string; created: number; sessionId: string | null; agent: AgentId; model?: string } & ChatNames;
   private canResume = false;
+  private canLoad = false;
+  /** A loaded session replays its history: the chat has it already. */
+  private replaying = false;
+  /** pi-acp's hello, sent as if it were a message; see update(). */
+  private startupInfo: string | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   readonly loaded: Promise<void>;
 
@@ -106,7 +117,7 @@ class ConstructSession {
     readonly projectId: string,
     private baseUrl: string,
   ) {
-    this.chat = { id: newChatId(), created: Date.now(), sessionId: null };
+    this.chat = { id: newChatId(), created: Date.now(), sessionId: null, agent: "claude" };
     this.state = { agent: "claude", chatId: this.chat.id, chats: [], status: "idle", config: [] };
     this.loaded = this.load().catch((err) => console.error("construct: couldn't load chats", err));
   }
@@ -118,15 +129,27 @@ class ConstructSession {
     return chats.sort((a, b) => b.updated - a.updated);
   }
 
-  /** Pick up where the newest stored chat left off. */
+  /** Pick up where the newest stored chat left off, or get a new one ready. */
   private async load() {
     const chats = await this.stored();
     this.state = { ...this.state, chats: chats.map(metaOf) };
     if (chats[0]) this.adopt(chats[0]);
+    else await this.fresh();
+  }
+
+  /** An empty chat, on the default model for chats. */
+  private async fresh() {
+    const { agent, model } = await modelFor("chat");
+    this.chat = { id: newChatId(), created: Date.now(), sessionId: null, agent, model };
+    this.items = [];
+    this.streaming = null;
+    this.state = { ...this.state, agent, chatId: this.chat.id, context: undefined };
   }
 
   private adopt(c: StoredChat) {
-    this.chat = { id: c.id, created: c.created, sessionId: c.sessionId, name: c.name, autoTitle: c.autoTitle };
+    // A chat stays with the agent it was started on: only that one can resume it.
+    const agent = isAgentId(c.agent) && AGENTS[c.agent].available() ? c.agent : "claude";
+    this.chat = { id: c.id, created: c.created, sessionId: c.sessionId, agent, name: c.name, autoTitle: c.autoTitle };
     this.seq = c.seq;
     // A turn cut short by a restart leaves tools (or a compaction) that will never finish.
     this.items = c.items.map((i) =>
@@ -137,7 +160,7 @@ class ConstructSession {
           : i,
     );
     this.streaming = null;
-    this.state = { ...this.state, chatId: c.id, context: c.context };
+    this.state = { ...this.state, agent, chatId: c.id, context: c.context };
   }
 
   private title() {
@@ -169,7 +192,7 @@ class ConstructSession {
       title: this.title(),
       created: this.chat.created,
       updated: this.state.chats.find((c) => c.id === this.chat.id)?.updated ?? Date.now(),
-      agent: this.state.agent,
+      agent: this.chat.agent,
       sessionId: this.chat.sessionId,
       seq: this.seq,
       items: this.items,
@@ -189,14 +212,14 @@ class ConstructSession {
     if (this.running) throw new Error("Wait for Construct to finish, or stop it first.");
     await this.save();
     if (next) this.adopt(next);
-    else {
-      this.chat = { id: newChatId(), created: Date.now(), sessionId: null };
-      this.items = [];
-      this.streaming = null;
-      this.state = { ...this.state, chatId: this.chat.id, context: undefined };
-    }
+    else await this.fresh();
     this.emit({ t: "snapshot", items: this.items, state: this.state });
-    if (this.conn) {
+    await this.starting?.catch(() => {});
+    if (this.conn && this.runningAgent !== this.chat.agent) {
+      // The chat is another agent's: start that one instead.
+      this.stop();
+      await this.start().catch(() => {});
+    } else if (this.conn) {
       this.setState({ status: "starting" });
       try {
         await this.openSession();
@@ -212,6 +235,23 @@ class ConstructSession {
     await this.cancel().catch(() => {});
     for (let i = 0; this.running && i < 100; i++) await new Promise((r) => setTimeout(r, 50));
     await this.show(null);
+  }
+
+  /** Talk to another agent's model: a new chat, since an agent can't take over another's conversation. */
+  async switchAgent(agent: AgentId, model?: string) {
+    if (!AGENTS[agent].available()) throw new Error(`${AGENTS[agent].name} isn’t available here.`);
+    await this.cancel().catch(() => {});
+    for (let i = 0; this.running && i < 100; i++) await new Promise((r) => setTimeout(r, 50));
+    await this.save();
+    const wasRunning = !!this.conn || !!this.starting;
+    await this.starting?.catch(() => {}); // let a launch finish before stopping it
+    this.stop();
+    this.chat = { id: newChatId(), created: Date.now(), sessionId: null, agent, model };
+    this.items = [];
+    this.streaming = null;
+    this.state = { ...this.state, agent, chatId: this.chat.id, context: undefined, config: [] };
+    this.emit({ t: "snapshot", items: this.items, state: this.state });
+    if (wasRunning) await this.start().catch(() => {});
   }
 
   async openChat(chatId: string) {
@@ -297,19 +337,11 @@ class ConstructSession {
   // ─── Agent process ──────────────────────────────────────────
 
   /** Start the agent (or reuse the running one) and open a session. */
-  start(agent: AgentId = this.state.agent as AgentId, baseUrl = this.baseUrl): Promise<void> {
+  /** Start the agent of the chat shown (or reuse it, running) and open its session. */
+  start(baseUrl = this.baseUrl): Promise<void> {
     this.baseUrl = baseUrl;
-    if (agent !== this.state.agent) {
-      // Another agent can't resume this one's session: start a new chat.
-      this.stop();
-      void this.save();
-      this.chat = { id: newChatId(), created: Date.now(), sessionId: null };
-      this.items = [];
-      this.state = { ...this.state, chatId: this.chat.id, context: undefined };
-      this.emit({ t: "snapshot", items: this.items, state: this.state });
-    }
-    if (this.conn && this.sessionId) return Promise.resolve();
-    this.starting ??= this.launch(agent).finally(() => {
+    if (this.conn && this.sessionId && this.runningAgent === this.chat.agent) return Promise.resolve();
+    this.starting ??= this.launch(this.chat.agent).finally(() => {
       this.starting = null;
     });
     return this.starting;
@@ -321,15 +353,22 @@ class ConstructSession {
     try {
       const cwd = path.join(os.tmpdir(), "pen-construct", await agentHome(this.projectId));
       await mkdir(cwd, { recursive: true });
-      this.cwd = cwd;
+      const doc = await readDoc(this.projectId);
+      const ctx: LaunchContext = {
+        cwd,
+        systemPrompt: systemPrompt(doc ? titleOf(doc.content, this.projectId) : this.projectId),
+        mcp: { url: `${this.baseUrl}/api/construct/mcp`, token: this.token, tools: listTools().map((t) => t.name) },
+      };
+      this.launchCtx = ctx;
       const [cmd, ...args] = preset.command;
       this.stderr = [];
       const child = spawn(cmd, args, {
         cwd,
-        env: { ...process.env, ...(await preset.env?.()) },
+        env: { ...process.env, ...(await preset.env?.(ctx, MCP_NAME)) },
         stdio: ["pipe", "pipe", "pipe"],
       });
       this.child = child;
+      this.runningAgent = agent;
       child.stderr!.setEncoding("utf8");
       child.stderr!.on("data", (chunk: string) => {
         this.stderr.push(...chunk.split("\n").filter(Boolean));
@@ -344,6 +383,7 @@ class ConstructSession {
         this.child = null;
         this.conn = null;
         this.sessionId = null;
+        this.runningAgent = null;
         const detail = this.stderr.slice(-3).join(" · ");
         this.setState({ status: "error", error: `${preset.name} ${why}${detail ? `: ${detail}` : ""}` });
       });
@@ -365,10 +405,11 @@ class ConstructSession {
         }),
         exited.then((why) => Promise.reject(new Error(why))),
       ]);
-      if (init.agentCapabilities?.mcpCapabilities?.http !== true) {
+      if (preset.mcp === "acp" && init.agentCapabilities?.mcpCapabilities?.http !== true) {
         throw new Error(`${preset.name} can't use pen's tools (no HTTP MCP support).`);
       }
       this.canResume = !!init.agentCapabilities?.sessionCapabilities?.resume;
+      this.canLoad = !!init.agentCapabilities?.loadSession;
       await this.openSession();
     } catch (err) {
       this.stop();
@@ -380,28 +421,44 @@ class ConstructSession {
 
   private async openSession() {
     const conn = this.conn!;
-    const doc = await readDoc(this.projectId);
-    const title = doc ? titleOf(doc.content, this.projectId) : this.projectId;
+    const ctx = this.launchCtx!;
+    const preset: AgentPreset = AGENTS[this.runningAgent!];
     const params = {
-      cwd: this.cwd,
-      mcpServers: [
-        {
-          type: "http" as const,
-          name: MCP_NAME,
-          url: `${this.baseUrl}/api/construct/mcp`,
-          headers: [{ name: "Authorization", value: `Bearer ${this.token}` }],
-        },
-      ],
-      _meta: AGENTS[this.state.agent as AgentId].sessionMeta(systemPrompt(title), MCP_NAME),
+      cwd: ctx.cwd,
+      // An agent that takes its MCP servers from ACP gets pen's here; the others were set up at launch.
+      mcpServers:
+        preset.mcp === "acp"
+          ? [
+              {
+                type: "http" as const,
+                name: MCP_NAME,
+                url: ctx.mcp!.url,
+                headers: [{ name: "Authorization", value: `Bearer ${this.token}` }],
+              },
+            ]
+          : [],
+      _meta: preset.sessionMeta(ctx, MCP_NAME),
     };
     const chat = this.chat;
+    this.startupInfo = null;
 
-    // A stored chat continues the agent's own session, memory and all.
-    if (chat.sessionId && this.canResume) {
+    // A stored chat continues the agent's own session, memory and all:
+    // resumed, or loaded (which replays the history the chat already shows).
+    if (chat.sessionId && (this.canResume || this.canLoad)) {
       try {
-        const res = await conn.resumeSession({ ...params, sessionId: chat.sessionId });
+        let res;
+        if (this.canResume) res = await conn.resumeSession({ ...params, sessionId: chat.sessionId });
+        else {
+          this.replaying = true;
+          try {
+            res = await conn.loadSession({ ...params, sessionId: chat.sessionId });
+          } finally {
+            this.replaying = false;
+          }
+        }
         if (this.chat !== chat) return; // switched meanwhile
         this.sessionId = chat.sessionId;
+        this.startupInfo = startupInfoOf(res._meta);
         this.setState({ status: "ready", config: visibleConfig(res.configOptions) });
         return;
       } catch (err) {
@@ -415,9 +472,20 @@ class ConstructSession {
     const res = await conn.newSession(params);
     if (this.chat !== chat) return;
     this.sessionId = res.sessionId;
+    this.startupInfo = startupInfoOf(res._meta);
     chat.sessionId = res.sessionId;
     if (this.items.length) void this.save();
-    this.setState({ status: "ready", config: visibleConfig(res.configOptions) });
+    let config = res.configOptions;
+    // A new chat's model: the one picked for it, or the default for chats.
+    const picker = modelOption(config);
+    if (chat.model && picker && picker.currentValue !== chat.model && optionValues(picker).includes(chat.model)) {
+      try {
+        config = (await conn.setSessionConfigOption({ sessionId: res.sessionId, configId: picker.id, value: chat.model })).configOptions;
+      } catch (err) {
+        console.error("construct: couldn't pick the model", chat.model, err);
+      }
+    }
+    this.setState({ status: "ready", config: visibleConfig(config) });
   }
 
   stop() {
@@ -425,6 +493,7 @@ class ConstructSession {
     this.child = null;
     this.conn = null;
     this.sessionId = null;
+    this.runningAgent = null;
     this.streaming = null;
     if (child && child.exitCode === null) {
       child.kill("SIGTERM");
@@ -548,7 +617,7 @@ class ConstructSession {
   /** Pen's own tools are pre-approved; anything else is refused. */
   private async permission(p: RequestPermissionRequest): Promise<RequestPermissionResponse> {
     const name = toolNameOf(p.toolCall);
-    const allowed = name?.startsWith(TOOL_PREFIX);
+    const allowed = !!name && penToolName(name, MCP_NAME) !== null;
     const option =
       p.options.find((o) => o.kind === (allowed ? "allow_once" : "reject_once")) ??
       p.options.find((o) => o.kind.startsWith(allowed ? "allow" : "reject"));
@@ -557,11 +626,16 @@ class ConstructSession {
   }
 
   private update({ sessionId, update: u }: SessionNotification) {
-    if (sessionId !== this.sessionId) return;
+    // While loading, the agent retells the conversation (shown already); only its numbers count.
+    if (this.replaying && u.sessionUpdate !== "usage_update" && u.sessionUpdate !== "config_option_update") return;
+    // (A session being loaded has no `sessionId` yet: it's the chat's.)
+    if (sessionId !== (this.sessionId ?? this.chat.sessionId)) return;
     switch (u.sessionUpdate) {
       case "agent_message_chunk":
       case "agent_thought_chunk": {
         if (u.content.type !== "text") return;
+        // pi-acp's own notices and hello come as messages; and nothing's said between turns.
+        if (!this.running || isNotice(u._meta) || u.content.text === this.startupInfo) return;
         const type = u.sessionUpdate === "agent_message_chunk" ? "agent" : "thought";
         if (this.streaming?.type === type) {
           const item = this.items.find((x) => x.id === this.streaming!.id);
@@ -590,7 +664,7 @@ class ConstructSession {
         this.upsert({
           id: u.toolCallId,
           type: "tool",
-          name: name?.startsWith(TOOL_PREFIX) ? name.slice(TOOL_PREFIX.length) : name,
+          name: (name && penToolName(name, MCP_NAME)) ?? name,
           title: u.title ?? base?.title ?? name ?? "Tool",
           status: u.status ?? base?.status ?? "pending",
           input,

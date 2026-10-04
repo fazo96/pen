@@ -58,7 +58,8 @@ export async function GET(req: Request, { params }: Ctx) {
 }
 
 type Action =
-  | { action: "start"; agent?: string }
+  | { action: "start" }
+  | { action: "switch"; agent: string; model?: string }
   | { action: "prompt"; text: string; context?: PromptContext }
   | { action: "compact" }
   | { action: "cancel" }
@@ -79,11 +80,14 @@ export async function POST(req: Request, { params }: Ctx) {
 
   try {
     switch (body.action) {
-      case "start": {
-        if (body.agent !== undefined && !isAgentId(body.agent)) return bad("unknown agent");
-        await session.start(body.agent);
+      case "start":
+        await session.start();
         break;
-      }
+      case "switch":
+        if (!isAgentId(body.agent)) return bad("unknown agent");
+        if (body.model !== undefined && typeof body.model !== "string") return bad("invalid model");
+        await session.switchAgent(body.agent, body.model);
+        break;
       case "prompt": {
         const text = typeof body.text === "string" ? body.text.trim() : "";
         if (!text) return bad("empty prompt");

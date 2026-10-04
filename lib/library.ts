@@ -12,7 +12,7 @@ const TRASH_DIR = path.join(DOCS_DIR, ".trash");
 // What a library export holds besides the book folders and the trash. Anything
 // else in the data folder (the password hash, Construct's sign-in state under
 // .claude in Docker) stays out.
-const LIBRARY_FILES = [".pen-shelves.json", ".pen-renames.json", ".pen-grammar.json"];
+const LIBRARY_FILES = [".pen-shelves.json", ".pen-renames.json", ".pen-grammar.json", ".pen-construct.json"];
 
 export type Stats = {
   words: number;

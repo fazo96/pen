@@ -84,10 +84,10 @@ export default function Toolbar({ editor, headingNames, onAsk }: Props) {
             <Button label="Look up" keys="lookUp" onPress={() => requestLookUp(editor)}>
               <IconBook />
             </Button>
-            <Button label="Synonyms (Construct)" className="tool-text" onPress={() => onAsk(constructPrompt("synonyms", picked.text), picked, true)}>
+            <Button label="Synonyms (Construct)" className="tool-text" onPress={() => onAsk(constructPrompt("synonyms", picked.text), picked, true, "synonyms")}>
               <IconConstruct /> Syn.
             </Button>
-            <Button label="Meaning (Construct)" className="tool-text" onPress={() => onAsk(constructPrompt("meaning", picked.text), picked, true)}>
+            <Button label="Meaning (Construct)" className="tool-text" onPress={() => onAsk(constructPrompt("meaning", picked.text), picked, true, "meaning")}>
               <IconConstruct /> Mean.
             </Button>
             <Button label="Ask Construct" className="tool-text" onPress={() => onAsk(askDraft(picked.text), picked, false)}>

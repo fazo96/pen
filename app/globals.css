@@ -2393,6 +2393,12 @@ a.btn {
   background: var(--paper-raised);
   color: var(--ink);
 }
+.construct-model-hint {
+  margin: 2px 0 4px;
+  font-family: var(--font-ui);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+}
 .construct-context {
   flex: none;
   display: flex;
@@ -3279,6 +3285,9 @@ a.btn {
   gap: 8px;
   margin-top: 1.4rem;
 }
+.construct-field select {
+  max-width: 100%;
+}
 .grammar-words {
   display: flex;
   flex-wrap: wrap;
@@ -3654,6 +3663,18 @@ a.btn {
 .lookup-foot button:hover {
   color: var(--ink);
   background: var(--accent-wash);
+}
+/* Construct's quick answer: the Look up box, with a reply in it. */
+.quick .lookup-body {
+  padding-top: 8px;
+}
+.quick .construct-md {
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.quick-chips {
+  margin: 0 0 8px;
 }
 
 /* ─── Quick switcher and commands (Ctrl+O, Ctrl+P) ─────────── */

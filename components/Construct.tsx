@@ -4,8 +4,10 @@ import { Marked } from "marked";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Citation, parseCitation } from "@/lib/cite";
 import type { SessionConfigOption } from "@agentclientprotocol/sdk";
+import type { AgentModels } from "@/lib/construct/models";
 import type { ChatItem, ConstructEvent, PromptContext } from "@/lib/construct/types";
 import { useConstruct } from "@/lib/useConstruct";
+import { useModels } from "@/lib/useModels";
 import { IconChats, IconClose, IconCompact, IconDown, IconPencil, IconPlus, IconSend, IconStop, IconTrash } from "./icons";
 
 type CodexChange = Extract<ConstructEvent, { t: "codex" }>["change"];
@@ -37,7 +39,7 @@ type Props = {
 
 export type ConstructRequest = { id: number; text: string; context: PromptContext; send: boolean };
 
-const AGENT_NAMES: Record<string, string> = { claude: "Claude Code" };
+const AGENT_NAMES: Record<string, string> = { claude: "Claude Code", pi: "pi" };
 
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -64,7 +66,7 @@ const md = new Marked({
   },
 });
 
-function Markdown({ text }: { text: string }) {
+export function Markdown({ text }: { text: string }) {
   const html = useMemo(() => md.parse(text, { async: false }), [text]);
   return <div className="construct-md" dangerouslySetInnerHTML={{ __html: html }} />;
 }
@@ -132,15 +134,24 @@ function tokens(n: number) {
   return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
 }
 
-/** The model and effort pickers, folded behind one button: "Opus 5.5 · High". */
+/**
+ * The model and effort pickers, folded behind one button: "Opus 5.5 · High".
+ * The model list has every agent's models; another agent's starts a new chat.
+ */
 function ModelMenu({
   config,
+  agent,
+  agents,
   disabled,
   onChange,
+  onSwitch,
 }: {
   config: SessionConfigOption[];
+  agent: string;
+  agents: AgentModels[] | null;
   disabled: boolean;
   onChange: (configId: string, value: string) => void;
+  onSwitch: (agent: string, model: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -166,6 +177,8 @@ function ModelMenu({
       .map((o) => flat(o).find((opt) => opt.value === o.currentValue)?.name ?? String(o.currentValue))
       .filter((name) => !/^default\b/i.test(name))
       .join(" · ") || "Default model";
+  const others = (agents ?? []).filter((a) => a.agent !== agent && a.models.length);
+  const agentName = AGENT_NAMES[agent] ?? agent;
 
   return (
     <div className="construct-model" ref={root}>
@@ -177,23 +190,62 @@ function ModelMenu({
         aria-expanded={open}
         title="Model and effort"
       >
-        <span>{summary}</span>
+        <span>
+          {agent !== "claude" && `${agentName} · `}
+          {summary}
+        </span>
         <IconDown />
       </button>
       {open && (
         <div className="popover-menu construct-model-menu" role="dialog" aria-label="Model and effort">
-          {selects.map((o) => (
-            <label key={o.id} className="construct-select">
-              <span className="label">{o.name}</span>
-              <select value={o.currentValue} disabled={disabled} onChange={(e) => onChange(o.id, e.target.value)}>
-                {flat(o).map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
+          {selects.map((o) =>
+            o.category === "model" && others.length ? (
+              <label key={o.id} className="construct-select">
+                <span className="label">{o.name}</span>
+                <select
+                  value={`${agent}\u0000${o.currentValue}`}
+                  disabled={disabled}
+                  onChange={(e) => {
+                    const [a, value] = e.target.value.split("\u0000");
+                    if (a === agent) onChange(o.id, value);
+                    else {
+                      setOpen(false);
+                      onSwitch(a, value);
+                    }
+                  }}
+                >
+                  <optgroup label={agentName}>
+                    {flat(o).map((opt) => (
+                      <option key={opt.value} value={`${agent}\u0000${opt.value}`}>
+                        {opt.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {others.map((a) => (
+                    <optgroup key={a.agent} label={`${a.name} · new chat`}>
+                      {a.models.map((m) => (
+                        <option key={m.value} value={`${a.agent}\u0000${m.value}`}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <label key={o.id} className="construct-select">
+                <span className="label">{o.name}</span>
+                <select value={o.currentValue} disabled={disabled} onChange={(e) => onChange(o.id, e.target.value)}>
+                  {flat(o).map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ),
+          )}
+          {others.length > 0 && <p className="construct-model-hint">A model of another agent starts a new chat.</p>}
         </div>
       )}
     </div>
@@ -218,6 +270,7 @@ export default function Construct({
   onEscape,
 }: Props) {
   const c = useConstruct(projectId, open, onCodexChange);
+  const models = useModels(open);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [showChats, setShowChats] = useState(false);
@@ -383,7 +436,19 @@ export default function Construct({
 
         {(config.length > 0 || context) && (
           <div className="construct-config">
-            {config.length > 0 && <ModelMenu config={config} disabled={busy} onChange={(id, v) => void c.setConfig(id, v)} />}
+            {config.length > 0 && (
+              <ModelMenu
+                config={config}
+                agent={c.state?.agent ?? "claude"}
+                agents={models.agents}
+                disabled={busy}
+                onChange={(id, v) => void c.setConfig(id, v)}
+                onSwitch={(agent, model) => {
+                  setShowChats(false);
+                  void c.switchAgent(agent, model);
+                }}
+              />
+            )}
             {context && (
               <div className={`construct-context ${filled >= 0.8 ? "is-full" : ""}`}>
                 <span

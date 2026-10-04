@@ -7,11 +7,12 @@ import { createPortal } from "react-dom";
 import { grammarKey } from "@/lib/grammar";
 import { useAnchored } from "@/lib/useAnchored";
 import { useKeys } from "@/lib/useKeys";
-import { askDraft, constructPrompt, onLookUpRequest, pickedWords, type AskKind, type Picked } from "@/lib/wordTools";
+import { askDraft, constructPrompt, onLookUpRequest, pickedWords, type AskKind, type Picked, type QuickKind } from "@/lib/wordTools";
 import { inflectLike, type Pos } from "@/lib/wordforms";
 import { IconBook, IconConstruct } from "./icons";
 
-export type Ask = (text: string, range: { from: number; to: number }, send: boolean) => void;
+/** A question about the selection: `send` ones are answered right away (in a popover), the others left to finish. */
+export type Ask = (text: string, range: { from: number; to: number }, send: boolean, kind?: QuickKind) => void;
 
 type Sense = {
   pos: Pos;
@@ -109,7 +110,7 @@ export default function WordTools({ editor, onAsk }: { editor: Editor; onAsk: As
   const ask = (kind: AskKind | "ask", p: Picked) => {
     setLookUp(null);
     if (kind === "ask") onAsk(askDraft(p.text), p, false);
-    else onAsk(constructPrompt(kind, p.text), p, true);
+    else onAsk(constructPrompt(kind, p.text), p, true, kind);
   };
 
   return (

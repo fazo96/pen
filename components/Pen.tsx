@@ -23,7 +23,7 @@ import { roman } from "@/lib/outline";
 import { HEADINGS, usePenEditor } from "@/lib/usePenEditor";
 import { useTheme, THEME_LABEL, type Theme } from "@/lib/useTheme";
 import type { VersionMeta } from "@/lib/versions";
-import { askDraft, constructPrompt, pickedWords, requestLookUp } from "@/lib/wordTools";
+import { askDraft, constructPrompt, pickedWords, type QuickKind, requestLookUp } from "@/lib/wordTools";
 import Codex, { createEntry } from "./Codex";
 import CodexPanel, { type CodexPanelHandle } from "./CodexPanel";
 import Construct, { type ConstructRequest } from "./Construct";
@@ -35,6 +35,7 @@ import EditorMenu from "./EditorMenu";
 import FocusControls from "./FocusControls";
 import GrammarPane, { GrammarCount } from "./GrammarPane";
 import GrammarPopover from "./GrammarPopover";
+import QuickAnswer, { type Quick } from "./QuickAnswer";
 import WordTools from "./WordTools";
 import { IconBack, IconCodex, IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconManuscript, IconOutline } from "./icons";
 import History from "./History";
@@ -467,9 +468,18 @@ export default function Pen({
   };
   const constructContext = () => contextIn(toolEditor);
 
-  // Look-up and grammar buttons that ask Construct: into the chat that's open.
+  // Look-up and grammar buttons that ask Construct: a quick answer in a popover
+  // (the quick-action model, outside the chat), or a question left in the
+  // chat's input to finish.
   const [constructRequest, setConstructRequest] = useState<ConstructRequest | null>(null);
-  const askConstruct = (ed: Editor) => (text: string, range: { from: number; to: number }, send: boolean) => {
+  const [quick, setQuick] = useState<Quick | null>(null);
+  const closeQuick = useCallback(() => setQuick(null), []);
+  const askConstruct = (ed: Editor) => (text: string, range: { from: number; to: number }, send: boolean, kind?: QuickKind) => {
+    if (!send) return askChat(ed, text, range, false);
+    const context = contextIn(ed, range);
+    setQuick({ id: Date.now(), editor: ed, from: range.from, to: range.to, text: ed.state.doc.textBetween(range.from, range.to, " ", " "), prompt: text, context, kind });
+  };
+  const askChat = (ed: Editor, text: string, range: { from: number; to: number }, send: boolean) => {
     setConstructRequest({ id: Date.now(), text, context: contextIn(ed, range), send });
     setOutlineOpen(false);
     if (!constructOpen && panelEntry && ed !== panelEditor && !window.matchMedia(ROOMY).matches) void closeEntry();
@@ -920,14 +930,14 @@ export default function Pen({
         section: "Selection",
         label: `Ask Construct for synonyms of “${picked.text}”`,
         keywords: "ai",
-        run: () => askConstruct(ed!)(constructPrompt("synonyms", picked.text), picked, true),
+        run: () => askConstruct(ed!)(constructPrompt("synonyms", picked.text), picked, true, "synonyms"),
       },
       !!picked && {
         key: "ask-meaning",
         section: "Selection",
         label: `Ask Construct what “${picked.text}” means`,
         keywords: "ai meaning",
-        run: () => askConstruct(ed!)(constructPrompt("meaning", picked.text), picked, true),
+        run: () => askConstruct(ed!)(constructPrompt("meaning", picked.text), picked, true, "meaning"),
       },
       !!picked && {
         key: "ask",
@@ -1349,12 +1359,24 @@ export default function Pen({
         />
       )}
       <DropImport onFile={importFile} />
-      {editor && <GrammarPopover editor={editor} onAsk={(text, range) => askConstruct(editor)(text, range, true)} />}
+      {editor && <GrammarPopover editor={editor} onAsk={(text, range) => askConstruct(editor)(text, range, true, "grammar")} />}
       {panelEditor && (
-        <GrammarPopover editor={panelEditor} onAsk={(text, range) => askConstruct(panelEditor)(text, range, true)} />
+        <GrammarPopover editor={panelEditor} onAsk={(text, range) => askConstruct(panelEditor)(text, range, true, "grammar")} />
       )}
       {editor && <WordTools editor={editor} onAsk={askConstruct(editor)} />}
       {panelEditor && <WordTools editor={panelEditor} onAsk={askConstruct(panelEditor)} />}
+      {quick && !quick.editor.isDestroyed && (
+        <QuickAnswer
+          key={quick.id}
+          projectId={projectId}
+          quick={quick}
+          onClose={closeQuick}
+          onContinue={() => {
+            setQuick(null);
+            askChat(quick.editor, quick.prompt, quick, true);
+          }}
+        />
+      )}
     </div>
   );
 }

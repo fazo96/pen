@@ -1,23 +1,11 @@
-import { spawn } from "node:child_process";
-import { mkdir } from "node:fs/promises";
-import { Readable, Writable } from "node:stream";
-import {
-  type Client,
-  ClientSideConnection,
-  type ContentBlock,
-  ndJsonStream,
-  PROTOCOL_VERSION,
-} from "@agentclientprotocol/sdk";
-
-// Photos of handwritten notes, read into a Codex entry by a one-off ACP agent
-// (Construct's Claude Code, with no tools at all): one prompt with the pages,
-// its reply is the entry. Nothing here touches Construct's chats. Imports
-// nothing from pen, so tests load it with plain Node and a stub agent.
+// Photos of handwritten notes, read into a Codex entry by a one-off agent
+// (lib/oneoff.ts, on the model chosen in settings): one prompt with the
+// pages, its reply is the entry. Imports nothing from pen, so tests load it
+// with plain Node.
 
 /** Pages per entry, and bytes per page (Claude's own limit is 5 MB). */
 export const MAX_PAGES = 10;
 export const MAX_PAGE_BYTES = 5 * 1024 * 1024;
-const TIMEOUT_MS = 3 * 60_000;
 
 /** The formats Claude reads, by their first bytes: the MIME type sent can't be trusted. */
 export function imageTypeOf(data: Uint8Array): string | null {
@@ -60,99 +48,3 @@ export function entryFromReply(reply: string): string {
   return `${text}\n`;
 }
 
-export type AgentLaunch = {
-  command: string[];
-  cwd: string;
-  /** `_meta` for session/new (the agent's lockdown options). */
-  sessionMeta?: Record<string, unknown>;
-  env?: Record<string, string>;
-  timeoutMs?: number;
-};
-
-export type Page = { data: string; mimeType: string };
-
-/** Ask a fresh agent to read the pages; resolves to its reply's text. */
-export async function runTranscription(pages: Page[], prompt: string, launch: AgentLaunch): Promise<string> {
-  await mkdir(launch.cwd, { recursive: true });
-  const [cmd, ...args] = launch.command;
-  const child = spawn(cmd, args, {
-    cwd: launch.cwd,
-    env: { ...process.env, ...launch.env },
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  const stderr: string[] = [];
-  child.stderr!.setEncoding("utf8");
-  child.stderr!.on("data", (chunk: string) => {
-    stderr.push(...chunk.split("\n").filter(Boolean));
-    if (stderr.length > 20) stderr.splice(0, stderr.length - 20);
-  });
-  const detail = () => (stderr.length ? `: ${stderr.slice(-3).join(" · ")}` : "");
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const failed = new Promise<never>((_, reject) => {
-    child.on("error", (err) => reject(new Error(`couldn't start the agent (${err.message})`)));
-    child.on("exit", (code, signal) => reject(new Error(`the agent exited (${signal ?? code})${detail()}`)));
-    timer = setTimeout(() => reject(new TimeoutError()), launch.timeoutMs ?? TIMEOUT_MS);
-  });
-
-  let reply = "";
-  let sessionId = "";
-  const client: Client = {
-    // It has no tools to ask about; refuse whatever it asks anyway.
-    requestPermission: async (p) => {
-      const reject = p.options.find((o) => o.kind.startsWith("reject"));
-      return reject ? { outcome: { outcome: "selected", optionId: reject.optionId } } : { outcome: { outcome: "cancelled" } };
-    },
-    sessionUpdate: async ({ sessionId: sid, update: u }) => {
-      if (sid === sessionId && u.sessionUpdate === "agent_message_chunk" && u.content.type === "text") reply += u.content.text;
-    },
-  };
-
-  try {
-    const conn = new ClientSideConnection(
-      () => client,
-      ndJsonStream(
-        Writable.toWeb(child.stdin!) as WritableStream<Uint8Array>,
-        Readable.toWeb(child.stdout!) as unknown as ReadableStream<Uint8Array>,
-      ),
-    );
-    const run = async () => {
-      const init = await conn.initialize({
-        protocolVersion: PROTOCOL_VERSION,
-        clientCapabilities: {},
-        clientInfo: { name: "pen", version: "0.1.0" },
-      });
-      if (!init.agentCapabilities?.promptCapabilities?.image) throw new Error("the agent can't read images");
-      const session = await conn.newSession({ cwd: launch.cwd, mcpServers: [], _meta: launch.sessionMeta });
-      sessionId = session.sessionId;
-      const blocks: ContentBlock[] = [
-        ...pages.map((p): ContentBlock => ({ type: "image", data: p.data, mimeType: p.mimeType })),
-        { type: "text", text: prompt },
-      ];
-      const res = await conn.prompt({ sessionId, prompt: blocks });
-      if (res.stopReason === "refusal") throw new Error("the agent declined to read it");
-      if (!reply.trim()) throw new Error("the agent gave no transcription");
-      return reply;
-    };
-    return await Promise.race([
-      run().catch(async (err) => {
-        // A crash reaches the connection ("closed") before the exit: say why it exited instead.
-        await Promise.race([failed, new Promise((r) => setTimeout(r, 500))]);
-        throw err;
-      }),
-      failed,
-    ]);
-  } finally {
-    clearTimeout(timer);
-    failed.catch(() => {}); // the exit we cause below isn't news
-    if (child.exitCode === null) {
-      child.kill("SIGTERM");
-      setTimeout(() => child.exitCode === null && child.kill("SIGKILL"), 3000).unref();
-    }
-  }
-}
-
-export class TimeoutError extends Error {
-  constructor() {
-    super("the agent took too long");
-  }
-}

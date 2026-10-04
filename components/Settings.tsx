@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { LibraryStats } from "@/lib/library";
+import ConstructSettings from "./ConstructSettings";
 import EditorSettings from "./EditorSettings";
 import GrammarSettings from "./GrammarSettings";
 import KeySettings from "./KeySettings";
@@ -52,6 +53,7 @@ export default function Settings({ locked, stats }: { locked: boolean; stats: Li
           </section>
           <EditorSettings />
           <GrammarSettings />
+          <ConstructSettings />
           <KeySettings />
           <LockSettings locked={locked} />
         </section>

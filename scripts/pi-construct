@@ -1,0 +1,11 @@
+#!/bin/sh
+# pi as pen's Construct runs it: pi-acp starts this (PI_ACP_PI_COMMAND) in place
+# of pi, with pi's own arguments (--mode rpc …), and pen's settings in the
+# environment (lib/construct/agents.ts). No skills, prompt templates or
+# AGENTS.md; pen's system prompt; and only pen's tools, from pi-mcp-adapter,
+# or none at all for one-off runs.
+set -- --no-skills --no-prompt-templates --no-context-files --system-prompt "$PEN_SYSTEM_PROMPT" "$@"
+if [ -n "$PEN_PI_TOOLS" ]; then
+  exec "${PEN_PI:-pi}" -e "$PEN_PI_EXTENSION" --mcp-config "$PEN_PI_MCP_CONFIG" --tools "$PEN_PI_TOOLS" "$@"
+fi
+exec "${PEN_PI:-pi}" --no-tools "$@"

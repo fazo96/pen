@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isImage, prepareNote } from "@/lib/cover";
 import type { EntryMeta } from "@/lib/docs";
+import { readNdjson } from "@/lib/ndjson";
 import { useDropZone } from "@/lib/useDropZone";
 import { CODEX_IMPORT_ACCEPT, HTML_EXT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";
 import { IconTrash } from "./icons";
@@ -88,6 +89,28 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     return ((await res.json()) as { id: string }).id;
   };
 
+  /** Photos of a note to transcribe: the entry's id comes at the end of a stream (see the route). */
+  const postNote = async (images: string[]) => {
+    const res = await fetch(base, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ images }),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(data.error ?? `request failed (${res.status})`);
+    }
+    let id: string | null = null;
+    let error: string | null = null;
+    await readNdjson<{ t: string; id?: string; error?: string }>(res, (line) => {
+      if (line.t === "entry" && line.id) id = line.id;
+      if (line.t === "error") error = line.error ?? "transcription failed";
+    });
+    if (error) throw new Error(error);
+    if (!id) throw new Error("the answer was cut off");
+    return id as string;
+  };
+
   /**
    * Each file becomes an entry, except pictures: together they're the pages of
    * one handwritten note, which Construct's agent transcribes. One entry opens
@@ -125,9 +148,9 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     }
     if (pictures.length) {
       const what = pictures.length === 1 ? "the picture" : `${pictures.length} pictures`;
-      setNotice(`Transcribing ${what}… this can take a minute.`);
+      setNotice(`Transcribing ${what}… this can take a minute, longer if a self-hosted model has to load.`);
       try {
-        imported.push(await post({ images: await Promise.all(pictures.map(prepareNote)) }));
+        imported.push(await postNote(await Promise.all(pictures.map(prepareNote))));
       } catch (e) {
         skipped.push(`${what}: ${e instanceof Error ? e.message : String(e)}`);
       }

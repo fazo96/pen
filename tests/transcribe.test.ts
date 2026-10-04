@@ -1,22 +1,9 @@
 import assert from "node:assert/strict";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
-import { entryFromReply, imageTypeOf, runTranscription, TimeoutError, transcribePrompt } from "../lib/transcribe.ts";
+import { entryFromReply, imageTypeOf, transcribePrompt } from "../lib/transcribe.ts";
 
-// Photos of handwritten notes into Codex entries (lib/transcribe.ts), against
-// a stub ACP agent that stands in for Claude Code.
-
-const stub = fileURLToPath(new URL("fixtures/stub-acp-agent.mjs", import.meta.url));
-const launch = (mode = "ok", timeoutMs?: number) => ({
-  command: [process.execPath, stub],
-  cwd: path.join(tmpdir(), "pen-transcribe-test"),
-  env: { STUB_MODE: mode },
-  timeoutMs,
-});
-const jpeg = { data: Buffer.from([0xff, 0xd8, 0xff, 0xe0]).toString("base64"), mimeType: "image/jpeg" };
-const png = { data: "", mimeType: "image/png" };
+// Photos of handwritten notes into Codex entries (lib/transcribe.ts); the
+// agent run itself is tested in oneoff.test.ts.
 
 test("recognises the image formats Claude reads by their bytes", () => {
   assert.equal(imageTypeOf(new Uint8Array([0xff, 0xd8, 0xff, 0xe1])), "image/jpeg");
@@ -46,16 +33,4 @@ test("turns the reply into an entry with a title", () => {
   // A long opening that isn't preamble stays; the note just gets a title.
   const untitled = "line one\nline two\nline three\n# Heading later";
   assert.equal(entryFromReply(untitled), `# Handwritten note\n\n${untitled}\n`);
-});
-
-test("sends the pages to the agent and collects its reply", { timeout: 30_000 }, async () => {
-  const reply = await runTranscription([jpeg, png], "Transcribe.", launch());
-  assert.equal(entryFromReply(reply), "# Notes\n\n2 pages: image/jpeg, image/png\n");
-});
-
-test("reports an agent that fails, can't see images, says nothing or hangs", { timeout: 30_000 }, async () => {
-  await assert.rejects(runTranscription([jpeg], "x", launch("crash")), /exited \(3\): not logged in/);
-  await assert.rejects(runTranscription([jpeg], "x", launch("blind")), /can't read images/);
-  await assert.rejects(runTranscription([jpeg], "x", launch("silent")), /no transcription/);
-  await assert.rejects(runTranscription([jpeg], "x", launch("hang", 1000)), TimeoutError);
 });
