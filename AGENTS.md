@@ -16,7 +16,7 @@ A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Ti
 
 - **Never write to `data/`**: it holds the writer's real books. Test against a scratch library ([development](docs/development.md)).
 - **Don't run `next build` in this checkout** and leave the server on port 3000 running: it's the writer's pen. Build in a scratch worktree ([development](docs/development.md)).
-- Node comes from `nix develop`. Check your work with `npm test`, `npm run typecheck` and the browser suite ([testing](docs/testing.md)).
+- Node comes from `nix develop`. Check your work with `npm test`, `npm run typecheck`, `npm run lint` and the browser suite ([testing](docs/testing.md)).
 - Keep these docs true: when you change how something works, update its page below.
 
 ## Docs

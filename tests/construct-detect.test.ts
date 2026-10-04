@@ -7,7 +7,10 @@ const nothing = () => false;
 
 test("Claude Code is found by its command", () => {
   const ran: string[] = [];
-  const run = (cmd: string) => (ran.push(cmd), cmd === "claude");
+  const run = (cmd: string) => {
+    ran.push(cmd);
+    return cmd === "claude";
+  };
   assert.equal(claudeFound({ HOME: "/home/w" }, run, nothing), true);
   assert.deepEqual(ran, ["claude"]);
   assert.equal(claudeFound({ HOME: "/home/w", PEN_CLAUDE: "/opt/claude" }, run, nothing), false);

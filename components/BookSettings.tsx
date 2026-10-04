@@ -141,6 +141,7 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
           <section className="settings-section" aria-labelledby="cover-title">
             <SettingsHead icon={<IconImage />} title="Cover" id="cover-title" />
             <div className="book-settings-cover">
+              {/* biome-ignore lint/a11y/noStaticElementInteractions: a drop target for cover art; the button inside picks a file from the keyboard */}
               <div
                 className={`book-settings-art ${dropping ? "is-drop" : ""} ${lib.busy && section === "cover" ? "is-binding" : ""}`}
                 onDragOver={(e) => {

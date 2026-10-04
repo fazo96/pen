@@ -10,7 +10,8 @@
     "start": "next start",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --import ./tests/setup.mjs --test 'tests/**/*.test.ts'",
     "test:e2e": "playwright test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.5.1",
@@ -36,6 +37,7 @@
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
     "@playwright/test": "^1.63.0",
     "@types/node": "^26.6.3",
     "@types/react": "^19.3.0",

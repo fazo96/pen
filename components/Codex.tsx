@@ -66,7 +66,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
   // without waiting for the reload.
   useEffect(() => {
     if (!activeId || !activeTitle) return;
-    setList((l) => l && l.map((e) => (e.id === activeId && e.title !== activeTitle ? { ...e, title: activeTitle } : e)));
+    setList((l) => (l ? l.map((e) => (e.id === activeId && e.title !== activeTitle ? { ...e, title: activeTitle } : e)) : l));
   }, [activeId, activeTitle]);
 
   const create = async () => {

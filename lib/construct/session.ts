@@ -2,7 +2,15 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import type { Client, ContentBlock, RequestPermissionRequest, RequestPermissionResponse, SessionNotification } from "@agentclientprotocol/sdk";
+import type {
+  Client,
+  ContentBlock,
+  LoadSessionResponse,
+  RequestPermissionRequest,
+  RequestPermissionResponse,
+  ResumeSessionResponse,
+  SessionNotification,
+} from "@agentclientprotocol/sdk";
 import { anchorCitations } from "../cite";
 import { agentHome, readChats, readDoc, readVersion, trashChat, writeChat } from "../docs";
 import { type AgentLaunch, type AgentProcess, initialize, modelOption, optionValues, spawnAgent, startupInfoOf } from "../acp";
@@ -359,7 +367,7 @@ class ConstructSession {
     // resumed, or loaded (which replays the history the chat already shows).
     if (chat.sessionId && (this.canResume || this.canLoad)) {
       try {
-        let res;
+        let res: ResumeSessionResponse | LoadSessionResponse;
         if (this.canResume) res = await conn.resumeSession({ ...params, sessionId: chat.sessionId });
         else {
           this.replaying = true;

@@ -69,6 +69,7 @@ export default function EditorTopBar({
       </div>
       <div className="topbar-right">
         {status === "locked" ? (
+          // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: the save status, a link to unlock while locked; it still announces as a status
           <a
             className="status status-locked"
             href={`/unlock?next=${encodeURIComponent(`/d/${docId}`)}`}

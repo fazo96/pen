@@ -17,7 +17,7 @@ export function setSteady(on: boolean) {
   local.set(KEY, on ? "1" : null);
   if (on) root.dataset.steady = "";
   else delete root.dataset.steady;
-  listeners.forEach((l) => l());
+  for (const l of listeners) l();
 }
 
 /** Whether the typing fade is off on this device. */

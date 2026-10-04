@@ -1,0 +1,48 @@
+// Lint only (`npm run lint`): Biome's recommended rules, minus the ones below.
+// Formatting is left as it is. A rule that's wrong in one place gets a
+// `biome-ignore` comment there, with the reason.
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": { "includes": ["**", "!design", "!public", "!tests/fixtures/**/*.html"] },
+  "formatter": { "enabled": false },
+  "assist": { "enabled": false },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "a11y": {
+        // Autofocus is how the rename and save forms open, on purpose.
+        "noAutofocus": "off",
+        // The icons are decorative (aria-hidden); their buttons carry the label.
+        "noSvgWithoutTitle": "off"
+      },
+      "complexity": {
+        // The few there are override inline styles set by script (focus mode, print).
+        "noImportantStyles": "off"
+      },
+      "correctness": {
+        // Effects list what they mean to react to; refs and stable callbacks are
+        // left out on purpose. Biome's version flags those as missing.
+        "useExhaustiveDependencies": "off"
+      },
+      "performance": {
+        // Next's <Image> is for build-time images; covers and note pages come from the API.
+        "noImgElement": "off"
+      },
+      "style": {
+        // The cascade is ordered by file and section (see app/layout.tsx), not by specificity.
+        "noDescendingSpecificity": "off",
+        // Used after a check the type system can't see (a Map lookup after .has, a regex group).
+        "noNonNullAssertion": "off",
+        "useTemplate": "off"
+      },
+      "suspicious": {
+        // `(x ??= …)` and `while ((m = re.exec(s)))` are idioms here.
+        "noAssignInExpressions": "off",
+        // Every list keyed by index is positional and static (suggestions, senses, pages, plan steps).
+        "noArrayIndexKey": "off"
+      }
+    }
+  }
+}

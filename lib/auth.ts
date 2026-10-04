@@ -111,7 +111,7 @@ export function sessionCookie(token: string, secure: boolean) {
 
 /** Only same-site paths, so /unlock?next= can't bounce people elsewhere. */
 export function safeNext(next: string | null | undefined): string {
-  return next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : "/";
+  return next?.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\") ? next : "/";
 }
 
 // At most 30 password checks per minute, instance-wide. Counted before

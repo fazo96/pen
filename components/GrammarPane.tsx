@@ -97,7 +97,11 @@ export default function GrammarPane({
   // How many entries come before each section, to share out `limit`.
   const budget = useMemo(() => {
     let before = 0;
-    return sections.map((s) => ((before += s.items.length), before - s.items.length));
+    return sections.map((s) => {
+      const at = before;
+      before += s.items.length;
+      return at;
+    });
   }, [sections]);
   const words = useMemo(
     () => (filter === "grammar" ? [] : repeatedWords(items, SPELLING_RULE, dictKey)),
@@ -140,6 +144,7 @@ export default function GrammarPane({
       {items.length > 0 && (
         <div className="grammar-filters" role="radiogroup" aria-label="Show">
           {(["all", "spelling", "grammar"] as Filter[]).map((f) => (
+            // biome-ignore lint/a11y/useSemanticElements: buttons drawn as a segmented control, announced as radios
             <button
               key={f}
               type="button"

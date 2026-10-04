@@ -60,7 +60,7 @@ function fold(s: string, caseSensitive: boolean): string {
   return out;
 }
 
-const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const WORD = "[\\p{L}\\p{N}_]";
 
 /**
@@ -83,7 +83,7 @@ export function pattern(query: string, { caseSensitive, wholeWord }: FindOptions
       src += "\\s+";
       while (i < q.length && /\s/.test(q[i])) i++;
     } else {
-      src += escape(q[i]);
+      src += escapeRegExp(q[i]);
       i++;
     }
   }

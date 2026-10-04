@@ -60,7 +60,9 @@ export const StraightQuotes = Extension.create({
           ranges = ranges.map(([f, t]) => [tr.mapping.map(f, -1), tr.mapping.map(t, 1)]);
           tr.mapping.maps.forEach((map, i) => {
             const rest = tr.mapping.slice(i + 1);
-            map.forEach((_s, _e, from, to) => ranges.push([rest.map(from, -1), rest.map(to, 1)]));
+            map.forEach((_s, _e, from, to) => {
+              ranges.push([rest.map(from, -1), rest.map(to, 1)]);
+            });
           });
         }
         if (!ranges.length) return null;

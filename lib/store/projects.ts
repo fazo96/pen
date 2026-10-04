@@ -1,4 +1,5 @@
 import "server-only";
+import type { Dirent } from "node:fs";
 import { mkdir, readdir, readFile, rename, stat } from "node:fs/promises";
 import { writeAtomic } from "../files";
 import { isValidId } from "../ids";
@@ -20,7 +21,7 @@ const SESSION_GAP_MS = Number(process.env.PEN_SESSION_GAP_MS) || 30 * 60 * 1000;
 /** Every project, the most recently written first (the manuscript or any Codex entry). */
 export async function listDocs(): Promise<DocMeta[]> {
   await ready();
-  let entries;
+  let entries: Dirent[];
   try {
     entries = await readdir(DOCS_DIR, { withFileTypes: true });
   } catch (err) {

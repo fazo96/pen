@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { command, makeBook, openBook, uniqueId } from "./helpers";
+import { command, type EditorElement, makeBook, openBook, uniqueId } from "./helpers";
 
 // Construct and the quick actions, on the stub agent the e2e server runs with
 // (it answers "Echo: <what it was sent>").
@@ -12,10 +12,10 @@ const replies = (page: Page) => construct(page).locator(".construct-msg.is-agent
 async function selectWord(page: Page, word: string) {
   await page.locator("main .ProseMirror p").first().click();
   await page.evaluate((w) => {
-    const editor = (document.querySelector("main .ProseMirror") as any).editor;
+    const editor = (document.querySelector("main .ProseMirror") as EditorElement).editor;
     let at = -1;
-    editor.state.doc.descendants((node: any, pos: number) => {
-      if (at < 0 && node.isText && node.text.includes(w)) at = pos + node.text.indexOf(w);
+    editor.state.doc.descendants((node, pos) => {
+      if (at < 0 && node.text?.includes(w)) at = pos + node.text.indexOf(w);
     });
     editor.chain().focus().setTextSelection({ from: at, to: at + w.length }).run();
   }, word);

@@ -791,12 +791,14 @@ export default function Pen({
         <Palette key={palette} mode={palette} places={places()} commands={commands()} onClose={closePalette} />
       )}
       {notice && (
+        // biome-ignore lint/a11y/useKeyWithClickEvents: a click dismisses a toast early; it goes by itself
         <div className="toast" role="status" onClick={() => setNotice(null)}>
           {notice}
         </div>
       )}
 
       {lib.error && (
+        // biome-ignore lint/a11y/useKeyWithClickEvents: a click dismisses a toast early; it goes by itself
         <div className="toast" role="alert" onClick={lib.clearError}>
           {lib.error}
         </div>

@@ -144,6 +144,7 @@ export default function Palette({ mode, places, commands, onClose }: Props) {
         {asking ? (
           <p className="palette-note">Enter to save · Esc to go back</p>
         ) : rows.length ? (
+          // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: the combobox's listbox (the ARIA pattern)
           <ul ref={list} id="palette-list" className="palette-list" role="listbox">
             {rows.map(({ item, hits }, i) => {
               const heading = !q && item.section !== lastSection ? item.section : null;
@@ -154,10 +155,13 @@ export default function Palette({ mode, places, commands, onClose }: Props) {
                     {heading}
                   </li>
                 ),
+                // biome-ignore lint/a11y/useFocusableInteractive: the combobox's options: focus stays in its input (aria-activedescendant), which takes the keys
+                // biome-ignore lint/a11y/useKeyWithClickEvents: the combobox's options: focus stays in its input (aria-activedescendant), which takes the keys
                 <li
                   key={item.key}
                   id={`palette-${i}`}
                   data-i={i}
+                  // biome-ignore lint/a11y/noNoninteractiveElementToInteractiveRole: the combobox's options: focus stays in its input (aria-activedescendant), which takes the keys
                   role="option"
                   aria-selected={i === selected}
                   className={`palette-item ${i === selected ? "is-selected" : ""}`}

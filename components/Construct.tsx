@@ -241,6 +241,7 @@ export default function Construct({
             )}
             {context && (
               <div className={`construct-context ${filled >= 0.8 ? "is-full" : ""}`}>
+                {/* biome-ignore lint/a11y/useSemanticElements: a drawn bar; a <meter> can't be styled like it everywhere */}
                 <span
                   className="construct-context-meter"
                   role="meter"
@@ -292,6 +293,8 @@ export default function Construct({
           />
         )}
 
+        {/* biome-ignore lint/a11y/useKeyWithClickEvents: delegates clicks from the citation chips inside, which are buttons */}
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: delegates clicks from the citation chips inside, which are buttons */}
         <div
           className="construct-log"
           hidden={showChats}
@@ -315,7 +318,7 @@ export default function Construct({
           {c.items.map((item) => (
             <ConstructItem key={item.id} item={item} onOpenEntry={(entry) => onOpen(`/d/${projectId}/codex/${entry}`)} />
           ))}
-          {status === "busy" && <div className="construct-working" aria-label="Working" />}
+          {status === "busy" && <div className="construct-working" role="img" aria-label="Working" />}
         </div>
 
         {(c.error || status === "error") && (

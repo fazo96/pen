@@ -25,6 +25,8 @@ jobs:
           node-version: 24 # same as flake.nix
           cache: npm
       - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
       - run: npm test
-      # Type-checks too.
+      # Also checks what only a build checks (route types, server/client boundaries).
       - run: npm run build

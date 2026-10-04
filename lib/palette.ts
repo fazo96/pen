@@ -98,7 +98,10 @@ export function rank<T extends Findable>(items: T[], query: string): { item: T; 
   const out: { item: T; hits: number[]; score: number; i: number }[] = [];
   items.forEach((item, i) => {
     const m = match(query, item.label);
-    if (m) return out.push({ item, hits: m.hits, score: m.score, i });
+    if (m) {
+      out.push({ item, hits: m.hits, score: m.score, i });
+      return;
+    }
     const k = item.keywords ? match(query, `${item.label} ${item.keywords}`) : null;
     if (k) out.push({ item, hits: k.hits.filter((h) => h < item.label.length), score: k.score / 2, i });
   });

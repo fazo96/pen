@@ -1,7 +1,11 @@
 import { type APIRequestContext, expect, type Page } from "@playwright/test";
+import type { Editor } from "@tiptap/core";
 
 // Shared steps for the browser tests. Each test makes its own books (ids are
 // unique per test), since the whole run shares one library.
+
+/** The editor's element: pen exposes its Tiptap instance on it for tests. */
+export type EditorElement = HTMLElement & { editor: Editor };
 
 let n = 0;
 /** A fresh book id for this test run. */

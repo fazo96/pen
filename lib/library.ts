@@ -1,4 +1,5 @@
 import "server-only";
+import type { Dirent } from "node:fs";
 import { lstat, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { isValidId, listCodex, listDocs, listVersions } from "./docs";
@@ -96,7 +97,7 @@ export async function libraryStats(): Promise<LibraryStats> {
 
 /** Every file under `dir`, named `prefix/…` in the zip. Half-written *.tmp files are skipped. */
 async function* filesUnder(dir: string, prefix: string): AsyncGenerator<ZipSource> {
-  let entries;
+  let entries: Dirent[];
   try {
     entries = await readdir(dir, { withFileTypes: true });
   } catch {

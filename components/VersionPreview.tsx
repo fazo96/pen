@@ -55,7 +55,7 @@ export default function VersionPreview({ meta, content, draft, cite, onCited, on
   const [busy, setBusy] = useState(false);
   const [showChanges, setShowChanges] = useState(false);
   const [diff, setDiff] = useState<DocDiff | null>(null);
-  const bar = useRef<HTMLDivElement>(null);
+  const bar = useRef<HTMLElement>(null);
   const viewer = useEditor({
     immediatelyRender: false,
     editable: false,
@@ -138,7 +138,7 @@ export default function VersionPreview({ meta, content, draft, cite, onCited, on
 
   return (
     <>
-      <div ref={bar} className="preview-bar" role="region" aria-label="Viewing a version">
+      <section ref={bar} className="preview-bar" aria-label="Viewing a version">
         <div className="preview-what">
           <span className="label">Viewing</span>
           <span className="preview-label">{meta.label || "Saved version"}</span>
@@ -210,7 +210,7 @@ export default function VersionPreview({ meta, content, draft, cite, onCited, on
             )}
           </div>
         )}
-      </div>
+      </section>
       {viewer ? <EditorContent editor={viewer} /> : <div className="prose loading" aria-busy />}
     </>
   );

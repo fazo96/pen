@@ -33,5 +33,6 @@ const md = new Marked({
 
 export function Markdown({ text }: { text: string }) {
   const html = useMemo(() => md.parse(text, { async: false }), [text]);
+  // biome-ignore lint/security/noDangerouslySetInnerHtml: md escapes raw HTML and images and only links http(s) URLs (above)
   return <div className="construct-md" dangerouslySetInnerHTML={{ __html: html }} />;
 }

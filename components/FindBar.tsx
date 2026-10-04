@@ -106,6 +106,7 @@ export default function FindBar({ editor, mode, focusKey, onMode, onClose, onRep
   const keep = (e: React.MouseEvent) => e.preventDefault();
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: <search> is newer than some Safaris pen runs in
     <div className="find-bar" role="search" aria-label={mode === "replace" ? "Find and replace" : "Find"}>
       <div className="find-row">
         <button

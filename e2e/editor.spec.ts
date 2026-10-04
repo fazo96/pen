@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { makeBook, openBook, uniqueId } from "./helpers";
+import { type EditorElement, makeBook, openBook, uniqueId } from "./helpers";
 
 // The editor page's own behaviour: find and replace, the switcher, jumping
 // between the manuscript and the Codex panel, focus mode, export.
@@ -7,11 +7,11 @@ import { makeBook, openBook, uniqueId } from "./helpers";
 /** Text of the textblock holding the cursor in the editor that has focus, and where that editor is. */
 const cursor = (page: Page) =>
   page.evaluate(() => {
-    const el = document.activeElement?.closest(".ProseMirror") as (HTMLElement & { editor?: any }) | null;
+    const el = document.activeElement?.closest(".ProseMirror") as (HTMLElement & Partial<Pick<EditorElement, "editor">>) | null;
     if (!el?.editor) return null;
     return {
       where: el.closest(".codex-panel") ? "panel" : "manuscript",
-      block: el.editor.state.selection.$from.parent.textContent as string,
+      block: el.editor.state.selection.$from.parent.textContent,
     };
   });
 
@@ -50,7 +50,7 @@ test("the switcher jumps to a chapter", async ({ page, request }) => {
   await page.keyboard.type("rain");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("dialog")).toBeHidden();
-  await expect.poll(async () => (await page.evaluate(() => (document.querySelector(".ProseMirror") as any).editor.state.selection.$from.parent.textContent))).toBe("Rain");
+  await expect.poll(async () => (await page.evaluate(() => (document.querySelector(".ProseMirror") as EditorElement).editor.state.selection.$from.parent.textContent))).toBe("Rain");
 });
 
 test("the cursor moves between the manuscript and the Codex panel", async ({ page }) => {

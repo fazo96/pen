@@ -147,7 +147,9 @@ function applyTr(tr: Transaction, prev: State): State {
       const touched: Decoration[] = [];
       tr.mapping.maps.forEach((map, i) => {
         const rest = tr.mapping.slice(i + 1);
-        map.forEach((_a, _b, from, to) => touched.push(...decos.find(rest.map(from, -1), rest.map(to, 1))));
+        map.forEach((_a, _b, from, to) => {
+          touched.push(...decos.find(rest.map(from, -1), rest.map(to, 1)));
+        });
       });
       if (touched.length) decos = decos.remove(touched);
     }
