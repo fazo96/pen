@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 import { api, apiDelete } from "./api";
 import { isImage, prepareCover } from "./cover";
+import { local } from "./storage";
 import { newManuscript, withTitle } from "./text";
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -34,15 +35,14 @@ export async function importText(file: File): Promise<string> {
 
 /** Move a project's localStorage backups (manuscript and Codex entries) to its new id. */
 function moveBackups(from: string, to: string) {
-  try {
-    const prefix = `pen:backup:${from}`;
-    for (const key of Object.keys(localStorage)) {
-      if (key !== prefix && !key.startsWith(`${prefix}/`)) continue;
-      const value = localStorage.getItem(key);
-      if (value !== null) localStorage.setItem(`pen:backup:${to}${key.slice(prefix.length)}`, value);
-      localStorage.removeItem(key);
-    }
-  } catch {}
+  const prefix = `pen:backup:${from}`;
+  for (const key of local.keys()) {
+    if (key !== prefix && !key.startsWith(`${prefix}/`)) continue;
+    const value = local.get(key);
+    // Kept under the old id if it can't be copied (storage full).
+    if (value !== null && !local.set(`pen:backup:${to}${key.slice(prefix.length)}`, value)) continue;
+    local.set(key, null);
+  }
 }
 
 /** Create, import and delete documents and set their covers, then navigate or refresh. */
@@ -92,9 +92,7 @@ export function useLibrary() {
     (id: string, next?: string) =>
       run(async () => {
         await apiDelete(`/api/docs/${id}`);
-        try {
-          localStorage.removeItem(`pen:backup:${id}`);
-        } catch {}
+        local.set(`pen:backup:${id}`, null);
         if (next) router.push(next);
         else router.refresh();
       }),

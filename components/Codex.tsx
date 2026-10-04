@@ -6,6 +6,7 @@ import { isImage, prepareNote } from "@/lib/cover";
 import type { EntryMeta } from "@/lib/types";
 import type { ImportMeta } from "@/lib/imports";
 import { useDropZone } from "@/lib/useDropZone";
+import { local } from "@/lib/storage";
 import { CODEX_IMPORT_ACCEPT, CODEX_NOTE_ACCEPT, HTML_EXT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";
 import { IconTrash } from "./icons";
 
@@ -163,9 +164,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
       await load();
       return;
     }
-    try {
-      localStorage.removeItem(`pen:backup:${projectId}/codex/${eid}`);
-    } catch {}
+    local.set(`pen:backup:${projectId}/codex/${eid}`, null);
     if (eid === activeId) onOpen(`/d/${projectId}`);
     else await load();
   };

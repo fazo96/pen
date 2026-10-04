@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { local } from "./storage";
 
 export type Theme = "auto" | "light" | "dark";
 export const THEME_LABEL: Record<Theme, string> = { auto: "Auto", light: "Paper", dark: "Night" };
@@ -22,15 +23,9 @@ export function useTheme() {
     const next: Theme = now === "auto" ? "light" : now === "light" ? "dark" : "auto";
     setTheme(next);
     const root = document.documentElement;
-    try {
-      if (next === "auto") {
-        delete root.dataset.theme;
-        localStorage.removeItem("pen:theme");
-      } else {
-        root.dataset.theme = next;
-        localStorage.setItem("pen:theme", next);
-      }
-    } catch {}
+    if (next === "auto") delete root.dataset.theme;
+    else root.dataset.theme = next;
+    local.set("pen:theme", next === "auto" ? null : next);
   }, []);
 
   return { theme, label: THEME_LABEL[theme], cycle };

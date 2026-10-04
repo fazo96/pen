@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { local } from "./storage";
 
 // Steady chrome: the top bar, outline and Codex panel stay put while typing
 // instead of fading. Per device, in localStorage; <html data-steady> is the
@@ -13,10 +14,7 @@ const isSteady = () => "steady" in document.documentElement.dataset;
 
 export function setSteady(on: boolean) {
   const root = document.documentElement;
-  try {
-    if (on) localStorage.setItem(KEY, "1");
-    else localStorage.removeItem(KEY);
-  } catch {}
+  local.set(KEY, on ? "1" : null);
   if (on) root.dataset.steady = "";
   else delete root.dataset.steady;
   listeners.forEach((l) => l());

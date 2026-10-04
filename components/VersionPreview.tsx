@@ -14,6 +14,7 @@ import { PenMarkdown } from "@/lib/markdownEscape";
 import { PenOrderedList } from "@/lib/orderedList";
 import { CitedPassage, showPassage } from "@/lib/passage";
 import { straightenQuotes } from "@/lib/quotes";
+import { local } from "@/lib/storage";
 import type { VersionMeta } from "@/lib/types";
 import { IconDown, IconUp } from "./icons";
 
@@ -72,18 +73,13 @@ export default function VersionPreview({ meta, content, draft, cite, onCited, on
   });
 
   useEffect(() => {
-    try {
-      if (localStorage.getItem(CHANGES_KEY)) setShowChanges(true);
-    } catch {}
+    if (local.get(CHANGES_KEY)) setShowChanges(true);
   }, []);
 
   const toggleChanges = () => {
     const next = !showChanges;
     setShowChanges(next);
-    try {
-      if (next) localStorage.setItem(CHANGES_KEY, "1");
-      else localStorage.removeItem(CHANGES_KEY);
-    } catch {}
+    local.set(CHANGES_KEY, next ? "1" : null);
   };
 
   // Shown with straight quotes, like the draft, so they don't all read as changes.

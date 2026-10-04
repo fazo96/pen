@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { local } from "./storage";
 
 const KEY = "pen:focus";
 const REVEAL_PX = 90; // pointer this close to the bottom edge reveals the toolbar
@@ -29,10 +30,7 @@ export function useFocusMode() {
     const root = document.documentElement;
     if (on) root.dataset.focus = "";
     else delete root.dataset.focus;
-    try {
-      if (on) localStorage.setItem(KEY, "1");
-      else localStorage.removeItem(KEY);
-    } catch {}
+    local.set(KEY, on ? "1" : null);
   }, []);
 
   const toggle = useCallback(() => set(!("focus" in document.documentElement.dataset)), [set]);

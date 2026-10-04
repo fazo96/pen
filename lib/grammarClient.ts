@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { api } from "./api";
 import { applyPatch, dictKey, effectiveRules, visibleFlags, type GrammarConfig, type GrammarPatch } from "./grammarConfig";
 import type { Flag } from "./grammarText";
+import { local } from "./storage";
 
 // The page's side of the grammar checker, shared by every editor on the page:
 // the library's settings, and the flags found so far, cached by block text so
@@ -33,11 +34,7 @@ class GrammarService {
 
   constructor() {
     if (typeof window === "undefined") return;
-    try {
-      this.enabled = localStorage.getItem(ENABLED_KEY) !== "off";
-    } catch {
-      this.enabled = true;
-    }
+    this.enabled = local.get(ENABLED_KEY) !== "off";
   }
 
   subscribe(fn: Listener): () => void {
@@ -51,10 +48,7 @@ class GrammarService {
 
   setEnabled(on: boolean) {
     this.enabled = on;
-    try {
-      if (on) localStorage.removeItem(ENABLED_KEY);
-      else localStorage.setItem(ENABLED_KEY, "off");
-    } catch {}
+    local.set(ENABLED_KEY, on ? null : "off");
     this.emit();
   }
 

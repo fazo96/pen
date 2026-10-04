@@ -12,6 +12,7 @@ import { matches, ROOMY, WIDE } from "@/lib/media";
 import { showPassage } from "@/lib/passage";
 import { buildCommands, buildPlaces, type DrawerTab } from "@/lib/penCommands";
 import type { Spot } from "@/lib/spot";
+import { session } from "@/lib/storage";
 import { slugify, wordCount } from "@/lib/text";
 import type { Story } from "@/lib/useAutosave";
 import { focusText, useCodexPanel } from "@/lib/useCodexPanel";
@@ -459,18 +460,14 @@ export default function Pen({
   // ─── Jumping between the manuscript, the Codex and Construct ───
   /** To another page, with the cursor in its text once it opens. */
   const goAndFocus = (href: string) => {
-    try {
-      sessionStorage.setItem(FOCUS_ON_ARRIVAL, String(Date.now()));
-    } catch {}
+    session.set(FOCUS_ON_ARRIVAL, String(Date.now()));
     return go(href);
   };
   useEffect(() => {
     if (!editor) return;
-    try {
-      const at = Number(sessionStorage.getItem(FOCUS_ON_ARRIVAL));
-      sessionStorage.removeItem(FOCUS_ON_ARRIVAL);
-      if (Date.now() - at < 10_000) focusText(editor);
-    } catch {}
+    const at = Number(session.get(FOCUS_ON_ARRIVAL));
+    session.set(FOCUS_ON_ARRIVAL, null);
+    if (Date.now() - at < 10_000) focusText(editor);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 

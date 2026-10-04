@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { local } from "./storage";
 
 export type SaveStatus = "saved" | "unsaved" | "saving" | "offline" | "conflict" | "locked";
 export type Story = { id: string; content: string; version: string };
@@ -21,18 +22,15 @@ type Backup = { content: string; baseVersion: string };
 
 function readBackup(key: string): Backup | null {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = local.get(key);
     return raw ? (JSON.parse(raw) as Backup) : null;
   } catch {
-    return null;
+    return null; // unreadable
   }
 }
 
 function writeBackup(key: string, b: Backup | null) {
-  try {
-    if (b) localStorage.setItem(key, JSON.stringify(b));
-    else localStorage.removeItem(key);
-  } catch {}
+  local.set(key, b ? JSON.stringify(b) : null);
 }
 
 type Options = {
