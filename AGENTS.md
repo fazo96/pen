@@ -32,4 +32,3 @@ A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Ti
 | [docs/grammar.md](docs/grammar.md) | The grammar check (Harper on the server), its cache and settings |
 | [docs/construct.md](docs/construct.md) | Construct, the AI panel: agents, tools, chats, pi, models, quick actions, citations |
 | [docs/imports.md](docs/imports.md) | Importing into the Codex: Critique Circle crits, handwritten notes |
-| [REFACTOR.md](REFACTOR.md) | The refactoring roadmap: what's done, what's left |
