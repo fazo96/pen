@@ -31,6 +31,18 @@ export type ToolContext = {
   onCodexChange: (change: CodexChange) => void;
 };
 
+/** create_codex_entry's reply. The new id is only known from it, so the
+ * session reads it back with `createdEntryIn`; keep the two together. */
+const createdEntry = (id: string) => `Created codex entry "${id}".`;
+
+/** The id a create_codex_entry result names, wherever the agent nested it. */
+export function createdEntryIn(output: unknown): string | null {
+  const text = JSON.stringify(output ?? "");
+  // Stringified, the reply's quotes come out backslash-escaped.
+  const m = text.match(/Created codex entry \\+"([a-z0-9][a-z0-9-]*)\\+"/);
+  return m ? m[1] : null;
+}
+
 type JsonSchema = { type: "object"; properties: Record<string, unknown>; required?: string[] };
 
 type Tool = {
@@ -520,7 +532,7 @@ const TOOLS: Tool[] = [
       const created = await createEntry(ctx.projectId, content, argString(args, "name", true));
       if (!created) throw new ToolError("The project is missing.");
       ctx.onCodexChange({ entry: created.id, action: "created" });
-      return `Created codex entry "${created.id}".`;
+      return createdEntry(created.id);
     },
   },
   {

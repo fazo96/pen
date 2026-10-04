@@ -20,7 +20,7 @@ import { parseCitation, withSnippets } from "../cite";
 import { agentHome, readChats, readDoc, readVersion, trashChat, writeChat } from "../docs";
 import { isNotice, modelOption, optionValues, startupInfoOf } from "../oneoff";
 import { titleOf } from "../text";
-import { type CodexChange, listTools, type ToolContext } from "./tools";
+import { type CodexChange, createdEntryIn, listTools, type ToolContext } from "./tools";
 import { type AgentId, type AgentPreset, AGENTS, fallbackAgent, isAgentId, type LaunchContext, penToolName, systemPrompt } from "./agents";
 import { modelFor } from "./ask";
 import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, ContextUsage, PromptContext } from "./types";
@@ -659,8 +659,8 @@ class ConstructSession {
         const name = toolNameOf(u) ?? base?.name;
         let input = brief(u.rawInput) ?? base?.input;
         // A new entry's id is only known from the result.
-        const created = JSON.stringify(u.rawOutput ?? "").match(/Created codex entry \\"([a-z0-9-]+)\\"/);
-        if (created) input = { ...input, id: created[1] };
+        const created = createdEntryIn(u.rawOutput);
+        if (created) input = { ...input, id: created };
         this.upsert({
           id: u.toolCallId,
           type: "tool",
