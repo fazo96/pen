@@ -1,30 +1,17 @@
 import { createDoc, listDocs, MAX_BYTES } from "@/lib/docs";
-import { hasSession, lockedResponse } from "@/lib/session";
+import { badRequest, fail, noStore, readJson, route } from "@/lib/route";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  if (!(await hasSession())) return lockedResponse();
-  return Response.json(await listDocs(), { headers: { "Cache-Control": "no-store" } });
-}
+export const GET = route(async () => noStore(await listDocs()));
 
 /** Create a document: blank ("New") or with content (import). */
-export async function POST(req: Request) {
-  if (!(await hasSession())) return lockedResponse();
-  let body: { content?: unknown; name?: unknown };
-  try {
-    body = await req.json();
-  } catch {
-    return Response.json({ error: "invalid json" }, { status: 400 });
-  }
+export const POST = route(async (req) => {
+  const body = (await readJson(req)) as { content?: unknown; name?: unknown } | undefined;
+  if (!body) return badRequest("invalid json");
   const content = body.content ?? "";
-  if (typeof content !== "string") {
-    return Response.json({ error: "content must be a string" }, { status: 400 });
-  }
-  if (Buffer.byteLength(content) > MAX_BYTES) {
-    return Response.json({ error: "file too large (max 5 MB)" }, { status: 413 });
-  }
+  if (typeof content !== "string") return badRequest("content must be a string");
+  if (Buffer.byteLength(content) > MAX_BYTES) return fail(413, "file too large (max 5 MB)");
   const name = typeof body.name === "string" ? body.name : undefined;
-  const doc = await createDoc(content, name);
-  return Response.json(doc, { status: 201 });
-}
+  return Response.json(await createDoc(content, name), { status: 201 });
+});

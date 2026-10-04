@@ -1,16 +1,10 @@
-import { isValidId, restoreVersion } from "@/lib/docs";
-import { hasSession, lockedResponse } from "@/lib/session";
-import { isValidVersionId } from "@/lib/versions";
+import { restoreVersion } from "@/lib/docs";
+import { notFound, route } from "@/lib/route";
 
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ id: string; vid: string }> };
-
 /** Make a version the manuscript again; the replaced text becomes a version. */
-export async function POST(_req: Request, { params }: Ctx) {
-  if (!(await hasSession())) return lockedResponse();
-  const { id, vid } = await params;
-  if (!isValidId(id) || !isValidVersionId(vid)) return Response.json({ error: "not found" }, { status: 404 });
+export const POST = route<{ id: string; vid: string }>(async (_req, { id, vid }) => {
   const doc = await restoreVersion(id, vid);
-  return doc ? Response.json(doc) : Response.json({ error: "not found" }, { status: 404 });
-}
+  return doc ? Response.json(doc) : notFound();
+});

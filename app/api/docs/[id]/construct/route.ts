@@ -2,14 +2,9 @@ import { aiEnabled, aiOffResponse, isAgentId } from "@/lib/construct/agents";
 import { getSession } from "@/lib/construct/session";
 import type { ConstructEvent, PromptContext } from "@/lib/construct/types";
 import { isValidId, readDoc } from "@/lib/docs";
-import { hasSession, lockedResponse } from "@/lib/session";
+import { badRequest, fail, noContent, notFound, readJson, route } from "@/lib/route";
 
 export const dynamic = "force-dynamic";
-
-type Ctx = { params: Promise<{ id: string }> };
-
-const notFound = () => Response.json({ error: "not found" }, { status: 404 });
-const bad = (error: string) => Response.json({ error }, { status: 400 });
 
 /** Where the agent process reaches pen's MCP endpoint: this server, on loopback. */
 function internalUrl(req: Request) {
@@ -18,17 +13,10 @@ function internalUrl(req: Request) {
   return `http://127.0.0.1:${port}`;
 }
 
-async function project(params: Ctx["params"]) {
-  const { id } = await params;
-  return isValidId(id) && (await readDoc(id)) ? id : null;
-}
-
 /** Server-sent events: a snapshot of the conversation, then every change. */
-export async function GET(req: Request, { params }: Ctx) {
-  if (!(await hasSession())) return lockedResponse();
+export const GET = route<{ id: string }>(async (req, { id }) => {
   if (!aiEnabled()) return aiOffResponse();
-  const id = await project(params);
-  if (!id) return notFound();
+  if (!(await readDoc(id))) return notFound();
   const session = await getSession(id, internalUrl(req));
 
   const enc = new TextEncoder();
@@ -56,7 +44,7 @@ export async function GET(req: Request, { params }: Ctx) {
       "X-Accel-Buffering": "no",
     },
   });
-}
+});
 
 type Action =
   | { action: "start" }
@@ -71,13 +59,11 @@ type Action =
   | { action: "config"; configId: string; value: string };
 
 /** Drive the conversation. Replies come back over the event stream. */
-export async function POST(req: Request, { params }: Ctx) {
-  if (!(await hasSession())) return lockedResponse();
+export const POST = route<{ id: string }>(async (req, { id }) => {
   if (!aiEnabled()) return aiOffResponse();
-  const id = await project(params);
-  if (!id) return notFound();
-  const body = (await req.json().catch(() => null)) as Action | null;
-  if (!body || typeof body !== "object") return bad("invalid json");
+  if (!(await readDoc(id))) return notFound();
+  const body = (await readJson(req)) as Action | undefined;
+  if (!body || typeof body !== "object") return badRequest("invalid json");
   const session = await getSession(id, internalUrl(req));
 
   try {
@@ -86,14 +72,14 @@ export async function POST(req: Request, { params }: Ctx) {
         await session.start();
         break;
       case "switch":
-        if (!isAgentId(body.agent)) return bad("unknown agent");
-        if (body.model !== undefined && typeof body.model !== "string") return bad("invalid model");
+        if (!isAgentId(body.agent)) return badRequest("unknown agent");
+        if (body.model !== undefined && typeof body.model !== "string") return badRequest("invalid model");
         await session.switchAgent(body.agent, body.model);
         break;
       case "prompt": {
         const text = typeof body.text === "string" ? body.text.trim() : "";
-        if (!text) return bad("empty prompt");
-        if (session.busy) return Response.json({ error: "Construct is still answering." }, { status: 409 });
+        if (!text) return badRequest("empty prompt");
+        if (session.busy) return fail(409, "Construct is still answering.");
         const c = body.context ?? {};
         const context: PromptContext = {
           ...(typeof c.entry === "string" && isValidId(c.entry) ? { entry: c.entry } : {}),
@@ -105,7 +91,7 @@ export async function POST(req: Request, { params }: Ctx) {
         break;
       }
       case "compact":
-        if (session.busy) return Response.json({ error: "Construct is still answering." }, { status: 409 });
+        if (session.busy) return fail(409, "Construct is still answering.");
         void session.compact();
         break;
       case "cancel":
@@ -116,23 +102,23 @@ export async function POST(req: Request, { params }: Ctx) {
         break;
       case "open-chat":
       case "delete-chat":
-        if (typeof body.chatId !== "string" || !isValidId(body.chatId)) return bad("chatId required");
+        if (typeof body.chatId !== "string" || !isValidId(body.chatId)) return badRequest("chatId required");
         await (body.action === "open-chat" ? session.openChat(body.chatId) : session.deleteChat(body.chatId));
         break;
       case "rename-chat":
-        if (typeof body.chatId !== "string" || !isValidId(body.chatId)) return bad("chatId required");
-        if (typeof body.title !== "string") return bad("title required");
+        if (typeof body.chatId !== "string" || !isValidId(body.chatId)) return badRequest("chatId required");
+        if (typeof body.title !== "string") return badRequest("title required");
         await session.renameChat(body.chatId, body.title);
         break;
       case "config":
-        if (typeof body.configId !== "string" || typeof body.value !== "string") return bad("configId and value required");
+        if (typeof body.configId !== "string" || typeof body.value !== "string") return badRequest("configId and value required");
         await session.setConfig(body.configId, body.value);
         break;
       default:
-        return bad("unknown action");
+        return badRequest("unknown action");
     }
   } catch (err) {
-    return Response.json({ error: (err as Error).message }, { status: 409 });
+    return fail(409, (err as Error).message);
   }
-  return new Response(null, { status: 204 });
-}
+  return noContent();
+});

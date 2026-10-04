@@ -1,16 +1,11 @@
-import { coverExtOf, isValidId, MAX_COVER_BYTES, readCover, removeCover, writeCover } from "@/lib/docs";
-import { hasSession, lockedResponse } from "@/lib/session";
+import { coverExtOf, MAX_COVER_BYTES, readCover, removeCover, writeCover } from "@/lib/docs";
+import { fail, noContent, notFound, route } from "@/lib/route";
 
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ id: string }> };
-
-const notFound = () => Response.json({ error: "not found" }, { status: 404 });
-
 /** The cover image. Links carry ?v=<mtime>, so a response never goes stale. */
-export async function GET(_req: Request, { params }: Ctx) {
-  if (!(await hasSession())) return lockedResponse();
-  const cover = await readCover((await params).id);
+export const GET = route<{ id: string }>(async (_req, { id }) => {
+  const cover = await readCover(id);
   if (!cover) return notFound();
   return new Response(new Uint8Array(cover.data), {
     headers: {
@@ -19,30 +14,18 @@ export async function GET(_req: Request, { params }: Ctx) {
       "X-Content-Type-Options": "nosniff",
     },
   });
-}
+});
+
+const tooLarge = () => fail(413, "image too large (max 10 MB)");
 
 /** Set the cover: the raw image bytes as the body. */
-export async function PUT(req: Request, { params }: Ctx) {
-  if (!(await hasSession())) return lockedResponse();
-  const { id } = await params;
-  if (!isValidId(id)) return notFound();
-  if (Number(req.headers.get("content-length")) > MAX_COVER_BYTES) {
-    return Response.json({ error: "image too large (max 10 MB)" }, { status: 413 });
-  }
+export const PUT = route<{ id: string }>(async (req, { id }) => {
+  if (Number(req.headers.get("content-length")) > MAX_COVER_BYTES) return tooLarge();
   const data = new Uint8Array(await req.arrayBuffer());
-  if (data.byteLength > MAX_COVER_BYTES) {
-    return Response.json({ error: "image too large (max 10 MB)" }, { status: 413 });
-  }
+  if (data.byteLength > MAX_COVER_BYTES) return tooLarge();
   const ext = coverExtOf(data);
-  if (!ext) {
-    return Response.json({ error: "cover must be a JPEG, PNG, WebP, AVIF or GIF image" }, { status: 415 });
-  }
-  return (await writeCover(id, data, ext)) ? new Response(null, { status: 204 }) : notFound();
-}
+  if (!ext) return fail(415, "cover must be a JPEG, PNG, WebP, AVIF or GIF image");
+  return (await writeCover(id, data, ext)) ? noContent() : notFound();
+});
 
-export async function DELETE(_req: Request, { params }: Ctx) {
-  if (!(await hasSession())) return lockedResponse();
-  const { id } = await params;
-  if (!isValidId(id)) return notFound();
-  return (await removeCover(id)) ? new Response(null, { status: 204 }) : notFound();
-}
+export const DELETE = route<{ id: string }>(async (_req, { id }) => ((await removeCover(id)) ? noContent() : notFound()));
