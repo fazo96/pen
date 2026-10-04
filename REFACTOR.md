@@ -6,11 +6,13 @@ Overall health is decent: `tsc --noEmit` is clean under `strict`, 119/119 tests 
 
 ## Bugs and fragile spots
 
-1. **Failed deletes are ignored.** `History.tsx` `remove` and `Codex.tsx` `remove` don't check `res.ok`; a network error is an unhandled rejection that skips the reload.
-2. **Construct's Codex chip depends on exact wording.** `session.ts` regex-matches `Created codex entry "…"`, the literal string `tools.ts` returns. Rewording the tool's message breaks the link silently.
-3. **The save queue is module-scoped** (`docs.ts`, `let queue`). Imports and sessions live on `globalThis` on purpose; the queue doesn't, so if Next loads the module twice, serialization quietly stops.
-4. **A renamed book can lose its shelf position.** `renameOnShelves` runs after `renameDoc` returns, outside the docs queue; a concurrent `PUT /api/shelves` with a stale layout can overwrite it.
-5. **Invalid entry/chat ids give 500, not 404.** `entryFile`/`chatFile` throw on a bad id; `renameEntry` (called from Construct's tools) doesn't validate the new id.
+All fixed (October 2026), except the last, which turned out not to be one.
+
+1. ~~**Failed deletes are ignored.**~~ Done: History and the Codex list show an error; a 404 counts as done.
+2. ~~**Construct's Codex chip depends on exact wording.**~~ Done: the reply and its parser (`createdEntryIn`) sit together in `tools.ts`.
+3. ~~**The save queue is module-scoped.**~~ Done: `lib/queue.ts`, named queues on `globalThis`, used by docs, shelves, grammar settings and Construct settings.
+4. ~~**A renamed book can lose its shelf position.**~~ Done: saving shelves maps renamed ids (`.pen-renames.json`) to their current ones first (`followRenames`), which also covers a page left open across a rename.
+5. ~~**Invalid entry/chat ids give 500.**~~ Not a bug: every caller validates first (routes return 404, `readEntry`/`readDoc` return null, Construct's tools validate both ids with `entryId`, chat ids are generated). `entryFile`/`chatFile` throwing is the last line of defence.
 
 ## Refactors
 
@@ -25,7 +27,7 @@ Overall health is decent: `tsc --noEmit` is clean under `strict`, 119/119 tests 
   ```
   Keep the per-handler session re-check AGENTS.md asks for (the wrapper does it).
 - Client side: ~45 `fetch(` calls in 14 files, each doing `if (!res.ok) throw new Error()` and dropping the server's `{error}`; `res.json().catch(() => ({}))` 10×; only `QuickAnswer` handles 401. A typed `lib/api.ts` (`apiJson<T>(path, init)` throwing `ApiError{status,message}`, one 401 → `/unlock` path, `saveVersion(docId, label)` used by Pen, History and quote straightening).
-- The id regex is duplicated in `docs.ts`, `renames.ts`, `spot.ts`, `shelfLayout.ts`, `cite.ts`, `versions.ts`, `BookSettings.tsx` → `lib/ids.ts` (dependency-free so `proxy.ts` can import it).
+- ~~The id regex is duplicated~~ Done: `lib/ids.ts` (`isValidId`, `ID_PATTERN`).
 - Client components import `DocMeta`/`EntryMeta` types from the `server-only` `lib/docs.ts`; move shared types to a plain module.
 
 ### B. `jsonStore<T>()` for the `.pen-*.json` files (S–M, low risk)
@@ -80,8 +82,8 @@ In order of payoff:
 
 ## Tests and tooling
 - No test can load `docs.ts`, `versions.ts`, `auth.ts`, `library.ts`, `tools.ts`, `session.ts` or any route: `server-only` and the `@/` alias block Node's runner. Fix with a loader/`--conditions=react-server` or by splitting I/O cores out of the server-only wrappers (~½ day). Most valuable: `writeDoc` (409 on stale, session-gap snapshot), version pruning at 30, `restoreVersion`, `renameDoc`, migration, the export whitelist (must exclude `.pen-auth.json`), `edit_codex_entry`'s match-once rule, `mcp.ts` JSON-RPC.
-- Pure modules with no tests: `textdiff`, `quotes`, `cite`, `passage`, `outline`.
-- No `typecheck`/lint script, no CI. No component or browser tests.
+- Pure modules with no tests: done for `textdiff`, `cite`, `outline`, `quotes`, `text`. `passage` needs a DOM (EditorView); left.
+- `npm run typecheck` added. Still no lint, no CI, no component or browser tests.
 
 ## CSS (`app/globals.css`, 3927 lines)
 - ~40 banner sections in chronological order; shared primitives live in unrelated sections (`.btn` defined in Library and again in Welcome, `.btn-danger` duplicates `.library-confirm-actions button.danger`, `.dropdown` under Shelf).
@@ -95,7 +97,7 @@ In order of payoff:
 Mostly accurate (8 numeric claims checked). The renames bullet ends with a mis-pasted, stale route-map fragment; the export bullet's whitelist omits `.pen-construct.json`. The real problem is format: one huge bullet list (Construct alone ~2.5 KB in one bullet). Splitting it into per-feature docs with a short index would make drift easier to catch.
 
 ## Suggested order
-1. **Quick wins**: the bugs above, the `globalThis` queue, `lib/ids.ts`, a `typecheck` script, tests for the pure modules.
+1. ~~**Quick wins**~~: done (the bugs, `lib/queue.ts`, `lib/ids.ts`, `npm run typecheck`, tests for the pure modules).
 2. **Foundations**: B, A, F, and making server modules testable, so the big moves have a net.
 3. **The big files**: C, then D + E, then G.
 4. **Any time**: H, the CSS split, restructuring AGENTS.md.
