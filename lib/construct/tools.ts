@@ -18,6 +18,7 @@ import { straightQuotes, titleOf, wordCount } from "../text";
 import { alignBlocks, blockKey, countWords, wordDiff } from "../textdiff";
 import { checkGrammar, type GrammarReport } from "./grammarCheck";
 import { createdEntry } from "./transcript";
+import type { ToolName } from "./types";
 
 // Everything Construct can do, and nothing more. The agent's own file, shell
 // and web tools are switched off; these are served to it over MCP (see
@@ -35,7 +36,7 @@ export type ToolContext = {
 type JsonSchema = { type: "object"; properties: Record<string, unknown>; required?: string[] };
 
 type Tool = {
-  name: string;
+  name: ToolName;
   description: string;
   inputSchema: JsonSchema;
   readOnly: boolean;

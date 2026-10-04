@@ -37,6 +37,38 @@ test("a chat: send, compact, new chat", async ({ page, request }) => {
   await expect(construct(page).locator(".construct-msg")).toHaveCount(0);
 });
 
+test("the Chats list opens, renames and deletes chats", async ({ page, request }) => {
+  const id = await makeBook(request, uniqueId("chats"));
+  await openBook(page, id);
+  await page.getByRole("button", { name: "Construct", exact: true }).click();
+  await expect(input(page)).toBeVisible({ timeout: 30_000 });
+  const panel = construct(page);
+  for (const text of ["First question", "Second question"]) {
+    if (text.startsWith("Second")) await panel.getByRole("button", { name: "New chat" }).click();
+    await input(page).fill(text);
+    await page.keyboard.press("Enter");
+    await expect(replies(page).last()).toContainText(text, { timeout: 30_000 });
+  }
+  const chats = panel.getByRole("list", { name: "Chats" });
+  const titles = chats.locator(".construct-chat-title");
+  await panel.getByRole("button", { name: "Chats", exact: true }).click();
+  await expect(titles).toHaveText(["Second question", "First question"]);
+
+  await chats.getByRole("button", { name: "Rename “First question”" }).click();
+  await chats.getByLabel("Chat name").fill("Mara");
+  await page.keyboard.press("Enter");
+  await expect(titles).toHaveText(["Second question", "Mara"]);
+
+  await titles.filter({ hasText: "Mara" }).click();
+  await expect(chats).toBeHidden();
+  await expect(replies(page)).toHaveText([/First question/]);
+
+  await panel.getByRole("button", { name: "Chats", exact: true }).click();
+  await chats.getByRole("button", { name: "Delete “Second question”" }).click();
+  await chats.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(titles).toHaveText(["Mara"]);
+});
+
 test("Ctrl+Shift+A goes to Construct's input, Esc back to the text", async ({ page, request }) => {
   const id = await makeBook(request, uniqueId("chat-keys"));
   await openBook(page, id);

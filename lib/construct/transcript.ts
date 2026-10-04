@@ -178,7 +178,7 @@ export function createdEntryIn(output: unknown): string | null {
 function brief(input: unknown): Record<string, string> | undefined {
   if (!input || typeof input !== "object") return undefined;
   const out: Record<string, string> = {};
-  for (const k of ["id", "new_id", "heading", "query", "name", "from_line", "to_line", "scope", "version", "from", "to"]) {
+  for (const k of ["id", "new_id", "entry", "heading", "query", "name", "from_line", "to_line", "scope", "version", "from", "to"]) {
     const v = (input as Record<string, unknown>)[k];
     if (typeof v === "string" || typeof v === "number") out[k] = String(v).slice(0, 120);
   }

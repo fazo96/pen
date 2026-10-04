@@ -1,16 +1,16 @@
 "use client";
 
-import { Marked } from "marked";
-import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { type Citation, parseCitation } from "@/lib/cite";
 import { matches, TOUCH } from "@/lib/media";
-import type { SessionConfigOption } from "@agentclientprotocol/sdk";
 import { agentName, DEFAULT_AGENT } from "@/lib/construct/agentInfo";
-import type { AgentModels } from "@/lib/construct/models";
-import type { ChatItem, ConstructEvent, PromptContext } from "@/lib/construct/types";
+import type { ConstructEvent, PromptContext } from "@/lib/construct/types";
 import { useConstruct } from "@/lib/useConstruct";
 import { useModels } from "@/lib/useModels";
-import { IconChats, IconClose, IconCompact, IconDown, IconPencil, IconPlus, IconSend, IconStop, IconTrash } from "./icons";
+import ConstructChats from "./ConstructChats";
+import ConstructItem from "./ConstructItem";
+import ConstructModelMenu from "./ConstructModelMenu";
+import { IconChats, IconClose, IconCompact, IconPlus, IconSend, IconStop } from "./icons";
 
 type CodexChange = Extract<ConstructEvent, { t: "codex" }>["change"];
 
@@ -47,215 +47,11 @@ export type ConstructHandle = {
 };
 
 
-const escapeHtml = (s: string) =>
-  s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-
-// Agent replies are markdown. Raw HTML is shown as text; only web links link.
-const md = new Marked({
-  gfm: true,
-  breaks: true,
-  renderer: {
-    html: ({ text }) => escapeHtml(text),
-    image: ({ text }) => escapeHtml(text),
-    link({ href, tokens }) {
-      const inner = this.parser.parseInline(tokens);
-      // Citations (see lib/cite.ts) become chips; the log handles their clicks.
-      const cite = parseCitation(href);
-      if (cite) {
-        const quote = cite.kind !== "codex" && cite.q ? ` title="${escapeHtml(`“${cite.q}…”`)}"` : "";
-        return `<button type="button" class="cite is-${cite.kind}" data-cite="${escapeHtml(href)}"${quote}>${inner}</button>`;
-      }
-      return /^https?:\/\//i.test(href)
-        ? `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer noopener">${inner}</a>`
-        : inner;
-    },
-  },
-});
-
-export function Markdown({ text }: { text: string }) {
-  const html = useMemo(() => md.parse(text, { async: false }), [text]);
-  return <div className="construct-md" dangerouslySetInnerHTML={{ __html: html }} />;
-}
-
-/** "the version from 29 Sep, 14:00", from a version id (its UTC timestamp). */
-function versionName(id: string | undefined) {
-  const m = id?.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z/);
-  if (!m) return "a past version";
-  const [y, mo, d, h, mi] = m.slice(1, 6).map(Number);
-  const date = new Date(Date.UTC(y, mo - 1, d, h, mi));
-  const day = date.toLocaleDateString(undefined, { day: "numeric", month: "short" });
-  const time = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-  return `the version from ${day}, ${time}`;
-}
-
-/** What a tool call did, in the writer's terms. */
-function describeTool(item: Extract<ChatItem, { type: "tool" }>): { text: string; entry?: string } {
-  const i = item.input ?? {};
-  const lines = i.from_line || i.to_line ? ` (lines ${i.from_line ?? "1"}–${i.to_line ?? "end"})` : "";
-  switch (item.name) {
-    case "read_manuscript":
-      return { text: `Read ${i.heading ?? "the manuscript"}${lines}` };
-    case "search":
-      return { text: i.query ? `Searched for “${i.query}”` : "Searched" };
-    case "list_versions":
-      return { text: "Looked through the history" };
-    case "outline":
-      return { text: i.version ? `Read the outline of ${versionName(i.version)}` : "Read the outline" };
-    case "read_version":
-      return { text: `Read ${versionName(i.id)}${i.heading ? `: ${i.heading}` : ""}${lines}` };
-    case "diff_versions":
-      return {
-        text: `Compared ${versionName(i.from)} with ${i.to ? versionName(i.to) : "the current draft"}${i.heading ? ` · ${i.heading}` : ""}`,
-      };
-    case "list_codex":
-      return { text: "Looked through the Codex" };
-    case "read_codex_entry":
-      return { text: `Read Codex · ${i.id ?? ""}`, entry: i.id };
-    case "create_codex_entry":
-      return { text: i.id ? `Created Codex · ${i.id}` : "Created a Codex entry", entry: i.id };
-    case "edit_codex_entry":
-    case "write_codex_entry":
-      return { text: `Edited Codex · ${i.id ?? ""}`, entry: i.id };
-    case "rename_codex_entry":
-      return { text: `Renamed Codex · ${i.id ?? ""} → ${i.new_id ?? ""}`, entry: i.new_id };
-    case "delete_codex_entry":
-      return { text: `Deleted Codex · ${i.id ?? ""}` };
-    default:
-      return { text: item.title };
-  }
-}
-
-function when(t: number) {
-  const d = new Date(t);
-  const today = new Date().toDateString() === d.toDateString();
-  return today
-    ? d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
-    : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
-}
-
 /** 460, 12k, 1.2M: token counts at a glance. */
 function tokens(n: number) {
   if (n < 1000) return String(n);
   if (n < 1_000_000) return `${n < 10_000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") : Math.round(n / 1000)}k`;
   return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
-}
-
-/**
- * The model and effort pickers, folded behind one button: "Opus 5.5 · High".
- * The model list has every agent's models; another agent's starts a new chat.
- */
-function ModelMenu({
-  config,
-  agent,
-  agents,
-  disabled,
-  onChange,
-  onSwitch,
-}: {
-  config: SessionConfigOption[];
-  agent: string;
-  agents: AgentModels[] | null;
-  disabled: boolean;
-  onChange: (configId: string, value: string) => void;
-  onSwitch: (agent: string, model: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: Event) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !root.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [open]);
-
-  const selects = config.flatMap((o) => (o.type === "select" ? [o] : []));
-  const flat = (o: (typeof selects)[number]) => o.options.flatMap((opt) => ("group" in opt ? opt.options : [opt]));
-  // Only what's been changed ("Opus 5.5 · High"); all defaults is "Default model".
-  const summary =
-    selects
-      .map((o) => flat(o).find((opt) => opt.value === o.currentValue)?.name ?? String(o.currentValue))
-      .filter((name) => !/^default\b/i.test(name))
-      .join(" · ") || "Default model";
-  const others = (agents ?? []).filter((a) => a.agent !== agent && a.models.length);
-  const name = agentName(agent);
-
-  return (
-    <div className="construct-model" ref={root}>
-      <button
-        type="button"
-        className="construct-model-btn"
-        onClick={() => setOpen((x) => !x)}
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        title="Model and effort"
-      >
-        <span>
-          {agent !== DEFAULT_AGENT && `${name} · `}
-          {summary}
-        </span>
-        <IconDown />
-      </button>
-      {open && (
-        <div className="popover-menu construct-model-menu" role="dialog" aria-label="Model and effort">
-          {selects.map((o) =>
-            o.category === "model" && others.length ? (
-              <label key={o.id} className="construct-select">
-                <span className="label">{o.name}</span>
-                <select
-                  value={`${agent}\u0000${o.currentValue}`}
-                  disabled={disabled}
-                  onChange={(e) => {
-                    const [a, value] = e.target.value.split("\u0000");
-                    if (a === agent) onChange(o.id, value);
-                    else {
-                      setOpen(false);
-                      onSwitch(a, value);
-                    }
-                  }}
-                >
-                  <optgroup label={name}>
-                    {flat(o).map((opt) => (
-                      <option key={opt.value} value={`${agent}\u0000${opt.value}`}>
-                        {opt.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  {others.map((a) => (
-                    <optgroup key={a.agent} label={`${a.name} · new chat`}>
-                      {a.models.map((m) => (
-                        <option key={m.value} value={`${a.agent}\u0000${m.value}`}>
-                          {m.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <label key={o.id} className="construct-select">
-                <span className="label">{o.name}</span>
-                <select value={o.currentValue} disabled={disabled} onChange={(e) => onChange(o.id, e.target.value)}>
-                  {flat(o).map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ),
-          )}
-          {others.length > 0 && <p className="construct-model-hint">A model of another agent starts a new chat.</p>}
-        </div>
-      )}
-    </div>
-  );
 }
 
 const isTouch = () => matches(TOUCH);
@@ -277,10 +73,6 @@ export default function Construct({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [showChats, setShowChats] = useState(false);
-  const [confirming, setConfirming] = useState<string | null>(null);
-  /** The chat whose name is being edited, and the name so far. */
-  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
-  const renameCancelled = useRef(false);
   const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const stick = useRef(true);
@@ -405,10 +197,7 @@ export default function Construct({
             <button
               type="button"
               className={`icon-btn ${showChats ? "is-on" : ""}`}
-              onClick={() => {
-                setShowChats((s) => !s);
-                setConfirming(null);
-              }}
+              onClick={() => setShowChats((s) => !s)}
               disabled={!c.state?.chats?.length}
               aria-label="Chats"
               aria-pressed={showChats}
@@ -438,7 +227,7 @@ export default function Construct({
         {(config.length > 0 || context) && (
           <div className="construct-config">
             {config.length > 0 && (
-              <ModelMenu
+              <ConstructModelMenu
                 config={config}
                 agent={c.state?.agent ?? DEFAULT_AGENT}
                 agents={models.agents}
@@ -489,97 +278,18 @@ export default function Construct({
         )}
 
         {showChats && (
-          <ol className="construct-chats" aria-label="Chats">
-            {(c.state?.chats ?? []).map((chat) => (
-              <li key={chat.id} className={chat.id === c.state?.chatId ? "is-current" : ""}>
-                {renaming?.id === chat.id ? (
-                  <form
-                    className="construct-chat-rename"
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      e.currentTarget.querySelector("input")?.blur();
-                    }}
-                  >
-                    <input
-                      autoFocus
-                      value={renaming.name}
-                      maxLength={80}
-                      placeholder="Automatic name"
-                      aria-label="Chat name"
-                      onFocus={(e) => e.currentTarget.select()}
-                      onChange={(e) => setRenaming({ id: chat.id, name: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") {
-                          e.stopPropagation();
-                          renameCancelled.current = true;
-                          setRenaming(null);
-                        }
-                      }}
-                      onBlur={() => {
-                        setRenaming(null);
-                        if (renameCancelled.current) renameCancelled.current = false;
-                        else if (renaming.name.trim() !== chat.title) void c.renameChat(chat.id, renaming.name);
-                      }}
-                    />
-                  </form>
-                ) : confirming === chat.id ? (
-                  <div className="construct-chat-confirm">
-                    <span>Delete this chat?</span>
-                    <button type="button" onClick={() => setConfirming(null)}>
-                      Keep
-                    </button>
-                    <button
-                      type="button"
-                      className="is-danger"
-                      onClick={() => {
-                        setConfirming(null);
-                        void c.deleteChat(chat.id);
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="construct-chat"
-                      disabled={busy}
-                      onClick={() => {
-                        setShowChats(false);
-                        stick.current = true;
-                        void c.openChat(chat.id);
-                      }}
-                    >
-                      <span className="construct-chat-title">{chat.title}</span>
-                      <span className="label">{when(chat.updated)}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-btn construct-chat-action"
-                      onClick={() => {
-                        setConfirming(null);
-                        renameCancelled.current = false;
-                        setRenaming({ id: chat.id, name: chat.title });
-                      }}
-                      aria-label={`Rename “${chat.title}”`}
-                    >
-                      <IconPencil />
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-btn construct-chat-action"
-                      disabled={busy && chat.id === c.state?.chatId}
-                      onClick={() => setConfirming(chat.id)}
-                      aria-label={`Delete “${chat.title}”`}
-                    >
-                      <IconTrash />
-                    </button>
-                  </>
-                )}
-              </li>
-            ))}
-          </ol>
+          <ConstructChats
+            chats={c.state?.chats ?? []}
+            current={c.state?.chatId}
+            busy={busy}
+            onOpen={(id) => {
+              setShowChats(false);
+              stick.current = true;
+              void c.openChat(id);
+            }}
+            onRename={(id, name) => void c.renameChat(id, name)}
+            onDelete={(id) => void c.deleteChat(id)}
+          />
         )}
 
         <div
@@ -602,90 +312,9 @@ export default function Construct({
               <p>It can’t change the manuscript, and it won’t write prose unless you ask: feedback points at passages, the words stay yours.</p>
             </div>
           )}
-          {c.items.map((item) => {
-            switch (item.type) {
-              case "user":
-                return (
-                  <div key={item.id} className="construct-msg is-user">
-                    {item.context?.selection && (
-                      <blockquote className="construct-quote">{item.context.selection}</blockquote>
-                    )}
-                    <p>{item.text}</p>
-                  </div>
-                );
-              case "agent":
-                return (
-                  <div key={item.id} className="construct-msg is-agent">
-                    <Markdown text={item.text} />
-                  </div>
-                );
-              case "thought":
-                return (
-                  <details key={item.id} className="construct-thought">
-                    <summary className="label">Thinking</summary>
-                    <p>{item.text}</p>
-                  </details>
-                );
-              case "tool": {
-                const { text, entry } = describeTool(item);
-                const done = item.status === "completed";
-                return (
-                  <div key={item.id} className={`construct-tool is-${item.status}`}>
-                    <span className="construct-tool-dot" aria-hidden />
-                    {entry && done && !item.name?.startsWith("delete") ? (
-                      <button type="button" onClick={() => onOpen(`/d/${projectId}/codex/${entry}`)}>
-                        {text}
-                      </button>
-                    ) : (
-                      <span>{text}</span>
-                    )}
-                  </div>
-                );
-              }
-              case "plan":
-                return (
-                  <ol key={item.id} className="construct-plan">
-                    {item.entries.map((e, i) => (
-                      <li key={i} className={`is-${e.status}`}>
-                        {e.content}
-                      </li>
-                    ))}
-                  </ol>
-                );
-              case "compaction":
-                return (
-                  <div key={item.id} className={`construct-compaction is-${item.status}`}>
-                    <p className="label">
-                      {item.status === "in_progress"
-                        ? "Compacting the conversation…"
-                        : item.status === "failed"
-                          ? "Compacting failed"
-                          : item.status === "cancelled"
-                            ? "Compacting stopped"
-                            : item.manual
-                              ? "Conversation compacted"
-                              : "Compacted to make room"}
-                    </p>
-                    {item.error && <p className="construct-notice is-error">{item.error}</p>}
-                    {item.status === "completed" && (
-                      <p className="construct-notice">Construct now remembers what’s above only as a summary.</p>
-                    )}
-                    {item.summary && (
-                      <details className="construct-thought construct-compaction-summary">
-                        <summary className="label">Summary</summary>
-                        <Markdown text={item.summary} />
-                      </details>
-                    )}
-                  </div>
-                );
-              case "notice":
-                return (
-                  <p key={item.id} className={`construct-notice is-${item.tone}`}>
-                    {item.text}
-                  </p>
-                );
-            }
-          })}
+          {c.items.map((item) => (
+            <ConstructItem key={item.id} item={item} onOpenEntry={(entry) => onOpen(`/d/${projectId}/codex/${entry}`)} />
+          ))}
           {status === "busy" && <div className="construct-working" aria-label="Working" />}
         </div>
 

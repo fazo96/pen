@@ -2,6 +2,23 @@
 
 import type { SessionConfigOption } from "@agentclientprotocol/sdk";
 
+/** pen's tools, as Construct's agent calls them (served by ./tools.ts, described in the panel by Construct.tsx). */
+export type ToolName =
+  | "outline"
+  | "read_manuscript"
+  | "search"
+  | "grammar_check"
+  | "list_versions"
+  | "read_version"
+  | "diff_versions"
+  | "list_codex"
+  | "read_codex_entry"
+  | "create_codex_entry"
+  | "edit_codex_entry"
+  | "write_codex_entry"
+  | "rename_codex_entry"
+  | "delete_codex_entry";
+
 export type PromptContext = {
   /** Codex entry open in the editor; absent for the manuscript. */
   entry?: string;

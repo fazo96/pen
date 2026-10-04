@@ -8,7 +8,7 @@ import type { PromptContext } from "@/lib/construct/types";
 import { readNdjson } from "@/lib/ndjson";
 import { useAnchored } from "@/lib/useAnchored";
 import { alternativesIn, matchCase, type QuickKind } from "@/lib/wordTools";
-import { Markdown } from "./Construct";
+import { Markdown } from "./ConstructMarkdown";
 import { IconConstruct } from "./icons";
 
 export type Quick = {
