@@ -16,41 +16,22 @@ All fixed (October 2026), except the last, which turned out not to be one.
 
 ## Refactors
 
-### A. Shared client and server plumbing (M, low risk)
-- `if (!(await hasSession())) return lockedResponse();` is repeated in ~40 handlers; `isValidId` 29×; `type Ctx = { params: Promise<…> }` 11×; a `notFound` helper copy-pasted into 8 files; JSON bodies parsed three different ways (try/catch, `.catch(() => ({}))`, `JSON.parse(await req.text())`). GET handlers often skip the id check that their PUT/DELETE siblings do.
-- Proposed `lib/route.ts`:
-  ```ts
-  type Opts<B> = { ids?: ("id"|"eid"|"vid")[]; ai?: boolean; body?: (raw: unknown) => B | null; maxBytes?: number };
-  export function route<P, B = void>(opts: Opts<B>,
-    fn: (a: { req: Request; params: P; body: B }) => Promise<Response | object | null>);
-  export const http = { notFound, bad(msg), conflict(body), noContent, tooLarge(msg) };
-  ```
-  Keep the per-handler session re-check AGENTS.md asks for (the wrapper does it).
-- Client side: ~45 `fetch(` calls in 14 files, each doing `if (!res.ok) throw new Error()` and dropping the server's `{error}`; `res.json().catch(() => ({}))` 10×; only `QuickAnswer` handles 401. A typed `lib/api.ts` (`apiJson<T>(path, init)` throwing `ApiError{status,message}`, one 401 → `/unlock` path, `saveVersion(docId, label)` used by Pen, History and quote straightening).
-- ~~The id regex is duplicated~~ Done: `lib/ids.ts` (`isValidId`, `ID_PATTERN`).
-- Client components import `DocMeta`/`EntryMeta` types from the `server-only` `lib/docs.ts`; move shared types to a plain module.
+### A. Shared client and server plumbing — done
+- `lib/route.ts`: every API handler (but `auth` and `construct/mcp`) is `route(fn)`: session re-check, params awaited, `id`/`eid`/`vid` validated (404) first; shared `notFound`/`badRequest`/`fail`/`noContent`/`noStore`/`readJson`.
+- `lib/api.ts`: the browser's JSON calls (`api()`, `ApiError` with the server's message, `apiDelete` treating 404 as done, `saveVersion`, `createEntry`). Saves, beacons and streams still use `fetch`.
+- `lib/ids.ts` (the id pattern), `lib/types.ts` (shapes shared with the browser).
+- Left: a global 401 → `/unlock` path in `api()` (today each caller says "locked" its own way).
 
-### B. `jsonStore<T>()` for the `.pen-*.json` files (S–M, low risk)
-- Seven hand-written "tmp + rename" writes (`docs.ts`, `versions.ts`, `shelves.ts`, `renames.ts`, `grammarStore.ts`, `construct/settings.ts`, `auth.ts`), four hand-rolled queues. `createDoc` writes the manuscript non-atomically; tmp files are never cleaned up (and would land in exports).
-  ```ts
-  export function jsonStore<T>(file: string, sanitize: (raw: unknown) => T, fallback: () => T,
-    opts?: { mode?: number; strict?: boolean /* auth: corrupt must throw */ }):
-    { read(): Promise<T>; update(fn: (cur: T) => T | Promise<T>): Promise<T> };
-  ```
-- One global queue serializes every project; a per-id queue would stop a slow snapshot in one book blocking saves in another (`listDocs`/`renameDoc` still need the global one).
-- `proxy.ts` runs `renamedTo()` (stats + a file read) on every `/d/*` and `/api/docs/*` request; cache by mtime.
+### B. Writing files — done
+- `lib/files.ts` (`writeAtomic`, `createExclusive`) replaced seven hand-written tmp+rename writes and the grammar cache's fixed `.tmp`; a new manuscript and a new Codex entry are now written whole too.
+- `lib/jsonStore.ts`: shelves, renames, grammar settings and Construct's models (`.pen-auth.json` stays on `writeAtomic`: it's never read-modify-written, and a corrupt one must throw).
+- Left: per-project queues (one queue serializes every book; a slow snapshot in one blocks saves in another), caching `renamedTo` in `proxy.ts` (cheap: one `stat` unless the id is gone).
 
-### C. Slim down `components/Pen.tsx` (1395 lines; 26 `useState`, 11 `useRef`, 22 `useEffect`, 6 `exhaustive-deps` disables)
-In order of payoff:
-- **`lib/penCommands.ts`**: `places()`/`commands()` (~325 lines of palette item lists) as pure `buildPlaces(ctx)`/`buildCommands(ctx)`, testable with Node's runner. (S/M, low)
-- **`lib/media.ts`**: named queries (`WIDE`, `ROOMY`, touch). The `(hover: none)` check exists 3× (Pen, `Construct.tsx` `isTouch`, `WordTools.tsx` `finePointer`); Pen mixes `useMedia` with 7 direct `matchMedia` calls. (S, low)
-- **`useEditorDoc` + `useDocScan`**: Pen and `CodexPanel` duplicate editor+autosave wiring, quote straightening on open, and the debounced 200 ms `transaction` scan. (S, low)
-- **`useFind`**, **`<EditorOverlays>`** (GrammarPopover + WordTools rendered once per editor), **`<TopBar>`** (the topbar passes the same 7 actions twice, to itself and to `EditorMenu`), **`<ConflictBanner>`**. (S, low)
-- **Construct imperative handle** instead of bump-counter props (`newChat`, `compactChat`, `constructFocus`, tracked by `handled*` refs in Construct). `requestLookUp` is a module-level listener set while these are props: pick one style. (M, medium)
-- **One keyboard dispatcher** reading `lib/shortcuts.ts`, replacing three capture-phase `window` keydown listeners with their own latest-refs. (M, medium: `stopPropagation` order vs Tiptap matters)
-- **`useCodexPanel`**, **`useVersionPreview`** (the `citeShown` promise-ref handshake with `VersionPreview.onCited` is fragile). (L, medium; needs browser tests)
-- Latest-ref assignments during render (`touchRef.current = …`, `paletteKeys`, `jumps`, `finds`) could become `useEffectEvent`.
-- `createEntry` lives in `Codex.tsx` and Pen imports it; belongs in the client API module.
+### C. Slim down `components/Pen.tsx` — done (1395 → 841 lines)
+- `lib/penCommands.ts`: the switcher's and palette's lists, pure and tested.
+- `lib/media.ts`, `lib/useEditorDoc.ts` (`useEditorDoc`, `useDocScan`, shared with `CodexPanel`), `ConflictBanner`, `useFind` (in `FindBar.tsx`), `EditorOverlays`, `ConstructHandle` instead of bumped counters, `useWindowKeys`, `useVersionPreview`, `useCodexPanel`, `EditorTopBar`.
+- Not done: one table-driven keyboard dispatcher reading `lib/shortcuts.ts`. The palette and jump keys match `e.key` while find matches `e.code` (for ⌥F on a Mac), so unifying them would change behaviour on non-QWERTY layouts; `useWindowKeys` removed the fragile part (handlers kept in refs reassigned during render).
+- Safety net added along the way: a Playwright suite (`e2e/`, 31 tests, `nix develop .#e2e --command npm run test:e2e`) covering every API route and the editor page's flows, with Construct on a stub agent.
 
 ### D. Construct agent adapter (M, medium)
 - Three copies of spawn + stderr tail + exit-as-rejection + `ndJsonStream` + SIGTERM→SIGKILL: `session.ts` launch/stop, `oneoff.ts` `runSession` and the model listing. `initialize` with the same `clientInfo` 3×. `MCP_NAME = "pen"` declared twice; `LaunchContext` built in `ask.ts` and `session.ts`. → `lib/construct/acpProcess.ts` `spawnAgent(launch, client) → { conn, exited, stderr, kill() }`.
@@ -83,7 +64,7 @@ In order of payoff:
 ## Tests and tooling
 - No test can load `docs.ts`, `versions.ts`, `auth.ts`, `library.ts`, `tools.ts`, `session.ts` or any route: `server-only` and the `@/` alias block Node's runner. Fix with a loader/`--conditions=react-server` or by splitting I/O cores out of the server-only wrappers (~½ day). Most valuable: `writeDoc` (409 on stale, session-gap snapshot), version pruning at 30, `restoreVersion`, `renameDoc`, migration, the export whitelist (must exclude `.pen-auth.json`), `edit_codex_entry`'s match-once rule, `mcp.ts` JSON-RPC.
 - Pure modules with no tests: done for `textdiff`, `cite`, `outline`, `quotes`, `text`. `passage` needs a DOM (EditorView); left.
-- `npm run typecheck` added. Still no lint, no CI, no component or browser tests.
+- `npm run typecheck` added, and the Playwright suite (`npm run test:e2e`). Still no lint and no CI.
 
 ## CSS (`app/globals.css`, 3927 lines)
 - ~40 banner sections in chronological order; shared primitives live in unrelated sections (`.btn` defined in Library and again in Welcome, `.btn-danger` duplicates `.library-confirm-actions button.danger`, `.dropdown` under Shelf).
@@ -98,6 +79,6 @@ Mostly accurate (8 numeric claims checked). The renames bullet ends with a mis-p
 
 ## Suggested order
 1. ~~**Quick wins**~~: done (the bugs, `lib/queue.ts`, `lib/ids.ts`, `npm run typecheck`, tests for the pure modules).
-2. **Foundations**: B, A, F, and making server modules testable, so the big moves have a net.
-3. **The big files**: C, then D + E, then G.
+2. **Foundations**: ~~B, A~~ done; F, and making server modules testable (the e2e suite covers them from outside meanwhile).
+3. **The big files**: ~~C~~ done; then D + E, then G.
 4. **Any time**: H, the CSS split, restructuring AGENTS.md.
