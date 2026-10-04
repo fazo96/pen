@@ -8,8 +8,8 @@ import { newManuscript, withTitle } from "./text";
 const MAX_BYTES = 5 * 1024 * 1024;
 export const IMPORT_ACCEPT = ".md,.markdown,.mdown,.txt,text/markdown,text/plain";
 export const IMPORT_EXT = /\.(md|markdown|mdown|txt)$/i;
-/** The Codex also takes saved Critique Circle pages, converted by the server. */
-export const CODEX_IMPORT_ACCEPT = `${IMPORT_ACCEPT},.html,.htm,text/html`;
+/** The Codex also takes saved Critique Circle pages and photos of notes, converted by the server. */
+export const CODEX_IMPORT_ACCEPT = `${IMPORT_ACCEPT},.html,.htm,text/html,image/*`;
 export const HTML_EXT = /\.html?$/i;
 
 /** Why a file can't be imported (manuscript or Codex), or null if it can. */
@@ -19,7 +19,7 @@ export function importProblem(file: File, codex = false): string | null {
     return null;
   }
   if (!IMPORT_EXT.test(file.name)) {
-    return `${file.name} isn't a markdown or text file${codex ? " or a saved Critique Circle page" : ""}`;
+    return `${file.name} isn't a markdown or text file${codex ? ", a saved Critique Circle page or a picture" : ""}`;
   }
   if (file.size > MAX_BYTES) return `${file.name} is larger than 5 MB`;
   return null;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isImage, prepareNote } from "@/lib/cover";
 import type { EntryMeta } from "@/lib/docs";
 import { useDropZone } from "@/lib/useDropZone";
 import { CODEX_IMPORT_ACCEPT, HTML_EXT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";
@@ -73,7 +74,25 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     setBusy(false);
   };
 
-  /** Each file becomes an entry. One file opens it; several stay put and report back. */
+  /** POST an entry; its id, or throws with the server's reason. */
+  const post = async (body: object) => {
+    const res = await fetch(base, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new Error(data.error ?? `request failed (${res.status})`);
+    }
+    return ((await res.json()) as { id: string }).id;
+  };
+
+  /**
+   * Each file becomes an entry, except pictures: together they're the pages of
+   * one handwritten note, which Construct's agent transcribes. One entry opens
+   * it; several stay put and report back.
+   */
   const importFiles = async (files: File[]) => {
     if (!files.length) return;
     setBusy(true);
@@ -81,32 +100,40 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     setNotice(null);
     const imported: string[] = [];
     const skipped: string[] = [];
-    for (const file of files) {
+    // Photo names count up (IMG_0098, IMG_0099…): that's the page order.
+    const pictures = files
+      .filter(isImage)
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    const others = files.filter((f) => !isImage(f));
+    for (const file of others) {
       const problem = importProblem(file, true);
       if (problem) {
         skipped.push(problem);
         continue;
       }
       try {
-        const res = await fetch(base, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
+        imported.push(
+          await post(
             HTML_EXT.test(file.name)
               ? { html: await file.text() }
               : { content: await importText(file), name: file.name.replace(IMPORT_EXT, "") },
           ),
-        });
-        if (!res.ok) {
-          const body = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(body.error ?? `request failed (${res.status})`);
-        }
-        imported.push(((await res.json()) as { id: string }).id);
+        );
       } catch (e) {
         skipped.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
-    const opening = files.length === 1 && imported.length === 1;
+    if (pictures.length) {
+      const what = pictures.length === 1 ? "the picture" : `${pictures.length} pictures`;
+      setNotice(`Transcribing ${what}… this can take a minute.`);
+      try {
+        imported.push(await post({ images: await Promise.all(pictures.map(prepareNote)) }));
+      } catch (e) {
+        skipped.push(`${what}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+      setNotice(null);
+    }
+    const opening = others.length + (pictures.length ? 1 : 0) === 1 && imported.length === 1;
     if (opening) await onOpen(`/d/${projectId}/codex/${imported[0]}`);
     await load();
     setBusy(false);
