@@ -4,7 +4,7 @@ import { type Editor, EditorContent } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, createEntry, saveVersion as postVersion } from "@/lib/api";
-import { type Citation, findPassage, type LineCitation, parseCitation } from "@/lib/cite";
+import { type Citation, findPassage, parseCitation } from "@/lib/cite";
 import { textWithoutComments } from "@/lib/comments";
 import type { PromptContext } from "@/lib/construct/types";
 import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
@@ -23,8 +23,8 @@ import { useSpot } from "@/lib/useSpot";
 import { setSteady, useSteady } from "@/lib/useSteady";
 import { HEADINGS } from "@/lib/usePenEditor";
 import { useTheme, THEME_LABEL, type Theme } from "@/lib/useTheme";
+import { useVersionPreview } from "@/lib/useVersionPreview";
 import { useWindowKeys } from "@/lib/useWindowKeys";
-import type { VersionMeta } from "@/lib/types";
 import { askDraft, constructPrompt, pickedWords, type QuickKind, requestLookUp } from "@/lib/wordTools";
 import Codex from "./Codex";
 import CodexPanel, { type CodexPanelHandle } from "./CodexPanel";
@@ -101,9 +101,7 @@ export default function Pen({
   const [constructOpen, setConstructOpen] = useState(false);
   const [codexKey, setCodexKey] = useState(0);
   const [drawerTab, setDrawerTab] = useState<DrawerTab>(isEntry || initialEntry ? "codex" : "contents");
-  const [preview, setPreview] = useState<{ meta: VersionMeta; content: string; cite?: LineCitation } | null>(null);
   const [historyKey, setHistoryKey] = useState(0);
-  const scrollBeforePreview = useRef(0);
   const [typing, setTyping] = useState(false);
   const [progress, setProgress] = useState(0);
   // The codex entry open beside the manuscript, and which editor the toolbar serves.
@@ -133,6 +131,18 @@ export default function Pen({
       return saved;
     },
   });
+
+  // A saved version shown over the manuscript.
+  const versions = useVersionPreview({
+    docId: initial.id,
+    onOpen: () => setOutlineOpen(false),
+    beforeRestore: leave,
+    onRestored: (story) => {
+      adopt(story);
+      setHistoryKey((k) => k + 1);
+    },
+  });
+  const { preview } = versions;
 
   // Reopen where the writer left off, unless a citation brought them here.
   const spotUrl = `/api/docs/${projectId}/spot`;
@@ -227,39 +237,7 @@ export default function Pen({
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
-  const openPreview = async (meta: VersionMeta, cite?: LineCitation) => {
-    const version = await api<{ content: string }>(`/api/docs/${initial.id}/versions/${meta.id}`).catch(() => null);
-    if (!version) return false;
-    const { content } = version;
-    if (!preview) scrollBeforePreview.current = window.scrollY;
-    setPreview({ meta, content, cite });
-    setOutlineOpen(false);
-    window.scrollTo(0, 0);
-    return true;
-  };
-
-  const closePreview = () => {
-    setPreview(null);
-    requestAnimationFrame(() => window.scrollTo(0, scrollBeforePreview.current));
-  };
-
-  const restore = async () => {
-    if (!preview) return;
-    await leave(); // the "before restore" copy should include the latest keystrokes
-    const story = await api<Story>(`/api/docs/${initial.id}/versions/${preview.meta.id}/restore`, { method: "POST" }).catch(
-      () => null,
-    );
-    if (!story) return;
-    adopt(story);
-    setPreview(null);
-    setHistoryKey((k) => k + 1);
-    window.scrollTo(0, 0);
-  };
-
   // ─── Construct citations ───────────────────────────────────
-  /** Settles a version citation once its preview has looked for the passage. */
-  const citeShown = useRef<((found: boolean) => void) | null>(null);
-
   /** Jump to a passage Construct cited. False when it can't be found any more. */
   const cite = async (c: Exclude<Citation, { kind: "codex" }>, href: string): Promise<boolean> => {
     // Passages live on the manuscript's page.
@@ -269,22 +247,11 @@ export default function Pen({
     }
     // Below this width Construct covers the text.
     if (!matches(WIDE)) setConstructOpen(false);
-    if (c.kind === "version") {
-      const versions = await api<VersionMeta[]>(`/api/docs/${projectId}/versions`).catch(() => null);
-      const meta = versions?.find((v) => v.id === c.version);
-      if (!meta) return false;
-      citeShown.current?.(false);
-      const shown = new Promise<boolean>((resolve) => (citeShown.current = resolve));
-      return (await openPreview(meta, c)) && shown;
-    }
+    if (c.kind === "version") return versions.showCited(c.version, c);
     if (!editor) return false;
     const range = findPassage(editor.state.doc, editor.getMarkdown().split("\n"), c);
     if (!range) return false;
-    if (preview) {
-      setPreview(null);
-      // Let the draft show again before measuring it.
-      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-    }
+    await versions.hide(); // the draft, drawn again before measuring it
     showPassage(editor.view, range);
     return true;
   };
@@ -570,7 +537,7 @@ export default function Pen({
       const beside = matches(WIDE);
       return goAndFocus(beside ? `/d/${projectId}?entry=${encodeURIComponent(initial.id)}` : `/d/${projectId}`);
     }
-    if (preview) closePreview();
+    if (preview) versions.close();
     focusText(editor);
   };
   /** The entry beside the manuscript, else the one viewed last, else the Codex's list. */
@@ -903,8 +870,8 @@ export default function Pen({
             refreshKey={historyKey}
             previewing={preview?.meta.id ?? null}
             beforeSave={leave}
-            onPreview={openPreview}
-            onRenamed={(meta) => setPreview((p) => (p && p.meta.id === meta.id ? { ...p, meta } : p))}
+            onPreview={versions.open}
+            onRenamed={versions.renamed}
           />
         )}
       </Drawer>
@@ -917,13 +884,10 @@ export default function Pen({
             meta={preview.meta}
             content={preview.content}
             cite={preview.cite}
-            onCited={(found) => {
-              citeShown.current?.(found);
-              citeShown.current = null;
-            }}
+            onCited={versions.cited}
             draft={editor?.state.doc ?? null}
-            onRestore={restore}
-            onClose={closePreview}
+            onRestore={versions.restore}
+            onClose={versions.close}
           />
         )}
         {/* The live draft stays mounted underneath a preview. */}
