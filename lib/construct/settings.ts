@@ -2,6 +2,7 @@ import "server-only";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { DOCS_DIR } from "../paths";
+import { queue } from "../queue";
 import { type ModelSettings, sanitizeModelSettings } from "./models";
 
 // Construct's default models, one file for the library (see ./models.ts).
@@ -15,11 +16,11 @@ export async function getModelSettings(): Promise<ModelSettings> {
   }
 }
 
-let queue: Promise<unknown> = Promise.resolve();
+const serialize = queue("construct-settings");
 
 /** Merge `patch` in (an empty string unsets a use). Returns the settings as saved. */
 export function patchModelSettings(patch: Record<string, unknown>): Promise<ModelSettings> {
-  const run = queue.then(async () => {
+  return serialize(async () => {
     const merged: Record<string, unknown> = { ...(await getModelSettings()), ...patch };
     const next = sanitizeModelSettings(merged);
     await mkdir(DOCS_DIR, { recursive: true });
@@ -28,6 +29,4 @@ export function patchModelSettings(patch: Record<string, unknown>): Promise<Mode
     await rename(tmp, FILE);
     return next;
   });
-  queue = run.catch(() => {});
-  return run;
 }

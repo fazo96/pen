@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { DOCS_DIR } from "./paths";
+import { queue } from "./queue";
 import { recordRename } from "./renames";
 import { droppedEntry, noSpots, renamedEntry, sanitizeSpots, type Spot, type Spots, withLast, withSpot } from "./spot";
 import { slugify, titleOf, wordCount } from "./text";
@@ -50,11 +51,9 @@ function isMissing(err: unknown) {
 }
 
 // All mutations run through one queue so read-compare-write never interleaves.
-let queue: Promise<unknown> = Promise.resolve();
+const docsQueue = queue("docs");
 function serialize<T>(fn: () => Promise<T>): Promise<T> {
-  const run = queue.then(ready).then(fn);
-  queue = run.catch(() => {});
-  return run;
+  return docsQueue(() => ready().then(fn));
 }
 
 // One-time move from the old flat layout (data/<id>.md) to data/<id>/manuscript.md.

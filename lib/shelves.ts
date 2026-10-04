@@ -3,6 +3,7 @@ import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { listDocs } from "./docs";
 import { DOCS_DIR } from "./paths";
+import { queue } from "./queue";
 import { arrange, renameBook, sanitize, type Layout } from "./shelfLayout";
 
 // The homepage's shelves: which book sits where. Books the file doesn't
@@ -22,12 +23,7 @@ export async function getShelves(bookIds: string[]): Promise<Layout> {
   return arrange(await readLayout(), bookIds);
 }
 
-let queue: Promise<unknown> = Promise.resolve();
-function serialize<T>(fn: () => Promise<T>): Promise<T> {
-  const run = queue.then(fn);
-  queue = run.catch(() => {});
-  return run;
-}
+const serialize = queue("shelves");
 
 async function write(layout: Layout): Promise<Layout> {
   const fitted = arrange(layout, (await listDocs()).map((d) => d.id));
