@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { LibraryStats } from "@/lib/library";
+import SettingsHead from "./SettingsHead";
 import ConstructSettings from "./ConstructSettings";
 import EditorSettings from "./EditorSettings";
 import GrammarSettings from "./GrammarSettings";
@@ -45,12 +46,7 @@ export default function Settings({
           <span className="label">pen · settings</span>
           <h1 className="welcome-title">Settings</h1>
           <section className="lock" aria-labelledby="library-title">
-            <div className="lock-head">
-              <IconBooks />
-              <h2 id="library-title" className="label">
-                Library
-              </h2>
-            </div>
+            <SettingsHead icon={<IconBooks />} title="Library" id="library-title" />
             <Stats stats={stats} library={stats} />
             <p className="lock-text">
               Export everything as a zip: every book with its versions, Codex and Construct chats, the trash, and the

@@ -11,6 +11,8 @@ import type { Stats as Figures } from "@/lib/library";
 import { findBook, type Layout, moveBook } from "@/lib/shelfLayout";
 import { pageCount, slugify } from "@/lib/text";
 import { useLibrary } from "@/lib/useLibrary";
+import SettingsHead from "./SettingsHead";
+import ConfirmRow from "./ConfirmRow";
 import { ago, Cover } from "./Book";
 import { IconBack, IconBooks, IconClose, IconExport, IconImage, IconPencil, IconShelf, IconTrash } from "./icons";
 import Logo from "./Logo";
@@ -123,12 +125,7 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
           </p>
 
           <section className="lock" aria-labelledby="contents-title">
-            <div className="lock-head">
-              <IconBooks />
-              <h2 id="contents-title" className="label">
-                Contents
-              </h2>
-            </div>
+            <SettingsHead icon={<IconBooks />} title="Contents" id="contents-title" />
             <Stats stats={stats} />
             <p className="lock-text">
               Export it as a zip: the manuscript, versions, Codex, Construct chats, cover, and whatever of it is in the
@@ -142,12 +139,7 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
           </section>
 
           <section className="lock" aria-labelledby="cover-title">
-            <div className="lock-head">
-              <IconImage />
-              <h2 id="cover-title" className="label">
-                Cover
-              </h2>
-            </div>
+            <SettingsHead icon={<IconImage />} title="Cover" id="cover-title" />
             <div className="book-settings-cover">
               <div
                 className={`book-settings-art ${dropping ? "is-drop" : ""} ${lib.busy && section === "cover" ? "is-binding" : ""}`}
@@ -209,12 +201,7 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
           </section>
 
           <section className="lock" aria-labelledby="shelf-title">
-            <div className="lock-head">
-              <IconShelf />
-              <h2 id="shelf-title" className="label">
-                Shelf
-              </h2>
-            </div>
+            <SettingsHead icon={<IconShelf />} title="Shelf" id="shelf-title" />
             {layout.shelves.length > 1 ? (
               <label className="field book-settings-field">
                 <span className="lock-text">Which shelf it sits on in the library. It goes at the end.</span>
@@ -236,12 +223,7 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
           </section>
 
           <section className="lock" aria-labelledby="address-title">
-            <div className="lock-head">
-              <IconPencil />
-              <h2 id="address-title" className="label">
-                Address
-              </h2>
-            </div>
+            <SettingsHead icon={<IconPencil />} title="Address" id="address-title" />
             <p className="lock-text">The name in this book’s links. Old links keep working after a change.</p>
             <form className="book-settings-address" onSubmit={rename}>
               <label className="field">
@@ -278,32 +260,18 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
           </section>
 
           <section className="lock" aria-labelledby="delete-title">
-            <div className="lock-head">
-              <IconTrash />
-              <h2 id="delete-title" className="label">
-                Delete
-              </h2>
-            </div>
+            <SettingsHead icon={<IconTrash />} title="Delete" id="delete-title" />
             {confirming ? (
-              <div className="library-confirm">
+              <ConfirmRow
+                onKeep={() => setConfirming(false)}
+                disabled={lib.busy}
+                onConfirm={() => {
+                  act("delete");
+                  void lib.remove(doc.id, "/?library");
+                }}
+              >
                 Move <em>{doc.title}</em> to the trash, with its versions, Codex and Construct chats?
-                <div className="library-confirm-actions">
-                  <button type="button" onClick={() => setConfirming(false)}>
-                    Keep
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    disabled={lib.busy}
-                    onClick={() => {
-                      act("delete");
-                      void lib.remove(doc.id, "/?library");
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
+              </ConfirmRow>
             ) : (
               <>
                 <p className="lock-text">

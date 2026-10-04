@@ -2,6 +2,7 @@
 
 import { grammar, useGrammarConfig, useGrammarEnabled } from "@/lib/grammarClient";
 import { DIALECTS, PEN_RULES, ruleLabel, ruleOn, type Dialect } from "@/lib/grammarConfig";
+import SettingsHead from "./SettingsHead";
 import { IconClose, IconGrammar } from "./icons";
 
 const DIALECT_LABEL: Record<Dialect, string> = {
@@ -21,13 +22,10 @@ export default function GrammarSettings() {
 
   return (
     <section className="lock" aria-labelledby="grammar-title">
-      <div className="lock-head">
-        <IconGrammar />
-        <h2 id="grammar-title" className="label">
-          Grammar
-        </h2>
+      <SettingsHead icon={<IconGrammar />} title="Grammar" id="grammar-title">
         <span className="lock-state">{enabled ? "On" : "Off"} here</span>
-      </div>
+
+      </SettingsHead>
       <p className="lock-text">
         Spelling and grammar are checked in your browser by Harper; the text never leaves the device. Tap an underlined
         word in the editor for fixes. The dictionary and rules below are shared by every book.

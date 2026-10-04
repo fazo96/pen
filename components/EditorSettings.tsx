@@ -1,6 +1,7 @@
 "use client";
 
 import { setSteady, useSteady } from "@/lib/useSteady";
+import SettingsHead from "./SettingsHead";
 import { IconPencil } from "./icons";
 
 /** How the editor behaves on this device. */
@@ -8,13 +9,10 @@ export default function EditorSettings() {
   const steady = useSteady();
   return (
     <section className="lock" aria-labelledby="editor-title">
-      <div className="lock-head">
-        <IconPencil />
-        <h2 id="editor-title" className="label">
-          Editor
-        </h2>
+      <SettingsHead icon={<IconPencil />} title="Editor" id="editor-title">
         <span className="lock-state">Fade {steady ? "off" : "on"} here</span>
-      </div>
+
+      </SettingsHead>
       <p className="lock-text">
         While you type, the top bar, the outline and the Codex panel dim so the page stands out; moving the pointer or
         scrolling brings them back. Turn it off to keep them steady.

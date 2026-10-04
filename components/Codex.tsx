@@ -8,6 +8,7 @@ import type { ImportMeta } from "@/lib/imports";
 import { useDropZone } from "@/lib/useDropZone";
 import { local } from "@/lib/storage";
 import { CODEX_IMPORT_ACCEPT, CODEX_NOTE_ACCEPT, HTML_EXT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";
+import ConfirmRow from "./ConfirmRow";
 import { IconTrash } from "./icons";
 
 type Props = {
@@ -241,19 +242,9 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
           {list.map((e) => (
             <li key={e.id} className={`library-row ${confirming === e.id ? "is-confirming" : ""}`}>
               {confirming === e.id ? (
-                <div className="library-confirm">
-                  <span>
-                    Delete <em>{e.title}</em>?
-                  </span>
-                  <div className="library-confirm-actions">
-                    <button type="button" onClick={() => setConfirming(null)}>
-                      Keep
-                    </button>
-                    <button type="button" className="danger" onClick={() => remove(e.id)}>
-                      Delete
-                    </button>
-                  </div>
-                </div>
+                <ConfirmRow onKeep={() => setConfirming(null)} onConfirm={() => remove(e.id)}>
+                  Delete <em>{e.title}</em>?
+                </ConfirmRow>
               ) : (
                 <>
                   <button

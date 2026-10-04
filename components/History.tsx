@@ -6,6 +6,7 @@ import { useDropZone } from "@/lib/useDropZone";
 import { IMPORT_ACCEPT, IMPORT_EXT, importProblem } from "@/lib/useLibrary";
 import type { VersionMeta } from "@/lib/types";
 import { wordsPages, wordsPagesTitle } from "@/lib/text";
+import ConfirmRow from "./ConfirmRow";
 import { IconPencil, IconTrash } from "./icons";
 
 function when(ms: number) {
@@ -241,17 +242,9 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
                     </div>
                   </form>
                 ) : confirming === v.id ? (
-                  <div className="library-confirm">
-                    <span>Delete this version?</span>
-                    <div className="library-confirm-actions">
-                      <button type="button" onClick={() => setConfirming(null)}>
-                        Keep
-                      </button>
-                      <button type="button" className="danger" onClick={() => remove(v.id)}>
-                        Delete
-                      </button>
-                    </div>
-                  </div>
+                  <ConfirmRow onKeep={() => setConfirming(null)} onConfirm={() => remove(v.id)}>
+                    Delete this version?
+                  </ConfirmRow>
                 ) : (
                   <>
                     <button

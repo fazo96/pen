@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
+import SettingsHead from "./SettingsHead";
 import { IconLock } from "./icons";
 
 const MIN = 8;
@@ -85,13 +86,9 @@ export default function LockSettings({ locked }: { locked: boolean }) {
 
   return (
     <section className="lock" id="lock" aria-labelledby="lock-title">
-      <div className="lock-head">
-        <IconLock />
-        <h2 id="lock-title" className="label">
-          Lock
-        </h2>
+      <SettingsHead icon={<IconLock />} title="Lock" id="lock-title">
         <span className={`lock-state ${locked ? "is-locked" : ""}`}>{locked ? "On" : "Off"}</span>
-      </div>
+      </SettingsHead>
 
       <p className="lock-text">
         {locked

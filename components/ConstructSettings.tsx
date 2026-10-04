@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { type ModelSettings, type ModelUse, modelRef, parseModel } from "@/lib/construct/models";
 import { useModels } from "@/lib/useModels";
+import SettingsHead from "./SettingsHead";
 import { IconConstruct } from "./icons";
 
 const USE_LABELS: { use: ModelUse; label: string; hint: string }[] = [
@@ -23,12 +24,7 @@ type Props = {
 export default function ConstructSettings({ agents, switchedOff }: Props) {
   return (
     <section className="lock" aria-labelledby="construct-title">
-      <div className="lock-head">
-        <IconConstruct />
-        <h2 id="construct-title" className="label">
-          Construct
-        </h2>
-      </div>
+      <SettingsHead icon={<IconConstruct />} title="Construct" id="construct-title" />
       {agents.length ? <Models found={agents} /> : <Off switchedOff={switchedOff} />}
     </section>
   );

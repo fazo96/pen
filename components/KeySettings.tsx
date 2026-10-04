@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { isMac, shortcutList } from "@/lib/shortcuts";
+import SettingsHead from "./SettingsHead";
 import { IconKeyboard } from "./icons";
 
 const noop = () => () => {};
@@ -11,12 +12,7 @@ export default function KeySettings() {
   const mac = useSyncExternalStore(noop, isMac, () => false);
   return (
     <section className="lock key-settings" aria-labelledby="keys-title">
-      <div className="lock-head">
-        <IconKeyboard />
-        <h2 id="keys-title" className="label">
-          Keyboard
-        </h2>
-      </div>
+      <SettingsHead icon={<IconKeyboard />} title="Keyboard" id="keys-title" />
       <p className="lock-text">
         Esc in Construct gives the cursor back to the text; Esc in the palette goes back to where you were.
       </p>

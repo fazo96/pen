@@ -15,6 +15,7 @@ import {
   type Layout,
   MAX_SHELF_NAME,
 } from "@/lib/shelfLayout";
+import ConfirmRow from "./ConfirmRow";
 import Book, { Cover } from "./Book";
 import { IconDown, IconMore, IconPencil, IconPlus, IconTrash, IconUp } from "./icons";
 
@@ -341,28 +342,19 @@ export default function Shelves({ docs, layout, onCover }: Props) {
                 {menu === menuKey && (
                   <div className="popover-menu shelf-menu" role="menu">
                     {confirming === s.id ? (
-                      <div className="book-confirm">
-                        <span>
-                          Remove <em>{s.name || "this shelf"}</em>? Its {books.length === 1 ? "book moves" : `${books.length} books move`} to{" "}
-                          <em>{into.name || "the unnamed shelf"}</em>.
-                        </span>
-                        <div className="library-confirm-actions">
-                          <button type="button" onClick={() => setConfirming(null)}>
-                            Keep
-                          </button>
-                          <button
-                            type="button"
-                            className="danger"
-                            onClick={() => {
-                              setMenu(null);
-                              setConfirming(null);
-                              save(removeShelf(local, s.id));
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      </div>
+                      <ConfirmRow
+                        className="book-confirm"
+                        action="Remove"
+                        onKeep={() => setConfirming(null)}
+                        onConfirm={() => {
+                          setMenu(null);
+                          setConfirming(null);
+                          save(removeShelf(local, s.id));
+                        }}
+                      >
+                        Remove <em>{s.name || "this shelf"}</em>? Its {books.length === 1 ? "book moves" : `${books.length} books move`} to{" "}
+                        <em>{into.name || "the unnamed shelf"}</em>.
+                      </ConfirmRow>
                     ) : (
                       <>
                         <button type="button" role="menuitem" onClick={() => startRename(s.id, s.name)}>
