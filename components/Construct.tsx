@@ -5,6 +5,7 @@ import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useMem
 import { type Citation, parseCitation } from "@/lib/cite";
 import { matches, TOUCH } from "@/lib/media";
 import type { SessionConfigOption } from "@agentclientprotocol/sdk";
+import { agentName, DEFAULT_AGENT } from "@/lib/construct/agentInfo";
 import type { AgentModels } from "@/lib/construct/models";
 import type { ChatItem, ConstructEvent, PromptContext } from "@/lib/construct/types";
 import { useConstruct } from "@/lib/useConstruct";
@@ -45,7 +46,6 @@ export type ConstructHandle = {
   focus: () => void;
 };
 
-const AGENT_NAMES: Record<string, string> = { claude: "Claude Code", pi: "pi" };
 
 const escapeHtml = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -184,7 +184,7 @@ function ModelMenu({
       .filter((name) => !/^default\b/i.test(name))
       .join(" · ") || "Default model";
   const others = (agents ?? []).filter((a) => a.agent !== agent && a.models.length);
-  const agentName = AGENT_NAMES[agent] ?? agent;
+  const name = agentName(agent);
 
   return (
     <div className="construct-model" ref={root}>
@@ -197,7 +197,7 @@ function ModelMenu({
         title="Model and effort"
       >
         <span>
-          {agent !== "claude" && `${agentName} · `}
+          {agent !== DEFAULT_AGENT && `${name} · `}
           {summary}
         </span>
         <IconDown />
@@ -220,7 +220,7 @@ function ModelMenu({
                     }
                   }}
                 >
-                  <optgroup label={agentName}>
+                  <optgroup label={name}>
                     {flat(o).map((opt) => (
                       <option key={opt.value} value={`${agent}\u0000${opt.value}`}>
                         {opt.name}
@@ -397,7 +397,7 @@ export default function Construct({
             ) : (
               <>
                 <span className="construct-name">Construct</span>
-                <span className="label">{AGENT_NAMES[c.state?.agent ?? "claude"] ?? c.state?.agent}</span>
+                <span className="label">{agentName(c.state?.agent ?? DEFAULT_AGENT)}</span>
               </>
             )}
           </div>
@@ -440,7 +440,7 @@ export default function Construct({
             {config.length > 0 && (
               <ModelMenu
                 config={config}
-                agent={c.state?.agent ?? "claude"}
+                agent={c.state?.agent ?? DEFAULT_AGENT}
                 agents={models.agents}
                 disabled={busy}
                 onChange={(id, v) => void c.setConfig(id, v)}

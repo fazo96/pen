@@ -2,29 +2,19 @@ import "server-only";
 import type { ContentBlock } from "@agentclientprotocol/sdk";
 import os from "node:os";
 import path from "node:path";
-import { type AgentLaunch, probeModels, runOnce } from "../oneoff";
-import { type AgentId, type AgentPreset, AGENTS, availableAgents, fallbackAgent, isAgentId } from "./agents";
+import { probeModels, runOnce } from "../oneoff";
+import { type AgentId, AGENTS, availableAgents, fallbackAgent, isAgentId, launchFor } from "./agents";
 import { type AgentModels, type ModelUse, parseModel } from "./models";
 import { getModelSettings } from "./settings";
 
 // One-off questions (transcribing a note, the look-up buttons) on the model
 // the settings choose for them, and the list of models to choose from.
 
-const MCP_NAME = "pen";
 // Not a project id (those can't start with a dot), so never one of Construct's homes.
 const CWD = path.join(os.tmpdir(), "pen-construct", ".oneoff");
 
 /** How to start `agent` with no tools and `systemPrompt`. */
-async function launchFor(agent: AgentId, systemPrompt: string): Promise<AgentLaunch> {
-  const preset: AgentPreset = AGENTS[agent];
-  const ctx = { cwd: CWD, systemPrompt };
-  return {
-    command: preset.command,
-    cwd: CWD,
-    env: await preset.env?.(ctx, MCP_NAME),
-    sessionMeta: preset.sessionMeta(ctx, MCP_NAME),
-  };
-}
+const launchOneOff = (agent: AgentId, systemPrompt: string) => launchFor(agent, { cwd: CWD, systemPrompt });
 
 /** The agent and model set for `use`; an agent that can't run here falls back to the default. */
 export async function modelFor(use: ModelUse): Promise<{ agent: AgentId; model?: string }> {
@@ -45,7 +35,7 @@ export async function askOnce(
 ): Promise<string> {
   const { agent, model } = await modelFor(use);
   const { systemPrompt, ...ask } = opts;
-  return runOnce({ launch: await launchFor(agent, systemPrompt), model, ...ask });
+  return runOnce({ launch: await launchOneOff(agent, systemPrompt), model, ...ask });
 }
 
 // ─── The models on offer ─────────────────────────────────────
@@ -60,7 +50,7 @@ export function listModels(fresh = false): Promise<AgentModels[]> {
     availableAgents().map(async (agent): Promise<AgentModels> => {
       const { name } = AGENTS[agent];
       try {
-        return { agent, name, models: await probeModels(await launchFor(agent, "You are Construct.")) };
+        return { agent, name, models: await probeModels(await launchOneOff(agent, "You are Construct.")) };
       } catch (err) {
         return { agent, name, models: [], error: (err as Error).message };
       }

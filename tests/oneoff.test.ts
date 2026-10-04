@@ -51,6 +51,9 @@ test("waits for a slow model", { timeout: 30_000 }, async () => {
 
 test("reports an agent that fails, can't see images, says nothing or runs too long", { timeout: 30_000 }, async () => {
   await assert.rejects(runOnce({ launch: launch({ STUB_MODE: "crash" }), prompt: [ask] }), /exited \(3\): not logged in/);
+  const missing = { ...launch(), command: ["pen-no-such-agent"] };
+  await assert.rejects(runOnce({ launch: missing, prompt: [ask] }), /couldn't start \(.*ENOENT/);
+  await assert.rejects(probeModels(missing), /couldn't start/);
   await assert.rejects(runOnce({ launch: launch({ STUB_MODE: "blind" }), prompt: [jpeg, ask] }), /can't read images/);
   // Text alone is fine for an agent without eyes.
   assert.match(await runOnce({ launch: launch({ STUB_MODE: "blind" }), prompt: [ask] }), /# Notes/);

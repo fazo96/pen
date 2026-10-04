@@ -1,16 +1,10 @@
 import "server-only";
-import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { Readable, Writable } from "node:stream";
 import {
   type Client,
-  ClientSideConnection,
   type ContentBlock,
-  ndJsonStream,
-  PROTOCOL_VERSION,
   type RequestPermissionRequest,
   type RequestPermissionResponse,
   type SessionConfigOption,
@@ -18,10 +12,11 @@ import {
 } from "@agentclientprotocol/sdk";
 import { parseCitation, withSnippets } from "../cite";
 import { agentHome, readChats, readDoc, readVersion, trashChat, writeChat } from "../docs";
-import { isNotice, modelOption, optionValues, startupInfoOf } from "../oneoff";
+import { type AgentLaunch, type AgentProcess, initialize, isNotice, modelOption, optionValues, spawnAgent, startupInfoOf } from "../acp";
 import { titleOf } from "../text";
 import { type CodexChange, createdEntryIn, listTools, type ToolContext } from "./tools";
-import { type AgentId, type AgentPreset, AGENTS, fallbackAgent, isAgentId, type LaunchContext, penToolName, systemPrompt } from "./agents";
+import { DEFAULT_AGENT } from "./agentInfo";
+import { type AgentId, type AgentPreset, AGENTS, fallbackAgent, isAgentId, launchFor, MCP_NAME, penToolName, systemPrompt, toolNameOf } from "./agents";
 import { modelFor } from "./ask";
 import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, ContextUsage, PromptContext } from "./types";
 
@@ -31,7 +26,6 @@ import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, ContextUsage, 
 // stored in the project folder, with the agent's session id, so it can be
 // picked up again after a restart (ACP session/resume).
 
-const MCP_NAME = "pen";
 const MAX_ITEMS = 400;
 const SAVE_EVERY_MS = 1500;
 
@@ -85,14 +79,15 @@ class ConstructSession {
   private items: ChatItem[] = [];
   private state: ConstructState;
   private listeners = new Set<(e: ConstructEvent) => void>();
-  private child: ChildProcess | null = null;
-  private conn: ClientSideConnection | null = null;
+  private proc: AgentProcess | null = null;
+  private get conn() {
+    return this.proc?.conn ?? null;
+  }
   private sessionId: string | null = null;
   private starting: Promise<void> | null = null;
-  private stderr: string[] = [];
   /** The agent the running process is, and how it was started. */
   private runningAgent: AgentId | null = null;
-  private launchCtx: LaunchContext | null = null;
+  private launched: (AgentLaunch & { mcpUrl: string }) | null = null;
   private seq = 0;
   private running = false;
   /** The turn running is the writer's Compact, not a message. */
@@ -117,8 +112,8 @@ class ConstructSession {
     readonly projectId: string,
     private baseUrl: string,
   ) {
-    this.chat = { id: newChatId(), created: Date.now(), sessionId: null, agent: "claude" };
-    this.state = { agent: "claude", chatId: this.chat.id, chats: [], status: "idle", config: [] };
+    this.chat = { id: newChatId(), created: Date.now(), sessionId: null, agent: DEFAULT_AGENT };
+    this.state = { agent: DEFAULT_AGENT, chatId: this.chat.id, chats: [], status: "idle", config: [] };
     this.loaded = this.load().catch((err) => console.error("construct: couldn't load chats", err));
   }
 
@@ -336,7 +331,6 @@ class ConstructSession {
 
   // ─── Agent process ──────────────────────────────────────────
 
-  /** Start the agent (or reuse the running one) and open a session. */
   /** Start the agent of the chat shown (or reuse it, running) and open its session. */
   start(baseUrl = this.baseUrl): Promise<void> {
     this.baseUrl = baseUrl;
@@ -350,60 +344,33 @@ class ConstructSession {
   private async launch(agent: AgentId) {
     const preset: AgentPreset = AGENTS[agent];
     this.setState({ agent, status: "starting", error: undefined, config: [] });
+    let proc: AgentProcess | null = null;
     try {
-      const cwd = path.join(os.tmpdir(), "pen-construct", await agentHome(this.projectId));
-      await mkdir(cwd, { recursive: true });
       const doc = await readDoc(this.projectId);
-      const ctx: LaunchContext = {
-        cwd,
+      const mcpUrl = `${this.baseUrl}/api/construct/mcp`;
+      const launch = await launchFor(agent, {
+        cwd: path.join(os.tmpdir(), "pen-construct", await agentHome(this.projectId)),
         systemPrompt: systemPrompt(doc ? titleOf(doc.content, this.projectId) : this.projectId),
-        mcp: { url: `${this.baseUrl}/api/construct/mcp`, token: this.token, tools: listTools().map((t) => t.name) },
-      };
-      this.launchCtx = ctx;
-      const [cmd, ...args] = preset.command;
-      this.stderr = [];
-      const child = spawn(cmd, args, {
-        cwd,
-        env: { ...process.env, ...(await preset.env?.(ctx, MCP_NAME)) },
-        stdio: ["pipe", "pipe", "pipe"],
+        mcp: { url: mcpUrl, token: this.token, tools: listTools().map((t) => t.name) },
       });
-      this.child = child;
+      this.launched = { ...launch, mcpUrl };
+      const p = (proc = await spawnAgent(launch, this.client(), 40));
+      this.proc = p;
       this.runningAgent = agent;
-      child.stderr!.setEncoding("utf8");
-      child.stderr!.on("data", (chunk: string) => {
-        this.stderr.push(...chunk.split("\n").filter(Boolean));
-        if (this.stderr.length > 40) this.stderr.splice(0, this.stderr.length - 40);
-      });
-      const exited = new Promise<string>((resolve) => {
-        child.on("error", (err) => resolve(err.message));
-        child.on("exit", (code, signal) => resolve(`exited (${signal ?? code})`));
-      });
-      exited.then((why) => {
-        if (this.child !== child) return; // stopped on purpose
-        this.child = null;
-        this.conn = null;
+      void p.exited.then((why) => {
+        if (this.proc !== p) return; // stopped on purpose
+        this.proc = null;
         this.sessionId = null;
         this.runningAgent = null;
-        const detail = this.stderr.slice(-3).join(" · ");
+        const detail = p.stderrTail();
         this.setState({ status: "error", error: `${preset.name} ${why}${detail ? `: ${detail}` : ""}` });
       });
 
-      const stream = ndJsonStream(
-        Writable.toWeb(child.stdin!) as WritableStream<Uint8Array>,
-        Readable.toWeb(child.stdout!) as unknown as ReadableStream<Uint8Array>,
-      );
-      const conn = new ClientSideConnection(() => this.client(), stream);
-      this.conn = conn;
-
       const init = await Promise.race([
-        conn.initialize({
-          protocolVersion: PROTOCOL_VERSION,
-          // No fs, no terminal: everything goes through pen's tools. Compaction
-          // comes as its own updates rather than a made-up tool call.
-          clientCapabilities: { session: { compaction: {} } },
-          clientInfo: { name: "pen", version: "0.1.0" },
-        }),
-        exited.then((why) => Promise.reject(new Error(why))),
+        // No fs, no terminal: everything goes through pen's tools. Compaction
+        // comes as its own updates rather than a made-up tool call.
+        initialize(p.conn, { session: { compaction: {} } }),
+        p.exited.then((why) => Promise.reject(new Error(why))),
       ]);
       if (preset.mcp === "acp" && init.agentCapabilities?.mcpCapabilities?.http !== true) {
         throw new Error(`${preset.name} can't use pen's tools (no HTTP MCP support).`);
@@ -413,7 +380,7 @@ class ConstructSession {
       await this.openSession();
     } catch (err) {
       this.stop();
-      const detail = this.stderr.slice(-3).join(" · ");
+      const detail = proc?.stderrTail();
       this.setState({ status: "error", error: `${(err as Error).message}${detail ? ` (${detail})` : ""}` });
       throw err;
     }
@@ -421,10 +388,10 @@ class ConstructSession {
 
   private async openSession() {
     const conn = this.conn!;
-    const ctx = this.launchCtx!;
+    const launched = this.launched!;
     const preset: AgentPreset = AGENTS[this.runningAgent!];
     const params = {
-      cwd: ctx.cwd,
+      cwd: launched.cwd,
       // An agent that takes its MCP servers from ACP gets pen's here; the others were set up at launch.
       mcpServers:
         preset.mcp === "acp"
@@ -432,12 +399,12 @@ class ConstructSession {
               {
                 type: "http" as const,
                 name: MCP_NAME,
-                url: ctx.mcp!.url,
+                url: launched.mcpUrl,
                 headers: [{ name: "Authorization", value: `Bearer ${this.token}` }],
               },
             ]
           : [],
-      _meta: preset.sessionMeta(ctx, MCP_NAME),
+      _meta: launched.sessionMeta,
     };
     const chat = this.chat;
     this.startupInfo = null;
@@ -489,16 +456,12 @@ class ConstructSession {
   }
 
   stop() {
-    const child = this.child;
-    this.child = null;
-    this.conn = null;
+    const proc = this.proc;
+    this.proc = null;
     this.sessionId = null;
     this.runningAgent = null;
     this.streaming = null;
-    if (child && child.exitCode === null) {
-      child.kill("SIGTERM");
-      setTimeout(() => child.exitCode === null && child.kill("SIGKILL"), 3000).unref();
-    }
+    proc?.stop();
     if (this.state.status !== "error") this.setState({ status: "idle", config: [] });
   }
 
@@ -616,7 +579,7 @@ class ConstructSession {
 
   /** Pen's own tools are pre-approved; anything else is refused. */
   private async permission(p: RequestPermissionRequest): Promise<RequestPermissionResponse> {
-    const name = toolNameOf(p.toolCall);
+    const name = toolNameOf(this.runningAgent ?? this.chat.agent, p.toolCall);
     const allowed = !!name && penToolName(name, MCP_NAME) !== null;
     const option =
       p.options.find((o) => o.kind === (allowed ? "allow_once" : "reject_once")) ??
@@ -656,7 +619,7 @@ class ConstructSession {
         this.streaming = null;
         const prev = this.items.find((x) => x.id === u.toolCallId);
         const base = prev?.type === "tool" ? prev : null;
-        const name = toolNameOf(u) ?? base?.name;
+        const name = toolNameOf(this.runningAgent ?? this.chat.agent, u) ?? base?.name;
         let input = brief(u.rawInput) ?? base?.input;
         // A new entry's id is only known from the result.
         const created = createdEntryIn(u.rawOutput);
@@ -720,12 +683,6 @@ class ConstructSession {
         return; // user_message_chunk (echo), commands, modes…
     }
   }
-}
-
-function toolNameOf(call: { _meta?: { [k: string]: unknown } | null; title?: string | null }): string | undefined {
-  const meta = call._meta?.claudeCode as { toolName?: unknown } | undefined;
-  if (typeof meta?.toolName === "string") return meta.toolName;
-  return call.title?.startsWith("mcp__") ? call.title : undefined;
 }
 
 const textOf = (blocks: ContentBlock[]) =>

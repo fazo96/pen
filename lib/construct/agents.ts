@@ -1,11 +1,16 @@
 import "server-only";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { AgentLaunch } from "../acp";
+import { AGENT_NAMES, DEFAULT_AGENT } from "./agentInfo";
 import { aiSwitchedOff, claudeFound, piFound } from "./detect";
 
 // The ACP agents Construct can run on. Each one is launched with every
 // built-in tool switched off, so the only things it can touch are pen's own
 // tools (./tools.ts), served to it over MCP.
+
+/** The MCP server pen's tools come from, as the agent names it: its tools are `mcp__pen__<tool>`. */
+export const MCP_NAME = "pen";
 
 /** What a launch needs to know: where it runs, how it's told who it is, and pen's tools (none for one-off runs). */
 export type LaunchContext = {
@@ -24,7 +29,11 @@ export type AgentPreset = {
   env?: (ctx: LaunchContext, mcpName: string) => Promise<Record<string, string>>;
   /** `_meta` for session/new: the system prompt and lockdown options. */
   sessionMeta: (ctx: LaunchContext, mcpName: string) => Record<string, unknown> | undefined;
+  /** The tool a call is to, when the agent says so beyond its title. */
+  toolName?: (call: ToolCallLike) => string | undefined;
 };
+
+type ToolCallLike = { _meta?: { [k: string]: unknown } | null; title?: string | null };
 
 const split = (cmd: string) => cmd.trim().split(/\s+/);
 
@@ -37,7 +46,7 @@ const once = (find: () => boolean) => {
 
 export const AGENTS = {
   claude: {
-    name: "Claude Code",
+    name: AGENT_NAMES.claude,
     command: split(process.env.PEN_CONSTRUCT_CLAUDE ?? "npx -y @agentclientprotocol/claude-agent-acp@0.84.0"),
     mcp: "acp",
     available: once(() => claudeFound()),
@@ -53,6 +62,10 @@ export const AGENTS = {
         },
       },
     }),
+    toolName: (call) => {
+      const meta = call._meta?.claudeCode as { toolName?: unknown } | undefined;
+      return typeof meta?.toolName === "string" ? meta.toolName : undefined;
+    },
   },
   // pi through pi-acp, which runs scripts/pi-construct instead of pi itself to
   // add pen's lockdown flags. pi-acp doesn't pass ACP's MCP servers on, so
@@ -60,7 +73,7 @@ export const AGENTS = {
   // file written for the session. The writer's own pi extensions still load:
   // that's where self-hosted model providers live.
   pi: {
-    name: "pi",
+    name: AGENT_NAMES.pi,
     command: split(process.env.PEN_CONSTRUCT_PI ?? "npx -y pi-acp@0.0.34"),
     mcp: "self",
     available: once(() => piFound()),
@@ -107,7 +120,7 @@ export const availableAgents = () => (Object.keys(AGENTS) as AgentId[]).filter((
 export const aiEnabled = () => availableAgents().length > 0;
 
 /** For a chat or setting whose agent can't run here: the first one that can (Claude Code when none can). */
-export const fallbackAgent = (): AgentId => availableAgents()[0] ?? "claude";
+export const fallbackAgent = (): AgentId => availableAgents()[0] ?? DEFAULT_AGENT;
 
 export const AI_OFF = "AI features are off: install Claude Code or pi on the server running pen, then restart it.";
 
@@ -142,4 +155,22 @@ export function quickPrompt(title: string) {
   return `You are Construct, the writing companion inside pen, a quiet editor for fiction, answering one quick question about a passage of the writer's book "${title}". You have no tools: the passage is in the message.
 
 The prose is the writer's own: answer what's asked, and don't rewrite their sentences. The answer appears in a small popover over the text, often on a phone: be brief, skip preamble, and use plain markdown (short lists at most). Write in the language the writer uses.`;
+}
+
+/** How to start `agent` for `ctx` (its folder made if missing): its command, environment and session options. */
+export async function launchFor(agent: AgentId, ctx: LaunchContext): Promise<AgentLaunch> {
+  const preset: AgentPreset = AGENTS[agent];
+  await mkdir(ctx.cwd, { recursive: true }); // pi's env() writes its MCP config there
+  return {
+    command: preset.command,
+    cwd: ctx.cwd,
+    env: await preset.env?.(ctx, MCP_NAME),
+    sessionMeta: preset.sessionMeta(ctx, MCP_NAME),
+  };
+}
+
+/** The tool a call is to, as the agent names it (`mcp__pen__outline`), if it says. */
+export function toolNameOf(agent: AgentId, call: ToolCallLike): string | undefined {
+  const preset: AgentPreset = AGENTS[agent];
+  return preset.toolName?.(call) ?? (call.title?.startsWith("mcp__") ? call.title : undefined);
 }
