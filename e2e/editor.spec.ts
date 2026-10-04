@@ -189,3 +189,20 @@ test("deleting the entry open beside the manuscript closes the panel", async ({ 
   await page.waitForTimeout(1500);
   expect((await page.request.get(`/api/docs/${id}/codex/${entry}`)).status()).toBe(404);
 });
+
+test("on a phone, the top bar's tools are in the More menu", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  const id = await makeBook(page.request, uniqueId("phone"), "Rain on a small screen.");
+  await openBook(page, id);
+  const more = page.getByRole("button", { name: "More" });
+  await more.click();
+  await page.getByRole("menuitem", { name: "Find" }).click();
+  await expect(page.getByRole("search", { name: "Find" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await more.click();
+  await page.getByRole("menuitemcheckbox", { name: /Grammar/ }).click();
+  await expect(page.getByRole("menuitemcheckbox", { name: /Grammar/ })).toHaveAttribute("aria-checked", "false");
+  await page.getByRole("menuitemcheckbox", { name: /Grammar/ }).click(); // back on, for the tests after
+  await page.getByRole("menuitem", { name: "Book settings" }).click();
+  await expect(page).toHaveURL(new RegExp(`/d/${id}/settings$`));
+});

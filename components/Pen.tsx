@@ -13,7 +13,7 @@ import { showPassage } from "@/lib/passage";
 import { buildCommands, buildPlaces, type DrawerTab } from "@/lib/penCommands";
 import type { Spot } from "@/lib/spot";
 import { slugify, wordCount } from "@/lib/text";
-import { STATUS_LABEL, type Story } from "@/lib/useAutosave";
+import type { Story } from "@/lib/useAutosave";
 import { focusText, useCodexPanel } from "@/lib/useCodexPanel";
 import { useDocScan, useEditorDoc } from "@/lib/useEditorDoc";
 import { useFocusMode } from "@/lib/useFocusMode";
@@ -35,18 +35,16 @@ import Drawer from "./Drawer";
 import { useFind } from "./FindBar";
 import WordStats from "./WordStats";
 import DropImport from "./DropImport";
-import EditorMenu from "./EditorMenu";
+import EditorTopBar from "./EditorTopBar";
 import FocusControls from "./FocusControls";
 import GrammarPane, { GrammarCount } from "./GrammarPane";
 import GrammarPopover from "./GrammarPopover";
 import QuickAnswer, { type Quick } from "./QuickAnswer";
 import WordTools from "./WordTools";
-import { IconBack, IconCodex, IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconManuscript, IconOutline } from "./icons";
+import { IconBack } from "./icons";
 import History from "./History";
-import Logo from "./Logo";
 import Outline, { type Heading } from "./Outline";
 import Palette, { type PaletteMode, usePaletteLists } from "./Palette";
-import ThemeButton from "./ThemeButton";
 import Toolbar from "./Toolbar";
 import VersionPreview from "./VersionPreview";
 
@@ -648,115 +646,29 @@ export default function Pen({
     >
       <div className="progress" style={{ transform: `scaleX(${progress})` }} aria-hidden />
 
-      <header className="topbar">
-        <div className="topbar-left">
-          <button
-            type="button"
-            className="icon-btn outline-toggle"
-            onClick={() => setOutlineOpen((o) => !o)}
-            aria-label="Outline"
-            aria-expanded={outlineOpen}
-          >
-            <IconOutline />
-          </button>
-          <button type="button" className="wordmark" onClick={goLibrary} title="Library" aria-label="Library">
-            <Logo />
-          </button>
-          <span className="topbar-title" title={title}>
-            {isEntry ? `Codex · ${title}` : title}
-          </span>
-        </div>
-        <div className="topbar-right">
-          {status === "locked" ? (
-            <a
-              className="status status-locked"
-              href={`/unlock?next=${encodeURIComponent(`/d/${initial.id}`)}`}
-              role="status"
-              title="Signed out. Unlock to keep saving; your text is kept on this device."
-            >
-              <span className="status-dot" aria-hidden />
-              <span className="status-label">Locked · unlock</span>
-            </a>
-          ) : (
-            <span className={`status status-${status}`} role="status" aria-live="polite">
-              <span className="status-dot" aria-hidden />
-              <span className="status-label">{STATUS_LABEL[status]}</span>
-            </span>
-          )}
-          <button
-            type="button"
-            className={`icon-btn ${panelEntry ? "is-on" : ""}`}
-            onClick={() => togglePalette("go")}
-            aria-label="Go to…"
-            aria-haspopup="dialog"
-            title={`${keys.title("Go to…", "goTo")} · ${keys.title(switchLabel, "switch")}`}
-          >
-            {isEntry ? <IconManuscript /> : <IconCodex />}
-          </button>
-          {/* Inline on wider screens; folded into EditorMenu on phones (CSS picks one). */}
-          <div className="topbar-tools">
-            <span className="words label">
-              <WordStats words={words} />
-            </span>
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={toggleFocus}
-              aria-label="Focus mode"
-              title={keys.title("Focus mode", "focus")}
-            >
-              <IconFocus />
-            </button>
-            <ThemeButton />
-            <button
-              type="button"
-              className={`icon-btn ${grammarOn ? "is-on" : ""}`}
-              onClick={toggleGrammar}
-              aria-label="Grammar check"
-              aria-pressed={grammarOn}
-              title={grammarOn ? "Grammar check: on" : "Grammar check: off"}
-            >
-              <IconGrammar />
-            </button>
-            <button type="button" className="icon-btn" onClick={exportMarkdown} aria-label="Export markdown" title="Export .md">
-              <IconExport />
-            </button>
-            {ai && (
-              <button
-                type="button"
-                className={`icon-btn construct-toggle ${constructOpen ? "is-on" : ""}`}
-                onClick={toggleConstruct}
-                aria-label="Construct"
-                aria-expanded={constructOpen}
-                title={keys.title("Construct", "construct")}
-              >
-                <IconConstruct />
-              </button>
-            )}
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={openSettings}
-              aria-label="Book settings"
-              title="Book settings"
-            >
-              <IconGear />
-            </button>
-          </div>
-          <EditorMenu
-            status={STATUS_LABEL[status]}
-            words={words}
-            constructOpen={constructOpen}
-            onFocus={toggleFocus}
-            grammarOn={grammarOn}
-            onGrammar={toggleGrammar}
-            onExport={exportMarkdown}
-            onConstruct={ai ? toggleConstruct : undefined}
-            onSettings={openSettings}
-            onFind={() => openFind("find")}
-          />
-        </div>
-      </header>
+      <EditorTopBar
+        title={title}
+        isEntry={isEntry}
+        docId={initial.id}
+        status={status}
+        words={words}
+        outlineOpen={outlineOpen}
+        panelOpen={!!panelEntry}
+        constructOpen={constructOpen}
+        grammarOn={grammarOn}
+        switchLabel={switchLabel}
+        on={{
+          outline: () => setOutlineOpen((o) => !o),
+          library: goLibrary,
+          goTo: () => togglePalette("go"),
+          focus: toggleFocus,
+          grammar: toggleGrammar,
+          exportMarkdown,
+          construct: ai ? toggleConstruct : undefined,
+          settings: openSettings,
+          find: () => void openFind("find"),
+        }}
+      />
 
       {conflict && <ConflictBanner what="This manuscript was changed on another device." onResolve={resolveConflict} />}
 
