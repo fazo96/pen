@@ -11,6 +11,7 @@ import { step } from "@/lib/findPlugin";
 import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
 import { matches, ROOMY, TOUCH, WIDE } from "@/lib/media";
 import { showPassage } from "@/lib/passage";
+import { buildCommands, buildPlaces, type DrawerTab } from "@/lib/penCommands";
 import { hasCurlyQuotes, straightenQuotes } from "@/lib/quotes";
 import type { Spot } from "@/lib/spot";
 import { slugify, wordCount } from "@/lib/text";
@@ -21,7 +22,6 @@ import { useLibrary } from "@/lib/useLibrary";
 import { useMedia } from "@/lib/useMedia";
 import { useSpot } from "@/lib/useSpot";
 import { setSteady, useSteady } from "@/lib/useSteady";
-import { roman } from "@/lib/outline";
 import { HEADINGS, usePenEditor } from "@/lib/usePenEditor";
 import { useTheme, THEME_LABEL, type Theme } from "@/lib/useTheme";
 import type { VersionMeta } from "@/lib/types";
@@ -43,12 +43,10 @@ import { IconBack, IconCodex, IconConstruct, IconExport, IconFocus, IconGear, Ic
 import History from "./History";
 import Logo from "./Logo";
 import Outline, { type Heading } from "./Outline";
-import Palette, { type PaletteItem, type PaletteMode, usePaletteLists } from "./Palette";
+import Palette, { type PaletteMode, usePaletteLists } from "./Palette";
 import ThemeButton from "./ThemeButton";
 import Toolbar from "./Toolbar";
 import VersionPreview from "./VersionPreview";
-
-type DrawerTab = "contents" | "codex" | "history" | "grammar";
 
 /** sessionStorage: put the cursor in the next page's text (set by the jumps, Ctrl+Shift+M and so on). */
 const FOCUS_ON_ARRIVAL = "pen:focus-on-arrival";
@@ -744,335 +742,89 @@ export default function Pen({
     }
   };
 
-  /** Where the switcher can go: the switch, recent entries, headings, the Codex, other books. */
-  const places = (): PaletteItem[] => {
-    const items: PaletteItem[] = [];
-    const here = isEntry ? initial.id : panelEntry;
-    const titles = new Map((lists.entries ?? []).map((e) => [e.id, e.title]));
-    if (isEntry || panelEntry || last) {
-      // Searchable on an entry's page, where it's the way back; elsewhere it repeats an entry.
-      items.push({
-        key: "switch",
-        section: "Recent",
-        label: switchLabel,
-        hint: keys.key("switch"),
-        when: isEntry ? undefined : "empty",
-        run: switchView,
-      });
-    }
-    const target = !isEntry && !panelEntry ? last?.id : undefined;
-    const recentShown = recent.filter((e) => e !== here && e !== target && titles.has(e)).slice(0, 5);
-    for (const eid of recentShown) {
-      items.push({
-        key: `recent:${eid}`,
-        section: "Recent",
-        label: titles.get(eid)!,
-        when: "empty",
-        run: () => void open(`/d/${projectId}/codex/${eid}`),
-      });
-    }
-    let part = 0;
-    let chapter = 0;
-    for (const h of headings) {
-      const label = h.text || "Untitled";
-      let prefix: string | undefined;
-      let keywords: string | undefined;
-      if (!isEntry && h.level === 2) {
-        prefix = `Part ${roman(++part)}`;
-        keywords = `part ${part} ${prefix}`;
-      } else if (!isEntry && h.level === 3) {
-        prefix = String(++chapter).padStart(2, "0");
-        keywords = `chapter ${chapter} ch ${chapter}`;
-      }
-      items.push({
-        key: `h:${h.pos}`,
-        section: isEntry ? "Headings" : "Contents",
-        label,
-        prefix,
-        keywords,
-        run: () => {
-          const had = !!paletteFrom.current;
-          jump(h);
-          if (had && editor) requestAnimationFrame(() => editor.view.focus());
-        },
-      });
-    }
-    // The most recently viewed first, then the rest as listed.
-    const byRecent = [...(lists.entries ?? [])].sort((a, b) => {
-      const ra = recent.indexOf(a.id);
-      const rb = recent.indexOf(b.id);
-      return (ra < 0 ? Infinity : ra) - (rb < 0 ? Infinity : rb);
-    });
-    for (const e of byRecent) {
-      if (e.id === here) continue;
-      const shownAbove = recentShown.includes(e.id) || e.id === target;
-      items.push({
-        key: `codex:${e.id}`,
-        section: "Codex",
-        label: e.title,
-        when: shownAbove ? "search" : undefined,
-        run: () => void open(`/d/${projectId}/codex/${e.id}`),
-      });
-    }
-    for (const b of lists.books ?? []) {
-      if (b.id === projectId) continue;
-      items.push({
-        key: `book:${b.id}`,
-        section: "Books",
-        label: b.title,
-        keywords: "book manuscript",
-        run: () => void go(`/d/${b.id}`),
-      });
-    }
-    return items;
+  // ─── The palette's lists (lib/penCommands.ts) ──────────────
+  const shared = {
+    projectId,
+    isEntry,
+    here: visited,
+    panelEntry: panelEntry ? { id: panelEntry, title: panelTitle || panelEntry } : null,
+    last,
+    switchLabel,
+    hint: keys.key,
   };
-
-  /** What the command palette can do, given where the writer is and what they've selected. */
-  const commands = (): PaletteItem[] => {
+  const places = () =>
+    buildPlaces({
+      ...shared,
+      recent,
+      entries: lists.entries,
+      books: lists.books,
+      headings,
+      switchView,
+      openEntry: (eid) => void open(`/d/${projectId}/codex/${eid}`),
+      jumpTo: (h) => {
+        const had = !!paletteFrom.current;
+        jump(h);
+        if (had && editor) requestAnimationFrame(() => editor.view.focus());
+      },
+      openBook: (id) => void go(`/d/${id}`),
+    });
+  const commands = () => {
     const ed = paletteFrom.current ?? toolEditor;
     const picked = ed ? pickedWords(ed.state) : null;
     const theme: Theme = (document.documentElement.dataset.theme as Theme | undefined) ?? "auto";
     const nextTheme: Theme = theme === "auto" ? "light" : theme === "light" ? "dark" : "auto";
-    const items: (PaletteItem | false)[] = [
-      {
-        key: "go",
-        section: "Go",
-        label: "Go to…",
-        keywords: "quick switcher open chapter entry book",
-        hint: keys.key("goTo"),
-        run: () => togglePalette("go"),
-      },
-      !!(isEntry || panelEntry || last) && {
-        key: "switch",
-        section: "Go",
-        label: switchLabel,
-        keywords: "switch codex manuscript",
-        hint: keys.key("switch"),
-        run: switchView,
-      },
-      // On an entry's page, the switch above is the way back.
-      !isEntry && {
-        key: "to-manuscript",
-        section: "Go",
-        label: "Go to the manuscript",
-        keywords: "editor text write cursor",
-        hint: keys.key("manuscript"),
-        run: toManuscript,
-      },
-      !isEntry && {
-        key: "to-codex",
-        section: "Go",
-        label: "Go to the Codex",
-        keywords: `entry notes panel ${panelTitle ?? last?.title ?? ""}`,
-        hint: keys.key("codex"),
-        run: () => void toCodex(),
-      },
-      ai && {
-        key: "to-construct",
-        section: "Go",
-        label: "Go to Construct",
-        keywords: "open ai assistant chat panel ask",
-        hint: keys.key("construct"),
-        run: toConstruct,
-      },
-      { key: "library", section: "Go", label: "Library", keywords: "books shelves home", run: goLibrary },
-      {
-        key: "contents",
-        section: "Go",
-        label: "Show contents",
-        keywords: "outline chapters drawer",
-        run: () => showTab("contents"),
-      },
-      {
-        key: "codex-list",
-        section: "Go",
-        label: "Show the Codex",
-        keywords: "entries notes drawer",
-        run: () => showTab("codex"),
-      },
-
-      !!(toolEditor && (!preview || inPanel)) && {
-        key: "find",
-        section: "Find",
-        label: inPanel ? "Find in the entry…" : "Find…",
-        keywords: "search look for",
-        hint: keys.key("find"),
-        run: () => openFind("find"),
-      },
-      !!(toolEditor && (!preview || inPanel)) && {
-        key: "replace",
-        section: "Find",
-        label: inPanel ? "Find and replace in the entry…" : "Find and replace…",
-        keywords: "search substitute change rename",
-        hint: keys.key("replace"),
-        run: () => openFind("replace"),
-      },
-
-      !!picked && {
-        key: "lookup",
-        section: "Selection",
-        label: `Look up “${picked.text}”`,
-        keywords: "dictionary define wordnet",
-        hint: keys.key("lookUp"),
-        refocus: true,
-        run: () => requestLookUp(ed!),
-      },
-      ai && !!picked && {
-        key: "ask-synonyms",
-        section: "Selection",
-        label: `Ask Construct for synonyms of “${picked.text}”`,
-        keywords: "ai",
-        run: () => askConstruct(ed!)(constructPrompt("synonyms", picked.text), picked, true, "synonyms"),
-      },
-      ai && !!picked && {
-        key: "ask-meaning",
-        section: "Selection",
-        label: `Ask Construct what “${picked.text}” means`,
-        keywords: "ai meaning",
-        run: () => askConstruct(ed!)(constructPrompt("meaning", picked.text), picked, true, "meaning"),
-      },
-      ai && !!picked && {
-        key: "ask",
-        section: "Selection",
-        label: `Ask Construct about “${picked.text}”…`,
-        keywords: "ai question",
-        run: () => askConstruct(ed!)(askDraft(picked.text), picked, false),
-      },
-
-      // Opening is "Go to Construct", above.
-      constructOpen && {
-        key: "construct",
-        section: "Construct",
-        label: "Close Construct",
-        keywords: "ai assistant chat panel",
-        run: closeConstruct,
-      },
-      ai && {
-        key: "new-chat",
-        section: "Construct",
-        label: "New Construct chat",
-        keywords: "ai assistant reset conversation",
-        run: () => {
-          if (!constructOpen) toggleConstruct();
+    const ask = (kind: "synonyms" | "meaning" | "ask") => {
+      if (!ed || !picked) return;
+      if (kind === "ask") askConstruct(ed)(askDraft(picked.text), picked, false);
+      else askConstruct(ed)(constructPrompt(kind, picked.text), picked, true, kind);
+    };
+    const openConstruct = () => {
+      if (!constructOpen) toggleConstruct();
+    };
+    return buildCommands({
+      ...shared,
+      ai,
+      canFind: !!(toolEditor && (!preview || inPanel)),
+      inPanel,
+      picked: picked?.text ?? null,
+      constructOpen,
+      grammarOn,
+      focus: focusMode.focus,
+      steady,
+      nextTheme: THEME_LABEL[nextTheme],
+      run: {
+        goTo: () => togglePalette("go"),
+        switchView,
+        toManuscript,
+        toCodex: () => void toCodex(),
+        toConstruct,
+        library: goLibrary,
+        showTab,
+        find: (mode) => void openFind(mode),
+        lookUp: () => ed && requestLookUp(ed),
+        ask,
+        closeConstruct,
+        newChat: () => {
+          openConstruct();
           setNewChat((n) => n + 1);
         },
-      },
-      ai && {
-        key: "compact-chat",
-        section: "Construct",
-        label: "Compact Construct’s conversation",
-        keywords: "ai assistant context summarize memory",
-        run: () => {
-          if (!constructOpen) toggleConstruct();
+        compactChat: () => {
+          openConstruct();
           setCompactChat((n) => n + 1);
         },
+        toggleGrammar,
+        saveVersion: (label) => void saveVersion(label),
+        newEntry: () => void newEntry(),
+        closeEntry: () => void closeEntry(),
+        expandEntry: () => void go(`/d/${projectId}/codex/${panelEntry}`),
+        toggleFocus,
+        toggleSteady: () => setSteady(!steady),
+        cycleTheme,
+        penSettings: () => void go("/settings"),
+        exportMarkdown,
+        bookSettings: openSettings,
       },
-
-      {
-        key: "grammar",
-        section: "Grammar",
-        label: grammarOn ? "Turn grammar check off" : "Turn grammar check on",
-        keywords: "spelling harper toggle",
-        refocus: true,
-        run: toggleGrammar,
-      },
-      grammarOn && {
-        key: "grammar-list",
-        section: "Grammar",
-        label: "Show grammar flags",
-        keywords: "spelling list problems",
-        run: () => showTab("grammar"),
-      },
-
-      !isEntry && {
-        key: "save-version",
-        section: "Versions",
-        label: "Save version…",
-        keywords: "snapshot history name checkpoint",
-        refocus: true,
-        ask: { placeholder: "Name this version (optional)", submit: (label) => void saveVersion(label) },
-      },
-      !isEntry && {
-        key: "history",
-        section: "Versions",
-        label: "Show history",
-        keywords: "versions snapshots restore",
-        run: () => showTab("history"),
-      },
-
-      {
-        key: "new-entry",
-        section: "Codex",
-        label: "New Codex entry",
-        keywords: "note create character",
-        run: () => void newEntry(),
-      },
-      !isEntry &&
-        !!panelEntry && {
-          key: "close-entry",
-          section: "Codex",
-          label: "Close the Codex panel",
-          run: () => void closeEntry(),
-        },
-      !isEntry &&
-        !!panelEntry && {
-          key: "expand-entry",
-          section: "Codex",
-          label: `Open “${panelTitle || panelEntry}” on its own page`,
-          keywords: "expand full",
-          run: () => void go(`/d/${projectId}/codex/${panelEntry}`),
-        },
-
-      {
-        key: "focus",
-        section: "View",
-        label: focusMode.focus ? "Leave focus mode" : "Focus mode",
-        keywords: "distraction free zen",
-        hint: keys.key("focus"),
-        refocus: true,
-        run: toggleFocus,
-      },
-      {
-        key: "steady",
-        section: "View",
-        label: steady ? "Turn the typing fade on" : "Turn the typing fade off",
-        keywords: "dim chrome top bar distraction steady",
-        refocus: true,
-        run: () => setSteady(!steady),
-      },
-      {
-        key: "theme",
-        section: "View",
-        label: `Switch theme to ${THEME_LABEL[nextTheme]}`,
-        keywords: "dark light night paper auto colors",
-        refocus: true,
-        run: cycleTheme,
-      },
-      {
-        key: "pen-settings",
-        section: "View",
-        label: "Pen settings",
-        keywords: "grammar dictionary dialect password lock",
-        run: () => void go("/settings"),
-      },
-
-      {
-        key: "export",
-        section: "Book",
-        label: "Export .md",
-        keywords: "download markdown file",
-        refocus: true,
-        run: exportMarkdown,
-      },
-      {
-        key: "settings",
-        section: "Book",
-        label: "Book settings",
-        keywords: "cover shelf address rename delete",
-        run: openSettings,
-      },
-    ];
-    return items.filter((x): x is PaletteItem => !!x);
+    });
   };
 
   return (

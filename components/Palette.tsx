@@ -3,27 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import type { DocMeta, EntryMeta } from "@/lib/types";
-import { type Findable, pieces, rank } from "@/lib/palette";
+import { type PaletteItem, type PaletteMode, pieces, rank } from "@/lib/palette";
 
-export type PaletteItem = Findable & {
-  key: string;
-  /** Heading in the unfiltered list; a tag beside it in search results. */
-  section: string;
-  /** Before the label, unhighlighted: a chapter's number, say. */
-  prefix?: string;
-  /** Its keyboard shortcut. */
-  hint?: string;
-  /** Only in the unfiltered list, or only in search results (to avoid showing an item twice). */
-  when?: "empty" | "search";
-  /** Put the cursor back in the editor afterwards (when it was there). */
-  refocus?: boolean;
-  run?: () => void;
-  /** A second step asking for text (a version's name), instead of `run`. */
-  ask?: { placeholder: string; submit: (text: string) => void };
-};
-
-/** "go": the quick switcher; "do": commands, which is the switcher with ">" typed. */
-export type PaletteMode = "go" | "do";
+export type { PaletteItem, PaletteMode };
 
 const LIMIT = 60;
 

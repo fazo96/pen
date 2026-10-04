@@ -68,6 +68,27 @@ export function match(query: string, text: string): Match | null {
 /** Something to find: matched by its label, or more weakly by other words for it. */
 export type Findable = { label: string; keywords?: string };
 
+/** A row in the quick switcher or the command palette (components/Palette.tsx). */
+export type PaletteItem = Findable & {
+  key: string;
+  /** Heading in the unfiltered list; a tag beside it in search results. */
+  section: string;
+  /** Before the label, unhighlighted: a chapter's number, say. */
+  prefix?: string;
+  /** Its keyboard shortcut. */
+  hint?: string;
+  /** Only in the unfiltered list, or only in search results (to avoid showing an item twice). */
+  when?: "empty" | "search";
+  /** Put the cursor back in the editor afterwards (when it was there). */
+  refocus?: boolean;
+  run?: () => void;
+  /** A second step asking for text (a version's name), instead of `run`. */
+  ask?: { placeholder: string; submit: (text: string) => void };
+};
+
+/** "go": the quick switcher; "do": commands, which is the switcher with ">" typed. */
+export type PaletteMode = "go" | "do";
+
 /**
  * The items that match, best first. Equal scores keep the given order (callers put
  * the more recent or more likely first). Hits are in the label; a match only in the
