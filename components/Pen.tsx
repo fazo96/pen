@@ -7,7 +7,6 @@ import { api, createEntry, saveVersion as postVersion } from "@/lib/api";
 import { type Citation, findPassage, type LineCitation, parseCitation } from "@/lib/cite";
 import { textWithoutComments } from "@/lib/comments";
 import type { PromptContext } from "@/lib/construct/types";
-import { step } from "@/lib/findPlugin";
 import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
 import { matches, ROOMY, TOUCH, WIDE } from "@/lib/media";
 import { showPassage } from "@/lib/passage";
@@ -31,7 +30,7 @@ import CodexPanel, { type CodexPanelHandle } from "./CodexPanel";
 import ConflictBanner from "./ConflictBanner";
 import Construct, { type ConstructRequest } from "./Construct";
 import Drawer from "./Drawer";
-import FindBar, { type FindMode } from "./FindBar";
+import { useFind } from "./FindBar";
 import WordStats from "./WordStats";
 import DropImport from "./DropImport";
 import EditorMenu from "./EditorMenu";
@@ -51,6 +50,9 @@ import VersionPreview from "./VersionPreview";
 
 /** sessionStorage: put the cursor in the next page's text (set by the jumps, Ctrl+Shift+M and so on). */
 const FOCUS_ON_ARRIVAL = "pen:focus-on-arrival";
+
+/** A question about some text in `editor`, for Construct: a quick answer (`send`), or left in the chat's input. */
+type AskConstruct = (text: string, range: { from: number; to: number }, send: boolean, kind?: QuickKind) => void;
 
 type Props = {
   projectId: string;
@@ -433,7 +435,7 @@ export default function Pen({
   const [constructRequest, setConstructRequest] = useState<ConstructRequest | null>(null);
   const [quick, setQuick] = useState<Quick | null>(null);
   const closeQuick = useCallback(() => setQuick(null), []);
-  const askConstruct = (ed: Editor) => (text: string, range: { from: number; to: number }, send: boolean, kind?: QuickKind) => {
+  const askConstruct = (ed: Editor): AskConstruct => (text, range, send, kind) => {
     if (!send) return askChat(ed, text, range, false);
     const context = contextIn(ed, range);
     setQuick({ id: Date.now(), editor: ed, from: range.from, to: range.to, text: ed.state.doc.textBetween(range.from, range.to, " ", " "), prompt: text, context, kind });
@@ -625,62 +627,16 @@ export default function Pen({
   }, [ai]);
 
   // ─── Find and replace (Ctrl+F, Ctrl+H) ─────────────────────
-  /** The editor searched, and a key bumped by each Ctrl+F to refocus the bar. */
-  const [find, setFind] = useState<{ editor: Editor; mode: FindMode; key: number } | null>(null);
-  /** In the editor used last; false when there's none to search (a version preview covers it). */
-  const openFind = (mode: FindMode) => {
-    const target = preview && !inPanel ? null : toolEditor;
-    if (!target) return false;
-    closePalette(false);
-    setOutlineOpen(false);
-    setFind((f) => ({ editor: target, mode, key: (f?.key ?? 0) + 1 }));
-    return true;
-  };
-  const closeFind = (refocus: boolean) => {
-    const ed = find?.editor;
-    setFind(null);
-    if (refocus && ed && !ed.isDestroyed) requestAnimationFrame(() => !ed.isDestroyed && ed.view.focus());
-  };
-  // Its editor gone (the panel closed) or covered (a preview opened): the bar goes too.
-  const findGone = !!find && (find.editor.isDestroyed || (find.editor !== editor && find.editor !== panelEditor) || (find.editor === editor && !!preview));
-  useEffect(() => {
-    if (findGone) setFind(null);
-  }, [findGone]);
-  const finds = useRef({ openFind, find });
-  finds.current = { openFind, find };
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      const { openFind, find } = finds.current;
-      const mod = !e.shiftKey && !e.altKey;
-      if (mod && e.code === "KeyF") {
-        // Ctrl+F in the bar: the browser's own find, for everything else on the page.
-        if ((document.activeElement as Element | null)?.closest(".find-bar")) return;
-        if (openFind("find")) e.preventDefault();
-      } else if ((mod && e.code === "KeyH") || (!e.shiftKey && e.altKey && e.code === "KeyF")) {
-        if (openFind("replace")) e.preventDefault();
-      } else if (!e.altKey && e.code === "KeyG" && find && !find.editor.isDestroyed) {
-        e.preventDefault();
-        step(find.editor.view, e.shiftKey ? -1 : 1);
-      } else return;
-      e.stopPropagation();
-    };
-    window.addEventListener("keydown", onKey, true);
-    return () => window.removeEventListener("keydown", onKey, true);
-  }, []);
-  const findBar = (ed: Editor | null) =>
-    find &&
-    find.editor === ed &&
-    !findGone && (
-      <FindBar
-        editor={find.editor}
-        mode={find.mode}
-        focusKey={find.key}
-        onMode={(mode) => setFind((f) => f && { ...f, mode })}
-        onClose={closeFind}
-        onReplaced={(n) => setNotice(n ? `Replaced ${n} ${n === 1 ? "match" : "matches"}` : "Nothing to replace")}
-      />
-    );
+  // In the editor used last; none while a version preview covers the manuscript.
+  const { openFind, findBar } = useFind({
+    target: preview && !inPanel ? null : toolEditor,
+    shown: preview ? [panelEditor] : [editor, panelEditor],
+    onOpen: () => {
+      closePalette(false);
+      setOutlineOpen(false);
+    },
+    onReplaced: (n) => setNotice(n ? `Replaced ${n} ${n === 1 ? "match" : "matches"}` : "Nothing to replace"),
+  });
 
   const showTab = (tab: DrawerTab) => {
     setDrawerTab(tab);
@@ -1057,17 +1013,8 @@ export default function Pen({
         />
       )}
       <DropImport onFile={importFile} />
-      {editor && (
-        <GrammarPopover editor={editor} onAsk={ai ? (text, range) => askConstruct(editor)(text, range, true, "grammar") : undefined} />
-      )}
-      {panelEditor && (
-        <GrammarPopover
-          editor={panelEditor}
-          onAsk={ai ? (text, range) => askConstruct(panelEditor)(text, range, true, "grammar") : undefined}
-        />
-      )}
-      {editor && <WordTools editor={editor} onAsk={ai ? askConstruct(editor) : undefined} />}
-      {panelEditor && <WordTools editor={panelEditor} onAsk={ai ? askConstruct(panelEditor) : undefined} />}
+      {editor && <EditorOverlays editor={editor} onAsk={ai ? askConstruct(editor) : undefined} />}
+      {panelEditor && <EditorOverlays editor={panelEditor} onAsk={ai ? askConstruct(panelEditor) : undefined} />}
       {quick && !quick.editor.isDestroyed && (
         <QuickAnswer
           key={quick.id}
@@ -1081,5 +1028,15 @@ export default function Pen({
         />
       )}
     </div>
+  );
+}
+
+/** What floats over an editor's text: the grammar flag's popover, the look-up bar. */
+function EditorOverlays({ editor, onAsk }: { editor: Editor; onAsk?: AskConstruct }) {
+  return (
+    <>
+      <GrammarPopover editor={editor} onAsk={onAsk && ((text, range) => onAsk(text, range, true, "grammar"))} />
+      <WordTools editor={editor} onAsk={onAsk} />
+    </>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { type Editor, useEditorState } from "@tiptap/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { FindOptions } from "@/lib/find";
 import { clearSearch, findState, replaceAll, replaceCurrent, selectCurrent, setSearch, step } from "@/lib/findPlugin";
 import { useKeys } from "@/lib/useKeys";
@@ -209,4 +209,81 @@ export default function FindBar({ editor, mode, focusKey, onMode, onClose, onRep
       )}
     </div>
   );
+}
+
+type FindState = { editor: Editor; mode: FindMode; key: number };
+
+/**
+ * Find and replace for a page with one or two editors: Ctrl+F and Ctrl+H (⌥⌘F)
+ * open the bar on `target`, the editor used last, Ctrl+G and Ctrl+Shift+G step
+ * through matches. `shown` are the editors on screen: when the searched one
+ * leaves it (the panel closed, a preview covered the text), the bar goes too.
+ * `findBar(ed)` is the bar, for the editor it's searching.
+ */
+export function useFind({
+  target,
+  shown,
+  onOpen,
+  onReplaced,
+}: {
+  target: Editor | null;
+  shown: (Editor | null)[];
+  /** Just before it opens (close what would cover it). */
+  onOpen: () => void;
+  onReplaced: (count: number) => void;
+}) {
+  const [find, setFind] = useState<FindState | null>(null);
+  /** False when there's no editor to search. */
+  const openFind = (mode: FindMode) => {
+    if (!target) return false;
+    onOpen();
+    setFind((f) => ({ editor: target, mode, key: (f?.key ?? 0) + 1 }));
+    return true;
+  };
+  const closeFind = (refocus: boolean) => {
+    const ed = find?.editor;
+    setFind(null);
+    if (refocus && ed && !ed.isDestroyed) requestAnimationFrame(() => !ed.isDestroyed && ed.view.focus());
+  };
+  const gone = !!find && (find.editor.isDestroyed || !shown.includes(find.editor));
+  useEffect(() => {
+    if (gone) setFind(null);
+  }, [gone]);
+
+  const onKey = useEffectEvent((e: KeyboardEvent) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    const mod = !e.shiftKey && !e.altKey;
+    if (mod && e.code === "KeyF") {
+      // Ctrl+F in the bar: the browser's own find, for everything else on the page.
+      if ((document.activeElement as Element | null)?.closest(".find-bar")) return;
+      if (openFind("find")) e.preventDefault();
+    } else if ((mod && e.code === "KeyH") || (!e.shiftKey && e.altKey && e.code === "KeyF")) {
+      if (openFind("replace")) e.preventDefault();
+    } else if (!e.altKey && e.code === "KeyG" && find && !find.editor.isDestroyed) {
+      e.preventDefault();
+      step(find.editor.view, e.shiftKey ? -1 : 1);
+    } else return;
+    e.stopPropagation();
+  });
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => onKey(e);
+    window.addEventListener("keydown", listener, true);
+    return () => window.removeEventListener("keydown", listener, true);
+  }, []);
+
+  const findBar = (ed: Editor | null) =>
+    find &&
+    find.editor === ed &&
+    !gone && (
+      <FindBar
+        editor={find.editor}
+        mode={find.mode}
+        focusKey={find.key}
+        onMode={(mode) => setFind((f) => f && { ...f, mode })}
+        onClose={closeFind}
+        onReplaced={onReplaced}
+      />
+    );
+
+  return { openFind, findBar };
 }

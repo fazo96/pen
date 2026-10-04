@@ -154,3 +154,20 @@ test("curly quotes are straightened on open, a manuscript after saving a version
     .poll(async () => ((await (await page.request.get(`/api/docs/${id}/codex/${entry}`)).json()) as { content: string }).content, { timeout: 15_000 })
     .toContain("'Curly'");
 });
+
+test("find searches the editor used last, and leaves with it", async ({ page }) => {
+  const id = await makeBook(page.request, uniqueId("find-panel"), "Rain on the manuscript.");
+  const entry = await makeEntry(page, id, "Storm");
+  await page.goto(`/d/${id}?entry=${entry}`);
+  const panel = page.getByRole("complementary", { name: "Codex entry" });
+  await panel.locator(".ProseMirror p").click();
+  await page.keyboard.press("Control+f");
+  const bar = panel.getByRole("search", { name: "Find" });
+  await expect(bar).toBeVisible();
+  await page.keyboard.type("storm");
+  await expect(bar.locator(".find-count")).toContainText("2"); // the title and "Notes about Storm."
+  await page.keyboard.press("Control+g");
+  await expect(bar.locator(".find-count")).toContainText("2");
+  await panel.getByRole("button", { name: "Close entry" }).click();
+  await expect(page.getByRole("search")).toHaveCount(0);
+});
