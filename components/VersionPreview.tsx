@@ -14,7 +14,7 @@ import { PenMarkdown } from "@/lib/markdownEscape";
 import { PenOrderedList } from "@/lib/orderedList";
 import { CitedPassage, showPassage } from "@/lib/passage";
 import { straightenQuotes } from "@/lib/quotes";
-import type { VersionMeta } from "@/lib/versions";
+import type { VersionMeta } from "@/lib/types";
 import { IconDown, IconUp } from "./icons";
 
 type Props = {

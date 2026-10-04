@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isImage, prepareNote } from "@/lib/cover";
-import type { EntryMeta } from "@/lib/docs";
+import type { EntryMeta } from "@/lib/types";
 import type { ImportMeta } from "@/lib/imports";
 import { useDropZone } from "@/lib/useDropZone";
 import { CODEX_IMPORT_ACCEPT, CODEX_NOTE_ACCEPT, HTML_EXT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";

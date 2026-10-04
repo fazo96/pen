@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { isImage } from "@/lib/cover";
-import type { DocMeta } from "@/lib/docs";
+import type { DocMeta } from "@/lib/types";
 import { wordsPages, wordsPagesTitle } from "@/lib/text";
 import { IconGear } from "./icons";
 

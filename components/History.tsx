@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDropZone } from "@/lib/useDropZone";
 import { IMPORT_ACCEPT, IMPORT_EXT, importProblem } from "@/lib/useLibrary";
-import type { VersionMeta } from "@/lib/versions";
+import type { VersionMeta } from "@/lib/types";
 import { wordsPages, wordsPagesTitle } from "@/lib/text";
 import { IconPencil, IconTrash } from "./icons";
 

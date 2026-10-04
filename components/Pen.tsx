@@ -22,7 +22,7 @@ import { setSteady, useSteady } from "@/lib/useSteady";
 import { roman } from "@/lib/outline";
 import { HEADINGS, usePenEditor } from "@/lib/usePenEditor";
 import { useTheme, THEME_LABEL, type Theme } from "@/lib/useTheme";
-import type { VersionMeta } from "@/lib/versions";
+import type { VersionMeta } from "@/lib/types";
 import { askDraft, constructPrompt, pickedWords, type QuickKind, requestLookUp } from "@/lib/wordTools";
 import Codex, { createEntry } from "./Codex";
 import CodexPanel, { type CodexPanelHandle } from "./CodexPanel";

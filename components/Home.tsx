@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRef, useState } from "react";
-import type { DocMeta } from "@/lib/docs";
+import type { DocMeta } from "@/lib/types";
 import type { Layout } from "@/lib/shelfLayout";
 import { IMPORT_ACCEPT, useLibrary } from "@/lib/useLibrary";
 import DropImport from "./DropImport";

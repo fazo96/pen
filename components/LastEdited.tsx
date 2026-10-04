@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import type { DocMeta } from "@/lib/docs";
+import type { DocMeta } from "@/lib/types";
 import { wordsPages, wordsPagesTitle } from "@/lib/text";
 import { ago, Cover } from "./Book";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DocMeta, EntryMeta } from "@/lib/docs";
+import type { DocMeta, EntryMeta } from "@/lib/types";
 import { type Findable, pieces, rank } from "@/lib/palette";
 
 export type PaletteItem = Findable & {

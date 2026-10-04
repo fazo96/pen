@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DocMeta } from "@/lib/docs";
+import type { DocMeta } from "@/lib/types";
 import {
   addShelf,
   findBook,

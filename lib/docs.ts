@@ -8,6 +8,7 @@ import { queue } from "./queue";
 import { recordRename } from "./renames";
 import { droppedEntry, noSpots, renamedEntry, sanitizeSpots, type Spot, type Spots, withLast, withSpot } from "./spot";
 import { slugify, titleOf, wordCount } from "./text";
+import type { Doc, DocMeta, EntryMeta } from "./types";
 import * as versions from "./versions";
 
 // The library: one folder per project, holding manuscript.md (the master
@@ -20,17 +21,7 @@ const SESSION_GAP_MS = Number(process.env.PEN_SESSION_GAP_MS) || 30 * 60 * 1000;
 
 export const MAX_BYTES = 5 * 1024 * 1024;
 
-export type Doc = { id: string; content: string; version: string };
-export type DocMeta = {
-  id: string;
-  title: string;
-  words: number;
-  /** Last written: the manuscript or any Codex entry. */
-  modified: number;
-  /** mtime of the cover image, to cache-bust its URL; null without one. */
-  cover: number | null;
-};
-export type { VersionMeta } from "./versions";
+export type { Doc, DocMeta, EntryMeta, VersionMeta } from "./types";
 
 export { isValidId };
 
@@ -429,8 +420,6 @@ export function renameVersion(id: string, vid: string, label: string) {
 
 // ─── Codex ───────────────────────────────────────────────────
 // Notes that sit beside the manuscript: <project>/codex/<entry>.md.
-
-export type EntryMeta = { id: string; title: string; words: number; modified: number };
 
 const codexDir = (id: string) => path.join(dirOf(id), "codex");
 function entryFile(id: string, eid: string) {

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { COVER_ACCEPT, isImage } from "@/lib/cover";
 import { isValidId } from "@/lib/ids";
-import type { DocMeta } from "@/lib/docs";
+import type { DocMeta } from "@/lib/types";
 import type { Stats as Figures } from "@/lib/library";
 import { findBook, type Layout, moveBook } from "@/lib/shelfLayout";
 import { pageCount, slugify } from "@/lib/text";

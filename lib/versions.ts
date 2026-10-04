@@ -2,13 +2,13 @@ import "server-only";
 import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { wordCount } from "./text";
+import type { VersionKind, VersionMeta } from "./types";
 
 // Snapshots of one project's manuscript, kept in <project>/versions/ as plain
 // markdown files. index.json holds what the file names can't: labels, kind
 // and word counts. Callers serialize access (see lib/docs.ts).
 
-export type VersionKind = "named" | "auto";
-export type VersionMeta = { id: string; kind: VersionKind; label: string; created: number; words: number };
+export type { VersionKind, VersionMeta } from "./types";
 
 const MAX_AUTO = 30;
 const VID_RE = /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z(-\d+)?$/;
