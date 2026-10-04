@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useDismiss } from "@/lib/useDismiss";
 import { api } from "@/lib/api";
 import type { DocMeta } from "@/lib/types";
 import {
@@ -104,21 +105,10 @@ export default function Shelves({ docs, layout, onCover }: Props) {
     });
   }, []);
 
-  useEffect(() => {
-    if (!menu) return;
-    const close = (e: Event) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !(e.target as Element).closest(".popover-menu, [data-menu-toggle]")) {
-        setMenu(null);
-        setConfirming(null);
-      }
-    };
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [menu]);
+  useDismiss(!!menu, (t) => !!t.closest(".popover-menu, [data-menu-toggle]"), () => {
+    setMenu(null);
+    setConfirming(null);
+  });
 
   // ─── Dragging ───────────────────────────────────────────────
   const press = useRef<Press | null>(null);

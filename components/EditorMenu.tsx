@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useDismiss } from "@/lib/useDismiss";
 import { useTheme } from "@/lib/useTheme";
 import WordStats from "./WordStats";
 import { IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconMore, IconSearch, IconTheme } from "./icons";
@@ -24,18 +25,7 @@ export default function EditorMenu(props: Props) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: Event) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !root.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [open]);
+  useDismiss(open, root, () => setOpen(false));
 
   return (
     <div className="editor-menu" ref={root}>

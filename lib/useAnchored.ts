@@ -1,7 +1,7 @@
 "use client";
 
 import type { Editor } from "@tiptap/react";
-import { useLayoutEffect, useState, type RefObject } from "react";
+import { type RefObject, useEffect, useEffectEvent, useLayoutEffect, useState } from "react";
 
 type Range = { from: number; to: number };
 
@@ -62,4 +62,19 @@ export function useAnchored(
   }, [range?.from, range?.to, editor, above]);
 
   return range ? pos : null;
+}
+
+/** A popover over the text closes when the document changes (typing elsewhere, the words moved) or on Escape. */
+export function useCloseOnEdit(editor: Editor, close: () => void) {
+  const onClose = useEffectEvent(close);
+  useEffect(() => {
+    const onTx = ({ transaction }: { transaction: { docChanged: boolean } }) => transaction.docChanged && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    editor.on("transaction", onTx);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      editor.off("transaction", onTx);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [editor]);
 }

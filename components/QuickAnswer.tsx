@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { PromptContext, QuickLine } from "@/lib/construct/types";
 import { readNdjson } from "@/lib/ndjson";
-import { useAnchored } from "@/lib/useAnchored";
+import { useAnchored, useCloseOnEdit } from "@/lib/useAnchored";
 import { alternativesIn, matchCase, type QuickKind } from "@/lib/wordTools";
 import { Markdown } from "./ConstructMarkdown";
 import { IconConstruct } from "./icons";
@@ -93,17 +93,7 @@ export default function QuickAnswer({
     };
   }, [projectId, quick]);
 
-  // Typing elsewhere, or moving the words, closes it.
-  useEffect(() => {
-    const onTx = ({ transaction }: { transaction: { docChanged: boolean } }) => transaction.docChanged && onClose();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    editor.on("transaction", onTx);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      editor.off("transaction", onTx);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [editor, onClose]);
+  useCloseOnEdit(editor, onClose);
 
   const replace = (word: string) => {
     const { state } = editor;

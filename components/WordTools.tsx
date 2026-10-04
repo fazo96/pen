@@ -7,7 +7,7 @@ import { createPortal } from "react-dom";
 import { api, ApiError } from "@/lib/api";
 import { grammarKey } from "@/lib/grammar";
 import { matches, MOUSE } from "@/lib/media";
-import { useAnchored } from "@/lib/useAnchored";
+import { useAnchored, useCloseOnEdit } from "@/lib/useAnchored";
 import { useKeys } from "@/lib/useKeys";
 import { askDraft, constructPrompt, onLookUpRequest, pickedWords, type AskKind, type Picked, type QuickKind } from "@/lib/wordTools";
 import { inflectLike, type Pos } from "@/lib/wordforms";
@@ -188,17 +188,7 @@ function LookUp({
     };
   }, [picked.text]);
 
-  // Typing elsewhere, or moving the words, closes it.
-  useEffect(() => {
-    const onTx = ({ transaction }: { transaction: { docChanged: boolean } }) => transaction.docChanged && onClose();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    editor.on("transaction", onTx);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      editor.off("transaction", onTx);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [editor, onClose]);
+  useCloseOnEdit(editor, onClose);
 
   const replace = (word: string, entry: Entry, sense: Sense) => {
     const { state } = editor;

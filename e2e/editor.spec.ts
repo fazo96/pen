@@ -195,8 +195,16 @@ test("on a phone, the top bar's tools are in the More menu", async ({ page }) =>
   const id = await makeBook(page.request, uniqueId("phone"), "Rain on a small screen.");
   await openBook(page, id);
   const more = page.getByRole("button", { name: "More" });
+  const find = page.getByRole("menuitem", { name: "Find" });
+  // Escape and a press outside close it.
   await more.click();
-  await page.getByRole("menuitem", { name: "Find" }).click();
+  await page.keyboard.press("Escape");
+  await expect(find).toBeHidden();
+  await more.click();
+  await page.mouse.click(195, 760); // the text, below the menu
+  await expect(find).toBeHidden();
+  await more.click();
+  await find.click();
   await expect(page.getByRole("search", { name: "Find" })).toBeVisible();
   await page.keyboard.press("Escape");
   await more.click();

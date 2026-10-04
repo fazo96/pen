@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useDismiss } from "@/lib/useDismiss";
 import { WORDS_PER_PAGE, pageCount, readMinutes } from "@/lib/text";
 
 type Props = {
@@ -18,22 +19,7 @@ export default function WordStats({ words, lead, side = "below" }: Props) {
   const pages = pageCount(words);
   const minutes = readMinutes(words);
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: Event) => {
-      if (e instanceof KeyboardEvent) {
-        if (e.key !== "Escape") return;
-        e.stopPropagation();
-      } else if (root.current?.contains(e.target as Node)) return;
-      setOpen(false);
-    };
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", close, true);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", close, true);
-    };
-  }, [open]);
+  useDismiss(open, root, () => setOpen(false), { escapeFirst: true });
 
   return (
     <span className={`word-stats is-${side} ${open ? "is-open" : ""}`} ref={root}>

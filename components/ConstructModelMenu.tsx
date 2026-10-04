@@ -1,7 +1,8 @@
 "use client";
 
 import type { SessionConfigOption } from "@agentclientprotocol/sdk";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useDismiss } from "@/lib/useDismiss";
 import { agentName, DEFAULT_AGENT } from "@/lib/construct/agentInfo";
 import type { AgentModels } from "@/lib/construct/models";
 import { IconDown } from "./icons";
@@ -28,18 +29,7 @@ export default function ConstructModelMenu({
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: Event) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !root.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", close);
-    };
-  }, [open]);
+  useDismiss(open, root, () => setOpen(false));
 
   const selects = config.flatMap((o) => (o.type === "select" ? [o] : []));
   const flat = (o: (typeof selects)[number]) => o.options.flatMap((opt) => ("group" in opt ? opt.options : [opt]));
