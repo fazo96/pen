@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { api, ApiError } from "@/lib/api";
 import { type ModelSettings, type ModelUse, modelRef, parseModel } from "@/lib/construct/models";
 import { useModels } from "@/lib/useModels";
 import { IconConstruct } from "./icons";
@@ -77,9 +78,9 @@ function Models({ found }: { found: string[] }) {
   const { agents, error: listError, refresh } = useModels();
 
   useEffect(() => {
-    fetch("/api/construct/settings", { cache: "no-store" })
-      .then(async (res) => (res.ok ? setSettings((await res.json()) as ModelSettings) : setError("Couldn’t load the settings.")))
-      .catch(() => setError("Couldn’t reach pen."));
+    api<ModelSettings>("/api/construct/settings").then(setSettings, (e) =>
+      setError(e instanceof ApiError ? "Couldn’t load the settings." : "Couldn’t reach pen."),
+    );
   }, []);
 
   const save = async (use: ModelUse, value: string) => {
@@ -87,13 +88,7 @@ function Models({ found }: { found: string[] }) {
     const prev = settings;
     setSettings((s) => ({ ...s, [use]: value || undefined }));
     try {
-      const res = await fetch("/api/construct/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [use]: value }),
-      });
-      if (!res.ok) throw new Error();
-      setSettings((await res.json()) as ModelSettings);
+      setSettings(await api<ModelSettings>("/api/construct/settings", { method: "PATCH", json: { [use]: value } }));
     } catch {
       setSettings(prev);
       setError("Couldn’t save that.");

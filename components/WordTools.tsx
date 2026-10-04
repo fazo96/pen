@@ -4,6 +4,7 @@ import { TextSelection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { api, ApiError } from "@/lib/api";
 import { grammarKey } from "@/lib/grammar";
 import { useAnchored } from "@/lib/useAnchored";
 import { useKeys } from "@/lib/useKeys";
@@ -173,9 +174,12 @@ function LookUp({
     const ctrl = new AbortController();
     setSlow(false);
     const timer = setTimeout(() => setSlow(true), 1500);
-    fetch(`/api/dictionary?word=${encodeURIComponent(picked.text)}`, { signal: ctrl.signal })
-      .then(async (res) => setResult(res.ok ? await res.json() : { error: (await res.json().catch(() => ({}))).error ?? "Look-up failed." }))
-      .catch((err) => (err as Error).name !== "AbortError" && setResult({ error: "Can’t reach pen." }))
+    api<Result>(`/api/dictionary?word=${encodeURIComponent(picked.text)}`, { signal: ctrl.signal })
+      .then(setResult)
+      .catch((err) => {
+        if ((err as Error).name === "AbortError") return;
+        setResult({ error: err instanceof ApiError ? err.message : "Can’t reach pen." });
+      })
       .finally(() => clearTimeout(timer));
     return () => {
       ctrl.abort();

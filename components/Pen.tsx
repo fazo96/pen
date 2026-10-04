@@ -3,6 +3,7 @@
 import { type Editor, EditorContent } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { api, createEntry, saveVersion as postVersion } from "@/lib/api";
 import { type Citation, findPassage, type LineCitation, parseCitation } from "@/lib/cite";
 import { textWithoutComments } from "@/lib/comments";
 import type { PromptContext } from "@/lib/construct/types";
@@ -24,7 +25,7 @@ import { HEADINGS, usePenEditor } from "@/lib/usePenEditor";
 import { useTheme, THEME_LABEL, type Theme } from "@/lib/useTheme";
 import type { VersionMeta } from "@/lib/types";
 import { askDraft, constructPrompt, pickedWords, type QuickKind, requestLookUp } from "@/lib/wordTools";
-import Codex, { createEntry } from "./Codex";
+import Codex from "./Codex";
 import CodexPanel, { type CodexPanelHandle } from "./CodexPanel";
 import Construct, { type ConstructRequest } from "./Construct";
 import Drawer from "./Drawer";
@@ -154,12 +155,11 @@ export default function Pen({
     if (!editor || !hasCurlyQuotes(editor.state.doc)) return;
     void (async () => {
       if (!isEntry) {
-        const res = await fetch(`/api/docs/${projectId}/versions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ label: "Before straightening quotes" }),
-        }).catch(() => null);
-        if (!res?.ok) return; // try again next time it opens
+        const saved = await postVersion(projectId, "Before straightening quotes").then(
+          () => true,
+          () => false,
+        );
+        if (!saved) return; // try again next time it opens
         setHistoryKey((k) => k + 1);
       }
       const tr = straightenQuotes(editor.state);
@@ -267,9 +267,9 @@ export default function Pen({
   };
 
   const openPreview = async (meta: VersionMeta, cite?: LineCitation) => {
-    const res = await fetch(`/api/docs/${initial.id}/versions/${meta.id}`, { cache: "no-store" });
-    if (!res.ok) return false;
-    const { content } = (await res.json()) as { content: string };
+    const version = await api<{ content: string }>(`/api/docs/${initial.id}/versions/${meta.id}`).catch(() => null);
+    if (!version) return false;
+    const { content } = version;
     if (!preview) scrollBeforePreview.current = window.scrollY;
     setPreview({ meta, content, cite });
     setOutlineOpen(false);
@@ -285,9 +285,11 @@ export default function Pen({
   const restore = async () => {
     if (!preview) return;
     await leave(); // the "before restore" copy should include the latest keystrokes
-    const res = await fetch(`/api/docs/${initial.id}/versions/${preview.meta.id}/restore`, { method: "POST" });
-    if (!res.ok) return;
-    adopt((await res.json()) as Story);
+    const story = await api<Story>(`/api/docs/${initial.id}/versions/${preview.meta.id}/restore`, { method: "POST" }).catch(
+      () => null,
+    );
+    if (!story) return;
+    adopt(story);
     setPreview(null);
     setHistoryKey((k) => k + 1);
     window.scrollTo(0, 0);
@@ -307,8 +309,8 @@ export default function Pen({
     // Below this width Construct covers the text.
     if (!window.matchMedia(WIDE).matches) setConstructOpen(false);
     if (c.kind === "version") {
-      const res = await fetch(`/api/docs/${projectId}/versions`, { cache: "no-store" }).catch(() => null);
-      const meta = res?.ok ? ((await res.json()) as VersionMeta[]).find((v) => v.id === c.version) : undefined;
+      const versions = await api<VersionMeta[]>(`/api/docs/${projectId}/versions`).catch(() => null);
+      const meta = versions?.find((v) => v.id === c.version);
       if (!meta) return false;
       citeShown.current?.(false);
       const shown = new Promise<boolean>((resolve) => (citeShown.current = resolve));
@@ -376,11 +378,7 @@ export default function Pen({
   const visited = isEntry ? initial.id : panelEntry;
   useEffect(() => {
     if (!visited) return;
-    void fetch(spotUrl, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ entry: visited }),
-    }).catch(() => {});
+    void api(spotUrl, { method: "PUT", json: { entry: visited } }).catch(() => {});
   }, [spotUrl, visited]);
   useEffect(() => {
     if (panelEntry) setLast((l) => ({ id: panelEntry, title: panelTitle || (l?.id === panelEntry ? l.title : panelEntry) }));
@@ -733,12 +731,7 @@ export default function Pen({
   const saveVersion = async (label: string) => {
     try {
       await leave(); // the version should include the latest keystrokes
-      const res = await fetch(`/api/docs/${initial.id}/versions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label }),
-      });
-      if (!res.ok) throw new Error();
+      await postVersion(initial.id, label);
       setHistoryKey((k) => k + 1);
       setNotice(label ? `Saved version “${label}”` : "Saved a version");
     } catch {

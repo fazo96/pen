@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
+import { api } from "./api";
 import { applyPatch, dictKey, effectiveRules, visibleFlags, type GrammarConfig, type GrammarPatch } from "./grammarConfig";
 import type { Flag } from "./grammarText";
 
@@ -75,13 +76,7 @@ class GrammarService {
       await this.load();
       await this.saving;
       const generation = this.generation;
-      const res = await fetch("/api/grammar/check", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ texts }),
-      });
-      if (!res.ok) throw new Error(`check: ${res.status}`);
-      const { flags } = (await res.json()) as { flags: Flag[][] };
+      const { flags } = await api<{ flags: Flag[][] }>("/api/grammar/check", { method: "POST", json: { texts } });
       this.setUnreachable(false);
       // Asked with settings since changed: the next pass asks again.
       if (generation !== this.generation) return true;
@@ -105,12 +100,7 @@ class GrammarService {
     this.setConfig(applyPatch(this.config, patch));
     const saving = (async () => {
       try {
-        const res = await fetch("/api/grammar", {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(patch),
-        });
-        if (res.ok) this.setConfig(await res.json());
+        this.setConfig(await api<GrammarConfig>("/api/grammar", { method: "PATCH", json: patch }));
       } catch {}
     })();
     this.saving = Promise.all([this.saving, saving]);
@@ -120,9 +110,8 @@ class GrammarService {
   /** Fetch the library's settings, once. */
   load(): Promise<void> {
     this.loading ??= (async () => {
-      const res = await fetch("/api/grammar");
-      if (!res.ok) throw new Error(`settings: ${res.status}`);
-      if (!this.config) this.setConfig(await res.json());
+      const config = await api<GrammarConfig>("/api/grammar");
+      if (!this.config) this.setConfig(config);
     })().catch((err) => {
       this.loading = null;
       throw err;
@@ -134,8 +123,7 @@ class GrammarService {
   async refresh(): Promise<void> {
     if (!this.config) return;
     try {
-      const res = await fetch("/api/grammar");
-      if (res.ok) this.setConfig(await res.json());
+      this.setConfig(await api<GrammarConfig>("/api/grammar"));
     } catch {}
   }
 

@@ -2,23 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { api, ApiError } from "@/lib/api";
 import { IconLock } from "./icons";
 
 const MIN = 8;
 type Mode = "idle" | "set" | "change" | "remove";
 
+/** Null once done, else what went wrong. */
 async function post(body: object): Promise<string | null> {
   try {
-    const res = await fetch("/api/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (res.ok) return null;
-    const data = (await res.json().catch(() => ({}))) as { error?: string };
-    return data.error ?? `Request failed (${res.status}).`;
-  } catch {
-    return "Can’t reach the desk. Check your connection.";
+    await api("/api/auth", { method: "POST", json: body });
+    return null;
+  } catch (err) {
+    return err instanceof ApiError ? err.message : "Can’t reach the desk. Check your connection.";
   }
 }
 

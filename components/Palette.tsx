@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "@/lib/api";
 import type { DocMeta, EntryMeta } from "@/lib/types";
 import { type Findable, pieces, rank } from "@/lib/palette";
 
@@ -34,9 +35,8 @@ export function usePaletteLists(projectId: string, open: boolean) {
     if (!open) return;
     let live = true;
     const get = <T,>(url: string, set: (x: T) => void) =>
-      fetch(url, { cache: "no-store" })
-        .then((r) => (r.ok ? (r.json() as Promise<T>) : null))
-        .then((x) => live && x && set(x))
+      api<T>(url)
+        .then((x) => live && set(x))
         .catch(() => {});
     void get(`/api/docs/${projectId}/codex`, setEntries);
     void get("/api/docs", setBooks);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { api, apiDelete, saveVersion } from "@/lib/api";
 import { useDropZone } from "@/lib/useDropZone";
 import { IMPORT_ACCEPT, IMPORT_EXT, importProblem } from "@/lib/useLibrary";
 import type { VersionMeta } from "@/lib/types";
@@ -47,9 +48,7 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(`/api/docs/${docId}/versions`, { cache: "no-store" });
-      if (!res.ok) throw new Error();
-      setList((await res.json()) as VersionMeta[]);
+      setList(await api<VersionMeta[]>(`/api/docs/${docId}/versions`));
     } catch {
       setError("Couldn’t load history.");
     }
@@ -65,12 +64,7 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
     setError(null);
     try {
       await beforeSave();
-      const res = await fetch(`/api/docs/${docId}/versions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label }),
-      });
-      if (!res.ok) throw new Error();
+      await saveVersion(docId, label);
       setLabel("");
       setNaming(false);
       await load();
@@ -99,20 +93,15 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
         continue;
       }
       try {
-        const res = await fetch(`/api/docs/${docId}/versions`, {
+        const meta = await api<VersionMeta>(`/api/docs/${docId}/versions`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          json: {
             content: (await file.text()).replace(/^\uFEFF/, ""),
             label: file.name.replace(IMPORT_EXT, ""),
             created: file.lastModified,
-          }),
+          },
         });
-        if (!res.ok) {
-          const body = (await res.json().catch(() => ({}))) as { error?: string };
-          throw new Error(body.error ?? `request failed (${res.status})`);
-        }
-        imported.push((await res.json()) as VersionMeta);
+        imported.push(meta);
       } catch (e) {
         skipped.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
       }
@@ -134,13 +123,9 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/docs/${docId}/versions/${renaming.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: renaming.label }),
-      });
-      if (!res.ok) throw new Error();
-      onRenamed((await res.json()) as VersionMeta);
+      onRenamed(
+        await api<VersionMeta>(`/api/docs/${docId}/versions/${renaming.id}`, { method: "PATCH", json: { label: renaming.label } }),
+      );
       setRenaming(null);
       await load();
     } catch {
@@ -153,9 +138,7 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
     setConfirming(null);
     setError(null);
     try {
-      const res = await fetch(`/api/docs/${docId}/versions/${vid}`, { method: "DELETE" });
-      // 404: already gone (deleted elsewhere), which is what was asked.
-      if (!res.ok && res.status !== 404) throw new Error();
+      await apiDelete(`/api/docs/${docId}/versions/${vid}`);
     } catch {
       setError("Couldn’t delete the version.");
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { api } from "@/lib/api";
 import type { DocMeta } from "@/lib/types";
 import {
   addShelf,
@@ -95,13 +96,7 @@ export default function Shelves({ docs, layout, onCover }: Props) {
     setError(null);
     saving.current = saving.current.then(async () => {
       try {
-        const res = await fetch("/api/shelves", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(next),
-        });
-        if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? `request failed (${res.status})`);
-        saved.current = (await res.json()) as Layout;
+        saved.current = await api<Layout>("/api/shelves", { method: "PUT", json: next });
       } catch (e) {
         setLocal(saved.current);
         setError(`Couldn't save the shelves: ${e instanceof Error ? e.message : e}`);

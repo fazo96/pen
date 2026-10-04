@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { api, ApiError } from "@/lib/api";
 import { IconLock } from "./icons";
 import Logo from "./Logo";
 import ThemeButton from "./ThemeButton";
@@ -16,21 +17,15 @@ export default function Unlock({ next }: { next: string }) {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "unlock", password }),
-      });
-      if (res.ok) {
-        // Full load so the server renders with the new session.
-        window.location.assign(next);
-        return;
-      }
-      const body = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(body.error ?? "Couldn’t unlock.");
-      setPassword("");
-    } catch {
-      setError("Can’t reach the desk. Check your connection.");
+      await api("/api/auth", { method: "POST", json: { action: "unlock", password } });
+      // Full load so the server renders with the new session.
+      window.location.assign(next);
+      return;
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+        setPassword("");
+      } else setError("Can’t reach the desk. Check your connection.");
     }
     setBusy(false);
   };

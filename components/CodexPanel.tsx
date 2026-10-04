@@ -2,6 +2,7 @@
 
 import { type Editor, EditorContent } from "@tiptap/react";
 import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { api, ApiError } from "@/lib/api";
 import { textWithoutComments } from "@/lib/comments";
 import { straightenQuotes } from "@/lib/quotes";
 import { STATUS_LABEL, type Story, useAutosave } from "@/lib/useAutosave";
@@ -42,13 +43,12 @@ export default function CodexPanel(props: Props) {
     let live = true;
     (async () => {
       try {
-        const res = await fetch(`/api/docs/${projectId}/codex/${entryId}`, { cache: "no-store" });
-        if (res.status === 404) return live && onMissing();
-        if (!res.ok) throw new Error();
-        const story = (await res.json()) as Story;
+        const story = await api<Story>(`/api/docs/${projectId}/codex/${entryId}`);
         if (live) setEntry(story);
-      } catch {
-        if (live) setError(true);
+      } catch (err) {
+        if (!live) return;
+        if (err instanceof ApiError && err.status === 404) onMissing();
+        else setError(true);
       }
     })();
     return () => {

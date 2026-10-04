@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { api } from "./api";
 import type { AgentModels } from "./construct/models";
 
 // The agents Construct can run on here and their models, asked once per page
@@ -10,9 +11,8 @@ let cached: Promise<AgentModels[]> | null = null;
 
 export function fetchModels(fresh = false): Promise<AgentModels[]> {
   if (!cached || fresh) {
-    cached = fetch(`/api/construct/models${fresh ? "?fresh" : ""}`, { cache: "no-store" }).then((res) => {
-      if (!res.ok) throw new Error("Couldn’t list the models.");
-      return res.json() as Promise<AgentModels[]>;
+    cached = api<AgentModels[]>(`/api/construct/models${fresh ? "?fresh" : ""}`).catch(() => {
+      throw new Error("Couldn’t list the models.");
     });
     cached.catch(() => (cached = null));
   }

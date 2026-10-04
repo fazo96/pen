@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { api, apiDelete, createEntry } from "@/lib/api";
 import { isImage, prepareNote } from "@/lib/cover";
 import type { EntryMeta } from "@/lib/types";
 import type { ImportMeta } from "@/lib/imports";
@@ -21,17 +22,6 @@ type Props = {
   ai?: boolean;
 };
 
-/** A new, untitled entry (from here or the command palette); its id. */
-export async function createEntry(projectId: string): Promise<string> {
-  const res = await fetch(`/api/docs/${projectId}/codex`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: "# Untitled entry\n\n", name: "entry" }),
-  });
-  if (!res.ok) throw new Error();
-  return ((await res.json()) as { id: string }).id;
-}
-
 /** Plot outlines, character notes and the like: one markdown file each. */
 export default function Codex({ projectId, activeId, activeTitle, onOpen, refreshKey = 0, ai = false }: Props) {
   const [list, setList] = useState<EntryMeta[] | null>(null);
@@ -46,13 +36,12 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
 
   const load = useCallback(async () => {
     try {
-      const [res, jobs] = await Promise.all([
-        fetch(base, { cache: "no-store" }),
-        fetch(`/api/docs/${projectId}/imports`, { cache: "no-store" }).catch(() => null),
+      const [entries, jobs] = await Promise.all([
+        api<EntryMeta[]>(base),
+        api<ImportMeta[]>(`/api/docs/${projectId}/imports`).catch(() => null),
       ]);
-      if (!res.ok) throw new Error();
-      setList((await res.json()) as EntryMeta[]);
-      if (jobs?.ok) setImports(((await jobs.json()) as ImportMeta[]).filter((j) => j.status !== "done"));
+      setList(entries);
+      if (jobs) setImports(jobs.filter((j) => j.status !== "done"));
     } catch {
       setError("Couldn’t load the codex.");
     }
@@ -92,32 +81,10 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
   };
 
   /** POST an entry; its id, or throws with the server's reason. */
-  const post = async (body: object) => {
-    const res = await fetch(base, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(data.error ?? `request failed (${res.status})`);
-    }
-    return ((await res.json()) as { id: string }).id;
-  };
+  const post = async (body: object) => (await api<{ id: string }>(base, { method: "POST", json: body })).id;
 
   /** Photos of a note to transcribe: the import's id (its page follows it, see the route). */
-  const postNote = async (images: string[]) => {
-    const res = await fetch(base, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ images }),
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      throw new Error(data.error ?? `request failed (${res.status})`);
-    }
-    return ((await res.json()) as { job: string }).job;
-  };
+  const postNote = async (images: string[]) => (await api<{ job: string }>(base, { method: "POST", json: { images } })).job;
 
   /**
    * Each file becomes an entry, except pictures: together they're the pages of
@@ -190,9 +157,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     setConfirming(null);
     setError(null);
     try {
-      const res = await fetch(`${base}/${eid}`, { method: "DELETE" });
-      // 404: already gone (deleted elsewhere), which is what was asked.
-      if (!res.ok && res.status !== 404) throw new Error();
+      await apiDelete(`${base}/${eid}`);
     } catch {
       setError("Couldn’t delete the entry.");
       await load();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { api, ApiError } from "./api";
 import type { ChatItem, ConstructEvent, ConstructState, PromptContext } from "./construct/types";
 
 type CodexChange = Extract<ConstructEvent, { t: "codex" }>["change"];
@@ -62,16 +63,11 @@ export function useConstruct(projectId: string, enabled: boolean, onCodexChange:
     async (body: Record<string, unknown>) => {
       setError(null);
       try {
-        const res = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (res.status === 401) throw new Error("Locked. Unlock pen to use Construct.");
-        if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Request failed.");
+        await api(url, { method: "POST", json: body });
         return true;
       } catch (err) {
-        setError((err as Error).message);
+        const locked = err instanceof ApiError && err.status === 401;
+        setError(locked ? "Locked. Unlock pen to use Construct." : (err as Error).message);
         return false;
       }
     },

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
+import { api, apiDelete } from "./api";
 import { isImage, prepareCover } from "./cover";
 import { newManuscript, withTitle } from "./text";
 
@@ -29,11 +30,6 @@ export function importProblem(file: File, codex = false): string | null {
 /** A file's text, ready to import: an H1 title is added from its name if it has none. */
 export async function importText(file: File): Promise<string> {
   return withTitle(await file.text(), file.name);
-}
-
-async function fail(res: Response): Promise<never> {
-  const body = await res.json().catch(() => ({}));
-  throw new Error((body as { error?: string }).error ?? `request failed (${res.status})`);
 }
 
 /** Move a project's localStorage backups (manuscript and Codex entries) to its new id. */
@@ -70,13 +66,7 @@ export function useLibrary() {
   const create = useCallback(
     (content: string, name?: string) =>
       run(async () => {
-        const res = await fetch("/api/docs", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content, name }),
-        });
-        if (!res.ok) await fail(res);
-        const doc = (await res.json()) as { id: string };
+        const doc = await api<{ id: string }>("/api/docs", { method: "POST", json: { content, name } });
         router.push(`/d/${doc.id}`);
       }),
     [router, run],
@@ -101,8 +91,7 @@ export function useLibrary() {
   const remove = useCallback(
     (id: string, next?: string) =>
       run(async () => {
-        const res = await fetch(`/api/docs/${id}`, { method: "DELETE" });
-        if (!res.ok && res.status !== 404) await fail(res);
+        await apiDelete(`/api/docs/${id}`);
         try {
           localStorage.removeItem(`pen:backup:${id}`);
         } catch {}
@@ -117,12 +106,7 @@ export function useLibrary() {
     async (id: string, to: string) => {
       let done = false;
       await run(async () => {
-        const res = await fetch(`/api/docs/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: to }),
-        });
-        if (!res.ok) await fail(res);
+        await api(`/api/docs/${id}`, { method: "PATCH", json: { id: to } });
         moveBackups(id, to);
         done = true;
       });
@@ -135,8 +119,7 @@ export function useLibrary() {
     (id: string, file: File) =>
       run(async () => {
         if (!isImage(file)) throw new Error(`${file.name} isn't an image`);
-        const res = await fetch(`/api/docs/${id}/cover`, { method: "PUT", body: await prepareCover(file) });
-        if (!res.ok) await fail(res);
+        await api(`/api/docs/${id}/cover`, { method: "PUT", body: await prepareCover(file) });
         router.refresh();
       }),
     [router, run],
@@ -145,8 +128,7 @@ export function useLibrary() {
   const removeCover = useCallback(
     (id: string) =>
       run(async () => {
-        const res = await fetch(`/api/docs/${id}/cover`, { method: "DELETE" });
-        if (!res.ok && res.status !== 404) await fail(res);
+        await apiDelete(`/api/docs/${id}/cover`);
         router.refresh();
       }),
     [router, run],

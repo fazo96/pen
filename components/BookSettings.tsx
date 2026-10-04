@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { api } from "@/lib/api";
 import { COVER_ACCEPT, isImage } from "@/lib/cover";
 import { isValidId } from "@/lib/ids";
 import type { DocMeta } from "@/lib/types";
@@ -70,12 +71,7 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
     const before = layout;
     setLayout(next);
     try {
-      const res = await fetch("/api/shelves", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(next),
-      });
-      if (!res.ok) throw new Error(`request failed (${res.status})`);
+      await api("/api/shelves", { method: "PUT", json: next });
       const name = next.shelves.find((s) => s.id === to)?.name;
       setNotice({ at: "shelf", text: `Moved to ${name ? `“${name}”` : "the unnamed shelf"}.` });
     } catch (e) {
