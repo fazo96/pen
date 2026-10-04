@@ -86,3 +86,49 @@ test("New chat from the palette waits for a closed Construct to load", async ({ 
   await page.waitForTimeout(1000);
   await expect(construct(page).locator(".construct-msg")).toHaveCount(0);
 });
+
+/** Send a message and wait for the echo; its citation chips are the reply's. */
+async function say(page: Page, text: string) {
+  const before = await replies(page).count();
+  await input(page).fill(text);
+  await page.keyboard.press("Enter");
+  await expect(replies(page)).toHaveCount(before + 1, { timeout: 30_000 });
+  return replies(page).nth(before);
+}
+
+test("citation chips show the passage, in the manuscript or in a version", async ({ page, request }) => {
+  const id = await makeBook(request, uniqueId("cite"), "First paragraph here.\n\nSecond paragraph about the harbour.");
+  const version = await request.post(`/api/docs/${id}/versions`, {
+    data: { label: "Old", content: "# Old\n\nOld words in the version.\n", created: 1000 },
+  });
+  const vid = ((await version.json()) as { id: string }).id;
+  await openBook(page, id);
+  await page.getByRole("button", { name: "Construct", exact: true }).click();
+
+  // Line 5 of the manuscript: the second paragraph.
+  let reply = await say(page, "Look at [the harbour](pen:L5)");
+  await reply.locator("[data-cite]").click();
+  await expect(page.locator("main .ProseMirror .is-cited")).toHaveText("Second paragraph about the harbour.");
+
+  reply = await say(page, `And [the old one](pen:v/${vid}/L3)`);
+  await reply.locator("[data-cite]").click();
+  await expect(page.getByRole("region", { name: "Viewing a version" })).toBeVisible();
+  await expect(page.locator(".is-preview .is-cited")).toHaveText("Old words in the version.");
+
+  reply = await say(page, "And [nothing](pen:L99)");
+  await reply.locator("[data-cite]").click();
+  await expect(reply.locator("[data-cite]")).toHaveClass(/is-missing/);
+});
+
+test("a citation followed from a Codex entry's page opens the manuscript there", async ({ page, request }) => {
+  await page.setViewportSize({ width: 800, height: 900 }); // the entry on its own page
+  const id = await makeBook(request, uniqueId("cite-entry"), "First paragraph here.\n\nSecond paragraph about the harbour.");
+  const created = await request.post(`/api/docs/${id}/codex`, { data: { content: "# Note\n\nA note.\n" } });
+  const entry = ((await created.json()) as { id: string }).id;
+  await page.goto(`/d/${id}/codex/${entry}`);
+  await page.getByRole("button", { name: "Construct" }).first().click();
+  const reply = await say(page, "Look at [the harbour](pen:L5)");
+  await reply.locator("[data-cite]").click();
+  await expect(page).toHaveURL(new RegExp(`/d/${id}(\\?|$)`)); // ?cite= is dropped from the address once read
+  await expect(page.locator("main .ProseMirror .is-cited")).toHaveText("Second paragraph about the harbour.");
+});
