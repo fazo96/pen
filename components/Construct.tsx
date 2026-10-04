@@ -3,6 +3,7 @@
 import { Marked } from "marked";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Citation, parseCitation } from "@/lib/cite";
+import { matches, TOUCH } from "@/lib/media";
 import type { SessionConfigOption } from "@agentclientprotocol/sdk";
 import type { AgentModels } from "@/lib/construct/models";
 import type { ChatItem, ConstructEvent, PromptContext } from "@/lib/construct/types";
@@ -252,7 +253,7 @@ function ModelMenu({
   );
 }
 
-const isTouch = () => typeof window !== "undefined" && window.matchMedia("(hover: none)").matches;
+const isTouch = () => matches(TOUCH);
 
 export default function Construct({
   projectId,

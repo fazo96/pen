@@ -9,6 +9,7 @@ import { textWithoutComments } from "@/lib/comments";
 import type { PromptContext } from "@/lib/construct/types";
 import { step } from "@/lib/findPlugin";
 import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
+import { matches, ROOMY, TOUCH, WIDE } from "@/lib/media";
 import { showPassage } from "@/lib/passage";
 import { hasCurlyQuotes, straightenQuotes } from "@/lib/quotes";
 import type { Spot } from "@/lib/spot";
@@ -49,11 +50,6 @@ import VersionPreview from "./VersionPreview";
 
 type DrawerTab = "contents" | "codex" | "history" | "grammar";
 
-// Keep in step with the breakpoints in globals.css.
-/** Room for a codex entry beside the manuscript. */
-const WIDE = "(min-width: 1180px)";
-/** Room for the codex entry and Construct at once. */
-const ROOMY = "(min-width: 1800px)";
 /** sessionStorage: put the cursor in the next page's text (set by the jumps, Ctrl+Shift+M and so on). */
 const FOCUS_ON_ARRIVAL = "pen:focus-on-arrival";
 
@@ -307,7 +303,7 @@ export default function Pen({
       return true;
     }
     // Below this width Construct covers the text.
-    if (!window.matchMedia(WIDE).matches) setConstructOpen(false);
+    if (!matches(WIDE)) setConstructOpen(false);
     if (c.kind === "version") {
       const versions = await api<VersionMeta[]>(`/api/docs/${projectId}/versions`).catch(() => null);
       const meta = versions?.find((v) => v.id === c.version);
@@ -359,7 +355,7 @@ export default function Pen({
     if (eid === panelEntry) return;
     await panel.current?.leave();
     setPanelEntry(eid);
-    if (!window.matchMedia(ROOMY).matches) setConstructOpen(false);
+    if (!matches(ROOMY)) setConstructOpen(false);
   };
   const closeEntry = async () => {
     await panel.current?.leave();
@@ -408,7 +404,7 @@ export default function Pen({
   const open = (href: string) => {
     if (isEntry) return go(href);
     const entry = href.match(/^\/d\/[^/]+\/codex\/([^/?#]+)$/)?.[1];
-    if (entry && window.matchMedia(WIDE).matches) return openEntry(entry);
+    if (entry && matches(WIDE)) return openEntry(entry);
     // Codex navigates home after deleting the open entry.
     if (href === `/d/${projectId}` && panelEntry) return dropEntry();
     return go(href);
@@ -483,7 +479,7 @@ export default function Pen({
   const askChat = (ed: Editor, text: string, range: { from: number; to: number }, send: boolean) => {
     setConstructRequest({ id: Date.now(), text, context: contextIn(ed, range), send });
     setOutlineOpen(false);
-    if (!constructOpen && panelEntry && ed !== panelEditor && !window.matchMedia(ROOMY).matches) void closeEntry();
+    if (!constructOpen && panelEntry && ed !== panelEditor && !matches(ROOMY)) void closeEntry();
     setConstructOpen(true);
   };
   const beforeConstruct = async () => {
@@ -522,7 +518,7 @@ export default function Pen({
   };
   const toggleConstruct = () => {
     setOutlineOpen(false);
-    if (!constructOpen && panelEntry && !window.matchMedia(ROOMY).matches) void closeEntry();
+    if (!constructOpen && panelEntry && !matches(ROOMY)) void closeEntry();
     setConstructOpen((o) => !o);
   };
 
@@ -583,7 +579,7 @@ export default function Pen({
   // ─── Jumping between the manuscript, the Codex and Construct ───
   /** The cursor into `ed`; not on touch screens, where it would bring up the keyboard. */
   const focusText = (ed: Editor | null) => {
-    if (!ed || ed.isDestroyed || window.matchMedia("(hover: none)").matches) return;
+    if (!ed || ed.isDestroyed || matches(TOUCH)) return;
     requestAnimationFrame(() => !ed.isDestroyed && ed.view.focus());
   };
   /** To another page, with the cursor in its text once it opens. */
@@ -614,7 +610,7 @@ export default function Pen({
   const toManuscript = () => {
     setOutlineOpen(false);
     if (isEntry) {
-      const beside = window.matchMedia(WIDE).matches;
+      const beside = matches(WIDE);
       return goAndFocus(beside ? `/d/${projectId}?entry=${encodeURIComponent(initial.id)}` : `/d/${projectId}`);
     }
     if (preview) closePreview();
@@ -626,7 +622,7 @@ export default function Pen({
       setOutlineOpen(false);
       return focusText(editor);
     }
-    const beside = window.matchMedia(WIDE).matches;
+    const beside = matches(WIDE);
     if (beside && panelEntry) {
       setOutlineOpen(false);
       if (panelEditor) return focusText(panelEditor);

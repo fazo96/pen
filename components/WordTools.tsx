@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, ApiError } from "@/lib/api";
 import { grammarKey } from "@/lib/grammar";
+import { matches, MOUSE } from "@/lib/media";
 import { useAnchored } from "@/lib/useAnchored";
 import { useKeys } from "@/lib/useKeys";
 import { askDraft, constructPrompt, onLookUpRequest, pickedWords, type AskKind, type Picked, type QuickKind } from "@/lib/wordTools";
@@ -40,7 +41,7 @@ const SPECIFIC_SHOWN = 24;
 
 // Only where there's a mouse: on phones the selection has the system's own
 // menu, and these actions live in the toolbar instead.
-const finePointer = () => window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+const finePointer = () => matches(MOUSE);
 
 /**
  * For a selected word or short phrase: a small bar over it (desktop) with Look
