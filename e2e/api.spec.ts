@@ -101,14 +101,19 @@ test("codex, spot, cover, export, imports", async ({ request }) => {
   expect((await request.get(`/api/docs/${id}/imports/no-job/0`)).status()).toBe(404);
 });
 
-test("AI routes answer 503 with AI off", async ({ request }) => {
+test("AI routes work, on the stub agent", async ({ request }) => {
   const id = uniqueId("api-ai");
   await request.post("/api/docs", { data: { content: "# A", name: id } });
-  expect((await request.get(`/api/docs/${id}/construct`)).status()).toBe(503);
-  expect((await request.post(`/api/docs/${id}/construct`, { data: { action: "start" } })).status()).toBe(503);
-  expect((await request.post(`/api/docs/${id}/construct/quick`, { data: { text: "hi" } })).status()).toBe(503);
-  expect((await request.post(`/api/docs/${id}/codex`, { data: { images: ["aGk="] } })).status()).toBe(503);
-  expect((await request.get(`/api/construct/models`)).status()).toBe(503);
+  const models = await request.get(`/api/construct/models`);
+  expect(models.status()).toBe(200);
+  expect(((await models.json()) as { agent: string }[]).map((a) => a.agent)).toEqual(["claude"]);
+  const quick = await request.post(`/api/docs/${id}/construct/quick`, { data: { text: "hi there" } });
+  expect(quick.status()).toBe(200);
+  expect(await quick.text()).toContain("Echo:");
+  expect((await request.post(`/api/docs/${id}/construct/quick`, { data: { text: "" } })).status()).toBe(400);
+  expect((await request.post(`/api/docs/${id}/construct`, { data: { action: "start" } })).status()).toBe(204);
+  expect((await request.post(`/api/docs/${id}/construct`, { data: { action: "nope" } })).status()).toBe(400);
+  expect((await request.post(`/api/docs/${id}/codex`, { data: { images: ["aGk="] } })).status()).toBe(415); // not a picture
   // Construct's MCP endpoint wants its own bearer token, not the session.
   expect((await request.post(`/api/construct/mcp`, { data: {} })).status()).toBe(401);
 });

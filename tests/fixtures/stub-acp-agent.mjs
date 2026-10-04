@@ -1,7 +1,8 @@
 // A stand-in for an ACP agent (Claude Code's adapter, pi-acp): it "answers"
-// by naming what it was sent and which model it's on. STUB_MODE picks a
-// misbehaviour; STUB_PI=1 adds pi-acp's habits (a hello and notices sent as
-// message text, marked as such in `_meta`).
+// by naming what it was sent and which model it's on, or with STUB_MODE=echo
+// by repeating the prompt's text (the browser tests' Construct). Other
+// STUB_MODEs pick a misbehaviour; STUB_PI=1 adds pi-acp's habits (a hello and
+// notices sent as message text, marked as such in `_meta`).
 import { Readable, Writable } from "node:stream";
 import { AgentSideConnection, ndJsonStream, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
 
@@ -35,7 +36,7 @@ new AgentSideConnection(
     return {
       initialize: async () => ({
         protocolVersion: PROTOCOL_VERSION,
-        agentCapabilities: { loadSession: true, promptCapabilities: { image: mode !== "blind" } },
+        agentCapabilities: { loadSession: true, mcpCapabilities: { http: true }, promptCapabilities: { image: mode !== "blind" } },
       }),
       newSession: async () => {
         if (pi) setTimeout(() => void say("s1", "Hello from stub"), 0);
@@ -52,7 +53,10 @@ new AgentSideConnection(
         if (mode === "slow") await new Promise((r) => setTimeout(r, Number(process.env.STUB_DELAY ?? 1000)));
         const images = prompt.filter((b) => b.type === "image").map((b) => b.mimeType);
         if (pi) await say(sessionId, "MCP: 1 servers connected", { piAcp: { notify: { level: "info" } } });
-        if (mode !== "silent") {
+        if (mode === "echo") {
+          const text = prompt.filter((b) => b.type === "text").map((b) => b.text).join("\n");
+          await say(sessionId, `Echo: ${text}`);
+        } else if (mode !== "silent") {
           await conn.sessionUpdate({ sessionId, update: { sessionUpdate: "agent_thought_chunk", content: { type: "text", text: "Reading the pages." } } });
           await say(sessionId, "Here is the transcription:\n\n# Notes\n\n");
           await say(sessionId, `${images.length} pages: ${images.join(", ")} (on ${model})`);

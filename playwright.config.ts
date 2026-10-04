@@ -7,8 +7,9 @@ import { defineConfig, devices } from "@playwright/test";
 // `nix develop .#e2e`, which provides Chromium as PEN_E2E_CHROMIUM).
 //
 // They start their own `next dev` on port 3101 over an empty library in a
-// temporary folder, so they never see data/ and leave the production build
-// (.next, served on :3000) alone: next dev builds into .next/dev. Set
+// temporary folder, with a stub AI agent, so they never see data/ and leave
+// the production build (.next, served on :3000) alone: next dev builds into
+// .next/dev. Set
 // PEN_E2E_URL to test a server that's already running instead, such as a
 // production build made in a scratch worktree (see AGENTS.md); its library
 // should be a throwaway one too, since the tests create, rename and delete.
@@ -45,7 +46,14 @@ export default defineConfig({
         env: {
           PEN_DIR: path.join(library, "data"),
           PEN_CACHE_DIR: path.join(library, "cache"),
-          PEN_AI: "off",
+          // AI on, with a stub in place of Claude Code: it echoes what it's sent
+          // (tests/fixtures/stub-acp-agent.mjs). The key only gets past detection;
+          // nothing real is called. pi is kept out.
+          PEN_CONSTRUCT_CLAUDE: `node ${path.resolve("tests/fixtures/stub-acp-agent.mjs")}`,
+          STUB_MODE: "echo",
+          ANTHROPIC_API_KEY: "e2e-stub",
+          CLAUDE_CONFIG_DIR: path.join(library, "claude"),
+          PEN_PI: "pen-e2e-no-pi",
         },
       },
 });
