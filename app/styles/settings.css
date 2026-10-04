@@ -7,24 +7,24 @@
   max-width: 28rem;
   margin-top: 1.6rem;
 }
-.new-book .lock-actions {
+.new-book .settings-actions {
   margin-top: 0;
 }
 
 /* ─── Book settings ────────────────────────────────────────── */
 .book-settings .welcome-lede a,
-.book-settings .lock-text a {
+.book-settings .settings-text a {
   color: inherit;
   text-decoration: underline;
   text-decoration-color: var(--rule);
   text-underline-offset: 3px;
 }
 .book-settings .welcome-lede a:hover,
-.book-settings .lock-text a:hover {
+.book-settings .settings-text a:hover {
   color: var(--accent);
   text-decoration-color: currentColor;
 }
-.book-settings .lock {
+.book-settings .settings-section {
   margin-top: 2.6rem;
   padding-top: 1.4rem;
   border-top: 1px solid var(--rule);
@@ -35,7 +35,7 @@
   gap: 20px;
   margin-top: 1rem;
 }
-.book-settings-cover .lock-text {
+.book-settings-cover .settings-text {
   margin-top: 0;
 }
 .book-settings-art {
@@ -52,7 +52,7 @@
 .book-settings-field {
   max-width: 22rem;
 }
-.book-settings-field .lock-text {
+.book-settings-field .settings-text {
   margin: 0.8rem 0 0.4rem;
 }
 .field select {
@@ -126,7 +126,7 @@
   color: var(--accent);
   text-decoration-color: currentColor;
 }
-.book-settings-address + .lock-hint {
+.book-settings-address + .settings-hint {
   margin-top: 10px;
 }
 

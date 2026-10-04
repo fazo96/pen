@@ -50,7 +50,7 @@ export default function Unlock({ next }: { next: string }) {
           <h1 className="welcome-title">This desk is locked.</h1>
           <p className="welcome-lede">Enter the password to open the library on this device.</p>
 
-          <form className="lock-form unlock-form" onSubmit={submit}>
+          <form className="settings-form unlock-form" onSubmit={submit}>
             <label className="field">
               <span className="label">Password</span>
               <input

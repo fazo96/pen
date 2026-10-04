@@ -23,7 +23,7 @@ type Props = {
 /** Construct's section: the default models, or, with no agent on the server, how to turn AI on. */
 export default function ConstructSettings({ agents, switchedOff }: Props) {
   return (
-    <section className="lock" aria-labelledby="construct-title">
+    <section className="settings-section" aria-labelledby="construct-title">
       <SettingsHead icon={<IconConstruct />} title="Construct" id="construct-title" />
       {agents.length ? <Models found={agents} /> : <Off switchedOff={switchedOff} />}
     </section>
@@ -33,7 +33,7 @@ export default function ConstructSettings({ agents, switchedOff }: Props) {
 function Off({ switchedOff }: { switchedOff: boolean }) {
   if (switchedOff) {
     return (
-      <p className="lock-text">
+      <p className="settings-text">
         AI features are turned off on this server (<code>PEN_AI=off</code>): Construct, the Synonyms, Meaning and Ask
         buttons, and transcribing photos of handwritten notes. Unset it and restart pen to turn them on.
       </p>
@@ -41,12 +41,12 @@ function Off({ switchedOff }: { switchedOff: boolean }) {
   }
   return (
     <>
-      <p className="lock-text">
+      <p className="settings-text">
         AI features are off: Construct, the Synonyms, Meaning and Ask buttons, and transcribing photos of handwritten
         notes. They need an AI agent installed on the server running pen, and none was found. Everything else (the
         editor, Look up, grammar check) works without one.
       </p>
-      <ul className="lock-text construct-off-list">
+      <ul className="settings-text construct-off-list">
         <li>
           <a href="https://claude.com/claude-code" target="_blank" rel="noreferrer">
             Claude Code
@@ -62,7 +62,7 @@ function Off({ switchedOff }: { switchedOff: boolean }) {
           pi.
         </li>
       </ul>
-      <p className="lock-hint">pen looks for them when it starts: restart it after installing one.</p>
+      <p className="settings-hint">pen looks for them when it starts: restart it after installing one.</p>
     </>
   );
 }
@@ -95,19 +95,19 @@ function Models({ found }: { found: string[] }) {
 
   return (
     <>
-      <p className="lock-text">
+      <p className="settings-text">
         Construct runs on Claude Code, or on pi with the models set up in pi (self-hosted ones included). Found on this
         server: {found.join(" and ")}. These defaults are shared by every book.
       </p>
-      {!agents && !listError && <p className="lock-hint">Asking the agents for their models…</p>}
-      {listError && <p className="lock-hint">{listError}</p>}
+      {!agents && !listError && <p className="settings-hint">Asking the agents for their models…</p>}
+      {listError && <p className="settings-hint">{listError}</p>}
       {failed.map((a) => (
-        <p key={a.agent} className="lock-hint" role="alert">
+        <p key={a.agent} className="settings-hint" role="alert">
           Couldn’t ask {a.name} for its models: {a.error}
         </p>
       ))}
       {error && (
-        <p className="lock-hint" role="alert">
+        <p className="settings-hint" role="alert">
           {error}
         </p>
       )}
@@ -137,11 +137,11 @@ function Models({ found }: { found: string[] }) {
                   </optgroup>
                 ))}
               </select>
-              <span className="lock-hint">{hint}</span>
+              <span className="settings-hint">{hint}</span>
             </label>
           );
         })}
-      <div className="lock-actions">
+      <div className="settings-actions">
         <button type="button" className="btn btn-quiet" onClick={refresh} disabled={!agents && !listError}>
           Look for models again
         </button>

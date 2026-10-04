@@ -1,0 +1,104 @@
+/* ─── Buttons and menus ──────────────────────────────────────
+   Shared by every page: .btn and its variants, a confirm row's small
+   buttons (ConfirmRow) and dropdown menus (.popover-menu). */
+.library-confirm-actions button,
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1px solid var(--rule);
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+}
+.library-confirm-actions button {
+  padding: 8px 12px;
+  border-radius: 8px;
+}
+.btn {
+  min-height: 46px;
+  padding: 0 18px 0 14px;
+  border-radius: 10px;
+  color: inherit;
+}
+a.btn {
+  text-decoration: none;
+}
+.btn svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+.library-confirm-actions button:hover,
+.btn:hover {
+  border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+}
+.btn-primary {
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.btn-primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.btn-quiet {
+  border-color: transparent;
+  color: var(--ink-soft);
+}
+.library-confirm-actions button.danger,
+.btn-danger {
+  color: var(--paper);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+/* Dropdown menus: a shelf's options, the editor's tools on phones, the word bar */
+.popover-menu {
+  position: absolute;
+  z-index: var(--z-float);
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+.popover-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--ink-soft);
+}
+.popover-menu > button:hover {
+  color: var(--ink);
+  background: var(--accent-wash);
+}
+.popover-menu > button.danger,
+.popover-menu > button.is-on {
+  color: var(--accent);
+}
+.popover-menu > button:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+.popover-menu svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}

@@ -4,7 +4,7 @@
   top: 0;
   left: 0;
   right: 0;
-  z-index: 20;
+  z-index: var(--z-bars);
   height: calc(var(--topbar-h) + env(safe-area-inset-top));
   padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
   display: flex;
@@ -40,7 +40,7 @@
 
 .topbar-title {
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -63,7 +63,7 @@
   gap: 7px;
   padding: 0 8px;
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -216,7 +216,7 @@
   display: block;
   margin-bottom: 0.55rem;
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   font-weight: 400;
   letter-spacing: 0.2em;
   color: var(--accent);
@@ -352,7 +352,7 @@
   left: 0;
   right: 0;
   bottom: var(--kb);
-  z-index: 20;
+  z-index: var(--z-bars);
   padding: 4px max(6px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom))
     max(6px, env(safe-area-inset-left));
   background: color-mix(in srgb, var(--paper-raised) 88%, transparent);
@@ -431,7 +431,7 @@
 .scrim {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-scrim);
   background: rgb(20 14 6 / 0.28);
   opacity: 0;
   pointer-events: none;
@@ -447,7 +447,7 @@
   top: 0;
   bottom: 0;
   left: 0;
-  z-index: 50;
+  z-index: var(--z-panel);
   width: min(84vw, 320px);
   display: flex;
   flex-direction: column;
@@ -536,7 +536,7 @@
 
 .outline-num {
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.1em;
   color: var(--ink-faint);
 }
@@ -582,7 +582,7 @@
 .word-stats-pop {
   position: absolute;
   left: -10px;
-  z-index: 30;
+  z-index: var(--z-raised);
   display: none;
   flex-direction: column;
   gap: 6px;
@@ -645,8 +645,7 @@
 }
 
 /* Drawer header controls */
-.drawer-back,
-.drawer-action {
+.drawer-back {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -655,25 +654,17 @@
   margin-left: -6px;
   border-radius: 8px;
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-soft);
   transition: color 0.2s, background-color 0.2s;
 }
-.drawer-action {
-  margin-left: auto;
-  margin-right: 4px;
-  padding: 0 10px 0 6px;
-  color: var(--accent);
-}
-.drawer-back:hover,
-.drawer-action:hover {
+.drawer-back:hover {
   color: var(--accent);
   background: var(--accent-wash);
 }
-.drawer-back svg,
-.drawer-action svg {
+.drawer-back svg {
   width: 16px;
   height: 16px;
 }

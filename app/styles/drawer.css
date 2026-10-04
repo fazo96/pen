@@ -7,7 +7,7 @@
 }
 .drawer-tabs button {
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.1em;
   white-space: nowrap;
   text-transform: uppercase;
@@ -27,7 +27,7 @@
 .history-new {
   margin: 10px 20px 4px;
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--accent);
@@ -170,7 +170,7 @@
 /* Over the text it searches: stuck under the top bar, or atop the Codex panel. */
 .find-bar {
   position: sticky;
-  z-index: 16;
+  z-index: var(--z-find);
   top: calc(var(--topbar-h) + env(safe-area-inset-top) + 10px);
   max-width: var(--measure);
   margin: -16px auto 28px;
@@ -288,7 +288,7 @@
 /* ─── Version preview ──────────────────────────────────────── */
 .preview-bar {
   position: sticky;
-  z-index: 15;
+  z-index: var(--z-docked);
   top: calc(var(--topbar-h) + env(safe-area-inset-top) + 10px);
   max-width: var(--measure);
   margin: -16px auto 36px;

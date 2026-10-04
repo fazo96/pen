@@ -5,8 +5,10 @@ import "@fontsource-variable/literata/wght.css";
 import "@fontsource-variable/literata/wght-italic.css";
 import "@fontsource-variable/jetbrains-mono/wght.css";
 // pen's styles, one file per part of the app. Order matters (later rules win
-// ties), so keep it: it's the order they were written in.
+// ties), so keep it: base, then the shared buttons and menus, then the rest in
+// the order they were written in.
 import "./styles/base.css";
+import "./styles/controls.css";
 import "./styles/editor.css";
 import "./styles/library.css";
 import "./styles/drawer.css";

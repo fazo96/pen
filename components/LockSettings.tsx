@@ -85,19 +85,19 @@ export default function LockSettings({ locked }: { locked: boolean }) {
   };
 
   return (
-    <section className="lock" id="lock" aria-labelledby="lock-title">
+    <section className="settings-section" id="lock" aria-labelledby="lock-title">
       <SettingsHead icon={<IconLock />} title="Lock" id="lock-title">
-        <span className={`lock-state ${locked ? "is-locked" : ""}`}>{locked ? "On" : "Off"}</span>
+        <span className={`settings-state ${locked ? "is-locked" : ""}`}>{locked ? "On" : "Off"}</span>
       </SettingsHead>
 
-      <p className="lock-text">
+      <p className="settings-text">
         {locked
           ? "This desk asks for a password on every new device."
           : "Anyone who can reach this desk can read and write. Set a password to require it."}
       </p>
 
       {mode === "idle" ? (
-        <div className="lock-actions">
+        <div className="settings-actions">
           {locked ? (
             <>
               <button type="button" className="btn" onClick={() => open("change")}>
@@ -117,7 +117,7 @@ export default function LockSettings({ locked }: { locked: boolean }) {
           )}
         </div>
       ) : (
-        <form className="lock-form" onSubmit={submit}>
+        <form className="settings-form" onSubmit={submit}>
           {(mode === "change" || mode === "remove") && (
             <label className="field">
               <span className="label">Current password</span>
@@ -155,7 +155,7 @@ export default function LockSettings({ locked }: { locked: boolean }) {
                   aria-invalid={mismatch}
                 />
               </label>
-              <p className="lock-hint">
+              <p className="settings-hint">
                 {mismatch
                   ? "The passwords don’t match."
                   : password.length > 0 && password.length < MIN
@@ -166,14 +166,14 @@ export default function LockSettings({ locked }: { locked: boolean }) {
               </p>
             </>
           )}
-          {mode === "remove" && <p className="lock-hint">The desk will open for anyone who can reach it.</p>}
+          {mode === "remove" && <p className="settings-hint">The desk will open for anyone who can reach it.</p>}
           {insecure && needsNew && (
-            <p className="lock-hint lock-warn">
+            <p className="settings-hint settings-warn">
               This page isn’t on HTTPS, so the password crosses the network readable. Fine over Tailscale; avoid
               shared Wi-Fi.
             </p>
           )}
-          <div className="lock-actions">
+          <div className="settings-actions">
             <button type="submit" className={`btn ${mode === "remove" ? "btn-danger" : "btn-primary"}`} disabled={!ready || busy}>
               {busy
                 ? "Working…"
@@ -196,7 +196,7 @@ export default function LockSettings({ locked }: { locked: boolean }) {
         </p>
       )}
       {notice && (
-        <p className="lock-notice" role="status">
+        <p className="settings-notice" role="status">
           {notice}
         </p>
       )}

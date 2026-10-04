@@ -21,23 +21,23 @@ export default function GrammarSettings() {
   const rules = config ? [...new Set([...Object.keys(PEN_RULES), ...Object.keys(config.rules)])].sort() : [];
 
   return (
-    <section className="lock" aria-labelledby="grammar-title">
+    <section className="settings-section" aria-labelledby="grammar-title">
       <SettingsHead icon={<IconGrammar />} title="Grammar" id="grammar-title">
-        <span className="lock-state">{enabled ? "On" : "Off"} here</span>
+        <span className="settings-state">{enabled ? "On" : "Off"} here</span>
 
       </SettingsHead>
-      <p className="lock-text">
+      <p className="settings-text">
         Spelling and grammar are checked in your browser by Harper; the text never leaves the device. Tap an underlined
         word in the editor for fixes. The dictionary and rules below are shared by every book.
       </p>
-      <p className="lock-hint">
+      <p className="settings-hint">
         Look up uses{" "}
         <a href="https://en-word.net" target="_blank" rel="noreferrer">
           Open English WordNet
         </a>{" "}
         (CC BY 4.0).
       </p>
-      <div className="lock-actions">
+      <div className="settings-actions">
         <button type="button" className="btn" onClick={() => grammar.setEnabled(!enabled)}>
           {enabled ? "Turn off here" : "Turn on here"}
         </button>
@@ -76,7 +76,7 @@ export default function GrammarSettings() {
                   ))}
               </ul>
             ) : (
-              <p className="lock-hint">Words you add from the editor (names, places, invented words) show up here.</p>
+              <p className="settings-hint">Words you add from the editor (names, places, invented words) show up here.</p>
             )}
           </div>
 
@@ -105,7 +105,7 @@ export default function GrammarSettings() {
               })}
             </ul>
             {config.ignored.length > 0 && (
-              <div className="lock-actions">
+              <div className="settings-actions">
                 <button type="button" className="btn btn-quiet" onClick={() => void grammar.update({ clearIgnored: true })}>
                   Bring back {config.ignored.length.toLocaleString("en-US")} ignored{" "}
                   {config.ignored.length === 1 ? "flag" : "flags"}

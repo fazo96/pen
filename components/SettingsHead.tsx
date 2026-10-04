@@ -11,7 +11,7 @@ export default function SettingsHead({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="lock-head">
+    <div className="settings-head">
       {icon}
       <h2 id={id} className="label">
         {title}

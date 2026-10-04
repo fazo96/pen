@@ -24,6 +24,22 @@
   --topbar-h: 52px;
   --kb: 0px;
   --measure: 34rem;
+  /* The small uppercase labels set in the UI face */
+  --text-label: 10.5px;
+
+  /* Stacking, lowest to highest; a shared value is a shared layer. Local
+     stacks (the grain under .app, a drop hint inside its list) use plain numbers. */
+  --z-docked: 15; /* beside the page: the version preview's bar, the Codex panel on wide screens */
+  --z-find: 16; /* the find bar */
+  --z-bars: 20; /* top bar, toolbar */
+  --z-focus: 22; /* focus mode's controls */
+  --z-float: 25; /* menus, toasts, the conflict notice */
+  --z-raised: 30; /* the progress hairline, the word count's pop-up */
+  --z-scrim: 40; /* behind the outline; a book being dragged */
+  --z-panel: 50; /* the outline, Construct */
+  --z-top: 60; /* the drop target, grammar popover, word bar, Look up */
+  --z-modal-scrim: 70; /* behind the quick switcher and palette */
+  --z-modal: 71; /* the quick switcher and palette */
 
   color-scheme: light;
 }
@@ -135,7 +151,7 @@ button {
 
 .label {
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   font-weight: 400;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -168,7 +184,7 @@ button {
   left: 0;
   right: 0;
   height: 1px;
-  z-index: 30;
+  z-index: var(--z-raised);
   background: var(--accent);
   transform-origin: 0 50%;
   transition: transform 0.15s linear;

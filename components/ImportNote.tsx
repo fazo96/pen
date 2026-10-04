@@ -170,7 +170,7 @@ export default function ImportNote({ projectId, book, jobId, job }: Props) {
                 </div>
               )}
 
-              <div className="lock-actions">
+              <div className="settings-actions">
                 {status === "running" && (
                   <button type="button" className="btn" onClick={stop} disabled={stopping}>
                     <IconStop /> Stop

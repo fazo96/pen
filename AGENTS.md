@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # pen
 
-A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Tiptap 3 with `@tiptap/markdown` (`contentType: "markdown"`, `editor.getMarkdown()`). Plain CSS in `app/styles/` (one file per part of the app, imported in order from `app/layout.tsx`); no UI kit.
+A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Tiptap 3 with `@tiptap/markdown` (`contentType: "markdown"`, `editor.getMarkdown()`). Plain CSS in `app/styles/` (one file per part of the app, imported in order from `app/layout.tsx`; shared buttons and menus in `controls.css`, z-index layers and other tokens on `:root` in `base.css`); no UI kit.
 
 ## Before you change anything
 

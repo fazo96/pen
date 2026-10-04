@@ -15,7 +15,7 @@
 }
 .grammar-popover {
   position: fixed;
-  z-index: 60;
+  z-index: var(--z-top);
   width: max-content;
   min-width: 12rem;
   max-width: min(20rem, calc(100vw - 16px));
@@ -259,7 +259,7 @@
   gap: 5px;
   padding: 0 10px;
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -275,7 +275,7 @@
 }
 .word-bar {
   position: fixed;
-  z-index: 60;
+  z-index: var(--z-top);
   flex-direction: row;
   align-items: center;
   gap: 2px;
@@ -304,7 +304,7 @@
 }
 .lookup {
   position: fixed;
-  z-index: 60;
+  z-index: var(--z-top);
   width: min(24rem, calc(100vw - 16px));
   max-height: min(28rem, 60vh);
   padding: 0;
@@ -338,7 +338,7 @@
 .lookup-pron,
 .lookup-via {
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   font-weight: 400;
   color: var(--ink-faint);
 }
@@ -415,7 +415,7 @@
   padding: 8px 9px;
   border-radius: 7px;
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -442,12 +442,12 @@
 .palette-scrim {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: var(--z-modal-scrim);
   background: rgb(20 14 6 / 0.28);
 }
 .palette {
   position: fixed;
-  z-index: 71;
+  z-index: var(--z-modal);
   top: calc(env(safe-area-inset-top) + 8px);
   left: 8px;
   right: 8px;
@@ -524,7 +524,7 @@
   flex: none;
   min-width: 2.2em;
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -549,7 +549,7 @@
 .palette-hint {
   flex: none;
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.06em;
   color: var(--ink-faint);
 }
@@ -655,6 +655,6 @@
   color: var(--ink-soft);
   font-style: italic;
 }
-.import-note .lock-actions {
+.import-note .settings-actions {
   margin-top: 1.4rem;
 }

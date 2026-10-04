@@ -17,8 +17,8 @@ test("lock, unlock elsewhere, remove", async ({ page, browser, request }) => {
 
   await page.goto("/settings");
   await page.getByRole("button", { name: "Lock this desk" }).click();
-  for (const field of await page.locator('.lock-form input[type="password"]').all()) await field.fill(PASSWORD);
-  await page.locator('.lock-form button[type="submit"]').click();
+  for (const field of await page.locator('.settings-form input[type="password"]').all()) await field.fill(PASSWORD);
+  await page.locator('.settings-form button[type="submit"]').click();
   await expect(page.getByRole("button", { name: "Remove lock" })).toBeVisible();
 
   // Another browser has no session: it's sent to /unlock.
@@ -36,10 +36,10 @@ test("lock, unlock elsewhere, remove", async ({ page, browser, request }) => {
   await other.close();
 
   await page.getByRole("button", { name: "Remove lock" }).click();
-  await page.locator('.lock-form input[type="password"]').fill("nope nope");
-  await page.locator('.lock-form button[type="submit"]').click();
+  await page.locator('.settings-form input[type="password"]').fill("nope nope");
+  await page.locator('.settings-form button[type="submit"]').click();
   await expect(page.getByText("Wrong password.")).toBeVisible();
-  await page.locator('.lock-form input[type="password"]').fill(PASSWORD);
-  await page.locator('.lock-form button[type="submit"]').click();
+  await page.locator('.settings-form input[type="password"]').fill(PASSWORD);
+  await page.locator('.settings-form button[type="submit"]').click();
   await expect(page.getByRole("button", { name: "Lock this desk" })).toBeVisible();
 });

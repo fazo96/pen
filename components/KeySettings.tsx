@@ -11,9 +11,9 @@ const noop = () => () => {};
 export default function KeySettings() {
   const mac = useSyncExternalStore(noop, isMac, () => false);
   return (
-    <section className="lock key-settings" aria-labelledby="keys-title">
+    <section className="settings-section key-settings" aria-labelledby="keys-title">
       <SettingsHead icon={<IconKeyboard />} title="Keyboard" id="keys-title" />
-      <p className="lock-text">
+      <p className="settings-text">
         Esc in Construct gives the cursor back to the text; Esc in the palette goes back to where you were.
       </p>
       {shortcutList(mac).map(({ group, rows }) => (

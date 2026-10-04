@@ -2,7 +2,7 @@
 .dropzone {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: var(--z-top);
   display: grid;
   place-items: center;
   padding: 24px;
@@ -33,7 +33,7 @@
 
 .toast {
   position: fixed;
-  z-index: 25;
+  z-index: var(--z-float);
   left: 50%;
   top: calc(var(--topbar-h) + env(safe-area-inset-top) + 12px);
   transform: translateX(-50%);
@@ -51,7 +51,7 @@
 /* ─── Conflict notice ──────────────────────────────────────── */
 .conflict {
   position: fixed;
-  z-index: 25;
+  z-index: var(--z-float);
   top: calc(var(--topbar-h) + env(safe-area-inset-top) + 10px);
   left: 12px;
   right: 12px;
@@ -115,7 +115,7 @@
 
 .focus-controls {
   position: fixed;
-  z-index: 22;
+  z-index: var(--z-focus);
   right: max(12px, env(safe-area-inset-right));
   bottom: calc(var(--kb) + max(12px, env(safe-area-inset-bottom)));
   display: flex;

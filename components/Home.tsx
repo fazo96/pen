@@ -104,7 +104,7 @@ export default function Home({ docs, shelves }: { docs: DocMeta[]; shelves: Layo
                   onKeyDown={(e) => e.key === "Escape" && setNaming(false)}
                 />
               </label>
-              <div className="lock-actions">
+              <div className="settings-actions">
                 <button type="submit" className="btn btn-primary" disabled={lib.busy}>
                   Create
                 </button>
@@ -112,7 +112,7 @@ export default function Home({ docs, shelves }: { docs: DocMeta[]; shelves: Layo
                   Cancel
                 </button>
               </div>
-              <p className="lock-hint">It also names the book’s address. No title yet? Leave it empty and set one later.</p>
+              <p className="settings-hint">It also names the book’s address. No title yet? Leave it empty and set one later.</p>
             </form>
           )}
           <input

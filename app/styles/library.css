@@ -70,30 +70,6 @@
   gap: 6px;
   margin-top: 8px;
 }
-.library-confirm-actions button,
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--rule);
-  transition: background-color 0.2s, border-color 0.2s, color 0.2s;
-}
-.library-confirm-actions button:hover,
-.btn:hover {
-  border-color: color-mix(in srgb, var(--ink) 30%, transparent);
-}
-.library-confirm-actions button.danger {
-  color: var(--paper);
-  background: var(--accent);
-  border-color: var(--accent);
-}
 
 /* ─── Welcome ──────────────────────────────────────────────── */
 .welcome {
@@ -132,29 +108,6 @@
   flex-wrap: wrap;
   gap: 10px;
 }
-.btn {
-  min-height: 46px;
-  padding: 0 18px 0 14px;
-  border-radius: 10px;
-  color: inherit;
-}
-.btn svg {
-  width: 18px;
-  height: 18px;
-}
-.btn-primary {
-  color: var(--paper);
-  background: var(--ink);
-  border-color: var(--ink);
-}
-.btn-primary:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.btn:disabled {
-  opacity: 0.5;
-  cursor: progress;
-}
 .welcome-error {
   margin: 1.4rem 0 0;
   padding-left: 12px;
@@ -173,7 +126,7 @@
 .welcome.is-shelved {
   max-width: 64rem;
 }
-.settings .lock {
+.settings .settings-section {
   margin-top: 0.6rem;
   border-top: 0;
 }
@@ -282,7 +235,7 @@
 }
 .shelf-count {
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.06em;
   color: var(--ink-faint);
 }
@@ -342,7 +295,7 @@
   margin-top: -1.4rem;
   padding: 8px 0;
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -382,7 +335,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 40;
+  z-index: var(--z-scrim);
   pointer-events: none;
   transform-origin: 30% 20%;
   filter: drop-shadow(0 18px 24px rgb(30 18 4 / 0.35));
@@ -505,7 +458,7 @@
 .book-meta {
   display: block;
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   letter-spacing: 0.06em;
   color: var(--ink-faint);
 }
@@ -519,48 +472,6 @@
 .book-gear svg {
   width: 18px;
   height: 18px;
-}
-/* Dropdown menus: a shelf's options, the editor's tools on phones */
-.popover-menu {
-  position: absolute;
-  z-index: 25;
-  display: flex;
-  flex-direction: column;
-  padding: 6px;
-  background: var(--paper-raised);
-  border: 1px solid var(--rule);
-  border-radius: 10px;
-  box-shadow: var(--shadow);
-}
-.popover-menu > button {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 7px;
-  font-family: var(--font-ui);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-align: left;
-  color: var(--ink-soft);
-}
-.popover-menu > button:hover {
-  color: var(--ink);
-  background: var(--accent-wash);
-}
-.popover-menu > button.danger,
-.popover-menu > button.is-on {
-  color: var(--accent);
-}
-.popover-menu > button:disabled {
-  opacity: 0.5;
-  cursor: progress;
-}
-.popover-menu svg {
-  width: 16px;
-  height: 16px;
-  flex: none;
 }
 .book-confirm {
   padding: 8px 8px 4px;

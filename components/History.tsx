@@ -218,7 +218,7 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
           {list.map((v, i) => {
             const older = list[i + 1];
             return (
-              <li key={v.id} className={`library-row ${confirming === v.id ? "is-confirming" : ""}`}>
+              <li key={v.id} className="library-row">
                 {renaming?.id === v.id ? (
                   <form className="history-save" onSubmit={rename}>
                     <input

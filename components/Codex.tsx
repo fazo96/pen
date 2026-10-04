@@ -240,7 +240,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
       {list && list.length > 0 && (
         <ul className="outline-list">
           {list.map((e) => (
-            <li key={e.id} className={`library-row ${confirming === e.id ? "is-confirming" : ""}`}>
+            <li key={e.id} className="library-row">
               {confirming === e.id ? (
                 <ConfirmRow onKeep={() => setConfirming(null)} onConfirm={() => remove(e.id)}>
                   Delete <em>{e.title}</em>?

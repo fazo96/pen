@@ -45,14 +45,14 @@ export default function Settings({
         <section className="welcome settings">
           <span className="label">pen · settings</span>
           <h1 className="welcome-title">Settings</h1>
-          <section className="lock" aria-labelledby="library-title">
+          <section className="settings-section" aria-labelledby="library-title">
             <SettingsHead icon={<IconBooks />} title="Library" id="library-title" />
             <Stats stats={stats} library={stats} />
-            <p className="lock-text">
+            <p className="settings-text">
               Export everything as a zip: every book with its versions, Codex and Construct chats, the trash, and the
               shelves. Unzipped, it’s a data folder pen can run from.
             </p>
-            <div className="lock-actions">
+            <div className="settings-actions">
               <a className="btn" href="/api/export" download>
                 <IconExport /> Export library
               </a>

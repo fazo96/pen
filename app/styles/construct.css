@@ -10,7 +10,7 @@
   top: 0;
   bottom: 0;
   right: 0;
-  z-index: 50;
+  z-index: var(--z-panel);
   width: min(100vw, 420px);
   display: flex;
   flex-direction: column;
@@ -137,7 +137,7 @@
 .construct-model-hint {
   margin: 2px 0 4px;
   font-family: var(--font-ui);
-  font-size: 10.5px;
+  font-size: var(--text-label);
   color: var(--ink-faint);
 }
 .construct-context {
@@ -695,7 +695,7 @@
     top: calc(var(--topbar-h) + env(safe-area-inset-top));
     bottom: 0;
     right: 0;
-    z-index: 15;
+    z-index: var(--z-docked);
     width: var(--codex-w);
     display: flex;
     flex-direction: column;

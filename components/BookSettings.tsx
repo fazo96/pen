@@ -56,7 +56,7 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
         {at === "shelf" ? shelfError : lib.error}
       </p>
     ) : notice?.at === at ? (
-      <p className="lock-notice" role="status">
+      <p className="settings-notice" role="status">
         {notice.text}
       </p>
     ) : null;
@@ -124,21 +124,21 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
             The title is the manuscript’s first heading: <Link href={`/d/${doc.id}`}>change it there</Link>.
           </p>
 
-          <section className="lock" aria-labelledby="contents-title">
+          <section className="settings-section" aria-labelledby="contents-title">
             <SettingsHead icon={<IconBooks />} title="Contents" id="contents-title" />
             <Stats stats={stats} />
-            <p className="lock-text">
+            <p className="settings-text">
               Export it as a zip: the manuscript, versions, Codex, Construct chats, cover, and whatever of it is in the
               trash.
             </p>
-            <div className="lock-actions">
+            <div className="settings-actions">
               <a className="btn" href={`/api/docs/${doc.id}/export`} download>
                 <IconExport /> Export book
               </a>
             </div>
           </section>
 
-          <section className="lock" aria-labelledby="cover-title">
+          <section className="settings-section" aria-labelledby="cover-title">
             <SettingsHead icon={<IconImage />} title="Cover" id="cover-title" />
             <div className="book-settings-cover">
               <div
@@ -161,12 +161,12 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
                 <Cover doc={doc} />
               </div>
               <div>
-                <p className="lock-text">
+                <p className="settings-text">
                   {doc.cover
                     ? "Shown on the shelf. Drop another image on it to replace it."
                     : "Without art the book is bound in cloth with its title. Drop an image here, or pick one."}
                 </p>
-                <div className="lock-actions">
+                <div className="settings-actions">
                   <button type="button" className="btn" disabled={lib.busy} onClick={() => picker.current?.click()}>
                     <IconImage /> {doc.cover ? "Change cover" : "Set cover"}
                   </button>
@@ -200,11 +200,11 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
             />
           </section>
 
-          <section className="lock" aria-labelledby="shelf-title">
+          <section className="settings-section" aria-labelledby="shelf-title">
             <SettingsHead icon={<IconShelf />} title="Shelf" id="shelf-title" />
             {layout.shelves.length > 1 ? (
               <label className="field book-settings-field">
-                <span className="lock-text">Which shelf it sits on in the library. It goes at the end.</span>
+                <span className="settings-text">Which shelf it sits on in the library. It goes at the end.</span>
                 <select value={shelf} onChange={(e) => void moveTo(e.target.value)}>
                   {layout.shelves.map((s) => (
                     <option key={s.id} value={s.id}>
@@ -214,7 +214,7 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
                 </select>
               </label>
             ) : (
-              <p className="lock-text">
+              <p className="settings-text">
                 Every book shares one shelf for now. <Link href="/?library">Add shelves in the library</Link> to
                 sort them.
               </p>
@@ -222,9 +222,9 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
             {errorIn("shelf")}
           </section>
 
-          <section className="lock" aria-labelledby="address-title">
+          <section className="settings-section" aria-labelledby="address-title">
             <SettingsHead icon={<IconPencil />} title="Address" id="address-title" />
-            <p className="lock-text">The name in this book’s links. Old links keep working after a change.</p>
+            <p className="settings-text">The name in this book’s links. Old links keep working after a change.</p>
             <form className="book-settings-address" onSubmit={rename}>
               <label className="field">
                 <span className="book-settings-url">
@@ -245,10 +245,10 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
               </button>
             </form>
             {!addressOk ? (
-              <p className="lock-hint">Letters, digits and hyphens.</p>
+              <p className="settings-hint">Letters, digits and hyphens.</p>
             ) : (
               suggested !== address && (
-                <p className="lock-hint">
+                <p className="settings-hint">
                   It doesn’t match the title.{" "}
                   <button type="button" className="link-btn" onClick={() => setAddress(suggested)}>
                     Use /d/{suggested}
@@ -259,7 +259,7 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
             {errorIn("address")}
           </section>
 
-          <section className="lock" aria-labelledby="delete-title">
+          <section className="settings-section" aria-labelledby="delete-title">
             <SettingsHead icon={<IconTrash />} title="Delete" id="delete-title" />
             {confirming ? (
               <ConfirmRow
@@ -274,10 +274,10 @@ export default function BookSettings({ doc, shelves, stats }: { doc: DocMeta; sh
               </ConfirmRow>
             ) : (
               <>
-                <p className="lock-text">
+                <p className="settings-text">
                   The book, its versions, Codex and Construct chats go to the trash folder on the server.
                 </p>
-                <div className="lock-actions">
+                <div className="settings-actions">
                   <button type="button" className="btn" onClick={() => setConfirming(true)}>
                     <IconTrash /> Delete book…
                   </button>
