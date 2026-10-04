@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
-import { appendFile, mkdir, readdir, readFile, rename, stat, unlink, utimes, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readdir, readFile, stat, unlink, utimes } from "node:fs/promises";
 import path from "node:path";
+import { writeAtomic } from "./files.ts";
 import type { Flag } from "./grammarText";
 
 // Harper's flags per paragraph, kept on disk so a restart, another device or
@@ -118,8 +119,7 @@ export class FlagCache {
         this.lines += lines.length;
         if (this.lines > this.limit * 1.5 && entries === this.entries) {
           const all = [...entries].map((e) => JSON.stringify(e));
-          await writeFile(`${file}.tmp`, all.join("\n") + "\n");
-          await rename(`${file}.tmp`, file);
+          await writeAtomic(file, all.join("\n") + "\n");
           this.lines = all.length;
         } else {
           await appendFile(file, lines.join("\n") + "\n");

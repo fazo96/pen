@@ -3,8 +3,9 @@
 // No "server-only" import: proxy.ts runs outside the RSC graph and needs this
 // too. Nothing here is ever imported by client code.
 import { createHmac, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { readFile, unlink } from "node:fs/promises";
 import path from "node:path";
+import { writeAtomic } from "./files";
 import { DOCS_DIR } from "./paths";
 
 // Delete this file on the server to remove a forgotten password.
@@ -61,10 +62,7 @@ export async function setPassword(password: string): Promise<void> {
     hash: (await derive(password, salt)).toString("hex"),
     secret: randomBytes(32).toString("hex"),
   };
-  await mkdir(DOCS_DIR, { recursive: true });
-  const tmp = `${AUTH_FILE}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(tmp, JSON.stringify(cfg, null, 2), { encoding: "utf8", mode: 0o600 });
-  await rename(tmp, AUTH_FILE);
+  await writeAtomic(AUTH_FILE, JSON.stringify(cfg, null, 2), { mode: 0o600 });
 }
 
 export async function removePassword(): Promise<void> {

@@ -1,7 +1,8 @@
 import "server-only";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { listDocs } from "./docs";
+import { writeAtomic } from "./files";
 import { DOCS_DIR } from "./paths";
 import { queue } from "./queue";
 import { readRenames } from "./renames";
@@ -29,10 +30,7 @@ const serialize = queue("shelves");
 async function write(layout: Layout): Promise<Layout> {
   const ids = (await listDocs()).map((d) => d.id);
   const fitted = arrange(followRenames(layout, await readRenames(), new Set(ids)), ids);
-  await mkdir(DOCS_DIR, { recursive: true });
-  const tmp = `${SHELVES_FILE}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(tmp, JSON.stringify(fitted, null, 2), "utf8");
-  await rename(tmp, SHELVES_FILE);
+  await writeAtomic(SHELVES_FILE, JSON.stringify(fitted, null, 2));
   return fitted;
 }
 

@@ -1,6 +1,7 @@
 import "server-only";
-import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, unlink } from "node:fs/promises";
 import path from "node:path";
+import { writeAtomic } from "./files";
 import { wordCount } from "./text";
 import type { VersionKind, VersionMeta } from "./types";
 
@@ -20,12 +21,6 @@ export function isValidVersionId(vid: string) {
 const dirOf = (projectDir: string) => path.join(projectDir, "versions");
 const indexOf = (projectDir: string) => path.join(dirOf(projectDir), "index.json");
 const fileOf = (projectDir: string, vid: string) => path.join(dirOf(projectDir), `${vid}.md`);
-
-async function writeAtomic(file: string, data: string) {
-  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(tmp, data, "utf8");
-  await rename(tmp, file);
-}
 
 export async function listVersions(projectDir: string): Promise<VersionMeta[]> {
   try {

@@ -1,6 +1,7 @@
 import "server-only";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { writeAtomic } from "../files";
 import { DOCS_DIR } from "../paths";
 import { queue } from "../queue";
 import { type ModelSettings, sanitizeModelSettings } from "./models";
@@ -23,10 +24,7 @@ export function patchModelSettings(patch: Record<string, unknown>): Promise<Mode
   return serialize(async () => {
     const merged: Record<string, unknown> = { ...(await getModelSettings()), ...patch };
     const next = sanitizeModelSettings(merged);
-    await mkdir(DOCS_DIR, { recursive: true });
-    const tmp = `${FILE}.${process.pid}.${Date.now()}.tmp`;
-    await writeFile(tmp, JSON.stringify(next, null, 2), "utf8");
-    await rename(tmp, FILE);
+    await writeAtomic(FILE, JSON.stringify(next, null, 2));
     return next;
   });
 }

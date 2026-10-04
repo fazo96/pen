@@ -1,7 +1,8 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, stat } from "node:fs/promises";
 import path from "node:path";
+import { createExclusive, writeAtomic } from "./files";
 import { isValidId } from "./ids";
 import { DOCS_DIR } from "./paths";
 import { queue } from "./queue";
@@ -145,17 +146,6 @@ export async function readDoc(id: string): Promise<Doc | null> {
   }
 }
 
-async function writeAtomic(id: string, content: string) {
-  await atomicWrite(fileOf(id), content);
-}
-
-async function atomicWrite(file: string, content: string | Uint8Array) {
-  await mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(tmp, content, "utf8");
-  await rename(tmp, file);
-}
-
 /** Create a new project, naming its folder after `name` (or its H1). */
 export function createDoc(content: string, name?: string): Promise<Doc> {
   return serialize(async () => {
@@ -169,7 +159,7 @@ export function createDoc(content: string, name?: string): Promise<Doc> {
         if ((err as NodeJS.ErrnoException).code === "EEXIST") continue;
         throw err;
       }
-      await writeFile(fileOf(id), content, "utf8");
+      await writeAtomic(fileOf(id), content);
       return { id, content, version: versionOf(content) };
     }
   });
@@ -207,7 +197,7 @@ export function writeDoc(
           await versions.addVersion(dirOf(id), current.content, "auto", "Session start");
         }
       }
-      await writeAtomic(id, content);
+      await writeAtomic(fileOf(id), content);
     }
     return { ok: true, version: versionOf(content) };
   });
@@ -278,7 +268,7 @@ export async function readSpots(id: string): Promise<Spots> {
 async function updateSpots(id: string, change: (s: Spots) => Spots) {
   const before = await readSpots(id);
   const after = change(before);
-  if (JSON.stringify(after) !== JSON.stringify(before)) await atomicWrite(spotFile(id), JSON.stringify(after));
+  if (JSON.stringify(after) !== JSON.stringify(before)) await writeAtomic(spotFile(id), JSON.stringify(after));
 }
 
 /**
@@ -360,7 +350,7 @@ export function writeCover(id: string, data: Uint8Array, ext: CoverExt): Promise
   return serialize(async () => {
     if (!(await projectExists(id))) return false;
     await trashCover(id);
-    await atomicWrite(coverFile(id, ext), data);
+    await writeAtomic(coverFile(id, ext), data);
     return true;
   });
 }
@@ -405,7 +395,7 @@ export function restoreVersion(id: string, vid: string): Promise<Doc | null> {
     const [current, content] = await Promise.all([readDoc(id), versions.readVersion(dirOf(id), vid)]);
     if (!current || content === null) return null;
     await versions.addVersion(dirOf(id), current.content, "auto", "Before restore");
-    await writeAtomic(id, content);
+    await writeAtomic(fileOf(id), content);
     return { id, content, version: versionOf(content) };
   });
 }
@@ -481,12 +471,7 @@ export function createEntry(id: string, content: string, name?: string): Promise
     const base = slugify(name || titleOf(content, "")) || "entry";
     for (let i = 1; ; i++) {
       const eid = `${base.slice(0, 72)}${i > 1 ? `-${i}` : ""}`;
-      try {
-        await writeFile(entryFile(id, eid), content, { encoding: "utf8", flag: "wx" });
-        return { id: eid, content, version: versionOf(content) };
-      } catch (err) {
-        if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
-      }
+      if (await createExclusive(entryFile(id, eid), content)) return { id: eid, content, version: versionOf(content) };
     }
   });
 }
@@ -502,7 +487,7 @@ export function writeEntry(
   return serialize(async () => {
     const current = await readEntry(id, eid);
     if (stale(current, content, baseVersion, force)) return { ok: false, current: current! };
-    if (current?.content !== content) await atomicWrite(entryFile(id, eid), content);
+    if (current?.content !== content) await writeAtomic(entryFile(id, eid), content);
     return { ok: true, version: versionOf(content) };
   });
 }
@@ -591,7 +576,7 @@ async function pinAgentHome(id: string): Promise<string> {
   } catch (err) {
     if (!isMissing(err)) throw err;
   }
-  await atomicWrite(agentHomeFile(id), id);
+  await writeAtomic(agentHomeFile(id), id);
   return id;
 }
 
@@ -604,7 +589,7 @@ export function agentHome(id: string): Promise<string> {
 export function writeChat(id: string, cid: string, data: unknown): Promise<boolean> {
   return serialize(async () => {
     if (!(await projectExists(id))) return false;
-    await atomicWrite(chatFile(id, cid), JSON.stringify(data));
+    await writeAtomic(chatFile(id, cid), JSON.stringify(data));
     return true;
   });
 }

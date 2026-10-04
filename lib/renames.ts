@@ -2,8 +2,9 @@
 //
 // No "server-only" import: proxy.ts runs outside the RSC graph and redirects
 // old ids with it. Nothing here is ever imported by client code.
-import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { writeAtomic } from "./files";
 import { isValidId } from "./ids";
 import { DOCS_DIR } from "./paths";
 import { type Renames, withRename } from "./renameMap";
@@ -25,10 +26,7 @@ export async function readRenames(): Promise<Renames> {
 /** Remember that `from` is now `to`. Called by lib/docs.ts's renameDoc, inside its queue. */
 export async function recordRename(from: string, to: string): Promise<void> {
   const next = withRename(await readRenames(), from, to);
-  await mkdir(DOCS_DIR, { recursive: true });
-  const tmp = `${RENAMES_FILE}.${process.pid}.${Date.now()}.tmp`;
-  await writeFile(tmp, JSON.stringify(next, null, 2), "utf8");
-  await rename(tmp, RENAMES_FILE);
+  await writeAtomic(RENAMES_FILE, JSON.stringify(next, null, 2));
 }
 
 const exists = (p: string) => stat(p).then(
