@@ -2,31 +2,27 @@
 //
 // No "server-only" import: proxy.ts runs outside the RSC graph and redirects
 // old ids with it. Nothing here is ever imported by client code.
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import path from "node:path";
-import { writeAtomic } from "./files";
 import { isValidId } from "./ids";
+import { jsonStore } from "./jsonStore";
 import { DOCS_DIR } from "./paths";
 import { type Renames, withRename } from "./renameMap";
 
-const RENAMES_FILE = path.join(DOCS_DIR, ".pen-renames.json");
+const store = jsonStore<Renames>(
+  path.join(DOCS_DIR, ".pen-renames.json"),
+  (data) =>
+    data && typeof data === "object"
+      ? Object.fromEntries(Object.entries(data).filter(([k, v]) => isValidId(k) && isValidId(v)))
+      : {},
+  () => ({}),
+);
 
-export async function readRenames(): Promise<Renames> {
-  try {
-    const data = JSON.parse(await readFile(RENAMES_FILE, "utf8")) as unknown;
-    if (!data || typeof data !== "object") return {};
-    return Object.fromEntries(
-      Object.entries(data).filter(([k, v]) => isValidId(k) && isValidId(v)),
-    );
-  } catch {
-    return {};
-  }
-}
+export const readRenames = (): Promise<Renames> => store.read();
 
 /** Remember that `from` is now `to`. Called by lib/docs.ts's renameDoc, inside its queue. */
 export async function recordRename(from: string, to: string): Promise<void> {
-  const next = withRename(await readRenames(), from, to);
-  await writeAtomic(RENAMES_FILE, JSON.stringify(next, null, 2));
+  await store.update((r) => withRename(r, from, to));
 }
 
 const exists = (p: string) => stat(p).then(

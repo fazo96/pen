@@ -32,6 +32,10 @@ test("books: create, read, save, conflict, rename, trash", async ({ request }) =
   const renamed = `${id}-x`;
   expect((await request.patch(`/api/docs/${id}`, { data: { id: renamed } })).status()).toBe(200);
   expect((await request.get(`/api/docs/${renamed}`)).status()).toBe(200);
+  // An editor still open under the old id keeps working (proxy.ts, .pen-renames.json).
+  const old = await request.get(`/api/docs/${id}`);
+  expect(old.status()).toBe(200);
+  expect(((await old.json()) as { content: string }).content).toBe("# A\n\nforced");
 
   expect((await request.delete(`/api/docs/${renamed}`)).status()).toBe(204);
   expect((await request.delete(`/api/docs/${renamed}`)).status()).toBe(404);
