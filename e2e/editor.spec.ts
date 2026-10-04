@@ -171,3 +171,21 @@ test("find searches the editor used last, and leaves with it", async ({ page }) 
   await panel.getByRole("button", { name: "Close entry" }).click();
   await expect(page.getByRole("search")).toHaveCount(0);
 });
+
+test("deleting the entry open beside the manuscript closes the panel", async ({ page }) => {
+  const id = await makeBook(page.request, uniqueId("drop"), "Manuscript text here.");
+  const entry = await makeEntry(page, id, "Doomed");
+  await page.goto(`/d/${id}?entry=${entry}`);
+  const panel = page.getByRole("complementary", { name: "Codex entry" });
+  await expect(panel.locator(".ProseMirror")).toContainText("Notes about Doomed.");
+  await page.keyboard.press("Control+p");
+  await page.keyboard.type("Show the Codex");
+  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Delete Doomed" }).click();
+  await page.locator(".codex .library-confirm-actions").getByRole("button", { name: "Delete" }).click();
+  await expect(panel).toBeHidden();
+  await expect(page).toHaveURL(new RegExp(`/d/${id}$`));
+  // Not saved back into existence.
+  await page.waitForTimeout(1500);
+  expect((await page.request.get(`/api/docs/${id}/codex/${entry}`)).status()).toBe(404);
+});

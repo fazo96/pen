@@ -8,12 +8,13 @@ import { type Citation, findPassage, parseCitation } from "@/lib/cite";
 import { textWithoutComments } from "@/lib/comments";
 import type { PromptContext } from "@/lib/construct/types";
 import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
-import { matches, ROOMY, TOUCH, WIDE } from "@/lib/media";
+import { matches, ROOMY, WIDE } from "@/lib/media";
 import { showPassage } from "@/lib/passage";
 import { buildCommands, buildPlaces, type DrawerTab } from "@/lib/penCommands";
 import type { Spot } from "@/lib/spot";
 import { slugify, wordCount } from "@/lib/text";
 import { STATUS_LABEL, type Story } from "@/lib/useAutosave";
+import { focusText, useCodexPanel } from "@/lib/useCodexPanel";
 import { useDocScan, useEditorDoc } from "@/lib/useEditorDoc";
 import { useFocusMode } from "@/lib/useFocusMode";
 import { useKeys } from "@/lib/useKeys";
@@ -27,7 +28,7 @@ import { useVersionPreview } from "@/lib/useVersionPreview";
 import { useWindowKeys } from "@/lib/useWindowKeys";
 import { askDraft, constructPrompt, pickedWords, type QuickKind, requestLookUp } from "@/lib/wordTools";
 import Codex from "./Codex";
-import CodexPanel, { type CodexPanelHandle } from "./CodexPanel";
+import CodexPanel from "./CodexPanel";
 import ConflictBanner from "./ConflictBanner";
 import Construct, { type ConstructHandle } from "./Construct";
 import Drawer from "./Drawer";
@@ -92,7 +93,6 @@ export default function Pen({
   const focusMode = useFocusMode();
   const keys = useKeys();
   const steady = useSteady();
-  const wide = useMedia(WIDE);
   const roomy = useMedia(ROOMY);
   const [headings, setHeadings] = useState<Heading[]>([]);
   const [active, setActive] = useState<number | null>(null);
@@ -104,15 +104,6 @@ export default function Pen({
   const [historyKey, setHistoryKey] = useState(0);
   const [typing, setTyping] = useState(false);
   const [progress, setProgress] = useState(0);
-  // The codex entry open beside the manuscript, and which editor the toolbar serves.
-  const [panelEntry, setPanelEntry] = useState<string | null>(isEntry ? null : (initialEntry ?? null));
-  const [panelEditor, setPanelEditor] = useState<Editor | null>(null);
-  // Tagged with its entry, so one opening never shows the last one's title.
-  const [panelTitled, setPanelTitled] = useState<{ id: string; title: string } | null>(null);
-  const panelTitle = panelTitled?.id === panelEntry ? panelTitled.title || undefined : undefined;
-  const onPanelTitle = useCallback((id: string, title: string) => setPanelTitled({ id, title }), []);
-  const [panelFocused, setPanelFocused] = useState(false);
-  const panel = useRef<CodexPanelHandle>(null);
 
   const { editor, status, conflict, leave, adopt, pull, resolveConflict } = useEditorDoc({
     kind,
@@ -143,6 +134,10 @@ export default function Pen({
     },
   });
   const { preview } = versions;
+
+  // The Codex entry open beside the manuscript, and which editor the toolbar serves.
+  const panel = useCodexPanel({ projectId, enabled: !isEntry, initialEntry, editor });
+  const { entry: panelEntry, editor: panelEditor, title: panelTitle, inPanel } = panel;
 
   // Reopen where the writer left off, unless a citation brought them here.
   const spotUrl = `/api/docs/${projectId}/spot`;
@@ -273,7 +268,7 @@ export default function Pen({
 
   // Save before leaving this document, whichever way we leave.
   const go = async (href: string) => {
-    await Promise.all([leave(), panel.current?.leave(), spot.leave()]);
+    await Promise.all([leave(), panel.leave(), spot.leave()]);
     router.push(href);
   };
   const goLibrary = () => go("/?library");
@@ -284,20 +279,12 @@ export default function Pen({
   // ─── Codex entry beside the manuscript ─────────────────────
   const openEntry = async (eid: string) => {
     setOutlineOpen(false);
-    if (eid === panelEntry) return;
-    await panel.current?.leave();
-    setPanelEntry(eid);
-    if (!matches(ROOMY)) setConstructOpen(false);
+    if ((await panel.open(eid)) && !matches(ROOMY)) setConstructOpen(false);
   };
-  const closeEntry = async () => {
-    await panel.current?.leave();
-    setPanelEntry(null);
-    setPanelFocused(false);
-  };
+  const closeEntry = panel.close;
   // Drop the panel without saving: its file is gone.
   const dropEntry = () => {
-    setPanelEntry(null);
-    setPanelFocused(false);
+    panel.drop();
     setCodexKey((k) => k + 1);
   };
   // ─── Switching between the manuscript and the Codex entry viewed last ───
@@ -312,8 +299,6 @@ export default function Pen({
     if (panelEntry) setLast((l) => ({ id: panelEntry, title: panelTitle || (l?.id === panelEntry ? l.title : panelEntry) }));
   }, [panelEntry, panelTitle]);
 
-  /** The Codex panel's editor was used last (not the manuscript's). */
-  const inPanel = panelFocused && !!panelEditor && !!panelEntry;
   /**
    * Manuscript ⇄ the last entry: a page of its own on phones, the side panel where there's
    * room. With the panel open, the cursor goes between the two and the panel stays.
@@ -342,40 +327,13 @@ export default function Pen({
     return go(href);
   };
 
-  // Keep the open entry in the address, so a reload brings it back.
-  useEffect(() => {
-    if (isEntry) return;
-    const url = panelEntry ? `/d/${projectId}?entry=${encodeURIComponent(panelEntry)}` : `/d/${projectId}`;
-    if (window.location.pathname + window.location.search !== url) window.history.replaceState(null, "", url);
-  }, [isEntry, projectId, panelEntry]);
-
-  // No room: close the panel (or, when both are open, Construct).
-  useEffect(() => {
-    if (wide === false && panelEntry) void closeEntry();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wide]);
+  // No room for both: close Construct (the panel closes itself when there's no room for it).
   useEffect(() => {
     if (roomy === false && panelEntry && constructOpen) setConstructOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomy]);
 
   // The toolbar and Construct follow whichever editor was used last.
-  useEffect(() => {
-    if (!editor) return;
-    const onMain = () => setPanelFocused(false);
-    editor.on("focus", onMain);
-    return () => {
-      editor.off("focus", onMain);
-    };
-  }, [editor]);
-  useEffect(() => {
-    if (!panelEditor) return;
-    const onPanel = () => setPanelFocused(true);
-    panelEditor.on("focus", onPanel);
-    return () => {
-      panelEditor.off("focus", onPanel);
-    };
-  }, [panelEditor]);
   const toolEditor = inPanel ? panelEditor : editor;
   const onPanelTyping = useCallback(() => setTyping(true), []);
 
@@ -415,7 +373,7 @@ export default function Pen({
     setConstructOpen(true);
   };
   const beforeConstruct = async () => {
-    await Promise.all([leave(), panel.current?.leave()]);
+    await Promise.all([leave(), panel.leave()]);
   };
   const onCodexChange = ({ entry, action, to }: { entry: string; action: string; to?: string }) => {
     setCodexKey((k) => k + 1);
@@ -425,8 +383,8 @@ export default function Pen({
     }
     if (!isEntry) {
       if (entry !== panelEntry) return;
-      if (action === "edited") void panel.current?.pull();
-      if (action === "renamed" && to) setPanelEntry(to);
+      if (action === "edited") void panel.pull();
+      if (action === "renamed" && to) panel.renamed(to);
       if (action === "deleted") dropEntry();
       return;
     }
@@ -501,11 +459,6 @@ export default function Pen({
   });
 
   // ─── Jumping between the manuscript, the Codex and Construct ───
-  /** The cursor into `ed`; not on touch screens, where it would bring up the keyboard. */
-  const focusText = (ed: Editor | null) => {
-    if (!ed || ed.isDestroyed || matches(TOUCH)) return;
-    requestAnimationFrame(() => !ed.isDestroyed && ed.view.focus());
-  };
   /** To another page, with the cursor in its text once it opens. */
   const goAndFocus = (href: string) => {
     try {
@@ -522,14 +475,6 @@ export default function Pen({
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
-  // The panel's editor appears once its entry has loaded.
-  const panelFocusWanted = useRef(false);
-  useEffect(() => {
-    if (!panelEditor || !panelFocusWanted.current) return;
-    panelFocusWanted.current = false;
-    focusText(panelEditor);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [panelEditor]);
 
   const toManuscript = () => {
     setOutlineOpen(false);
@@ -549,13 +494,11 @@ export default function Pen({
     const beside = matches(WIDE);
     if (beside && panelEntry) {
       setOutlineOpen(false);
-      if (panelEditor) return focusText(panelEditor);
-      panelFocusWanted.current = true;
-      return;
+      return panel.focus();
     }
     if (!last) return showTab("codex");
     if (!beside) return goAndFocus(`/d/${projectId}/codex/${last.id}`);
-    panelFocusWanted.current = true;
+    panel.focus();
     return openEntry(last.id);
   };
   /** Closed from its ✕ or the palette: the cursor goes back to the text. */
@@ -901,12 +844,10 @@ export default function Pen({
           key={panelEntry}
           projectId={projectId}
           entryId={panelEntry}
-          handle={panel}
+          {...panel.props}
           onClose={closeEntry}
           onExpand={() => go(`/d/${projectId}/codex/${panelEntry}`)}
           onMissing={dropEntry}
-          onEditor={setPanelEditor}
-          onTitle={onPanelTitle}
           onChange={onPanelTyping}
         >
           {findBar(panelEditor)}
