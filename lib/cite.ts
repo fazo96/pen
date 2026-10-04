@@ -1,6 +1,6 @@
 import type { Node as PMNode } from "@tiptap/pm/model";
-import { ID_PATTERN } from "./ids";
-import { straightQuotes } from "./text";
+import { ID_PATTERN } from "./ids.ts";
+import { straightQuotes } from "./text.ts";
 
 // Construct cites passages with markdown links:
 //   pen:L120 or pen:L120-140          lines of the manuscript

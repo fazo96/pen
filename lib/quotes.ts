@@ -1,7 +1,7 @@
 import { Extension } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { type EditorState, Plugin, type Transaction } from "@tiptap/pm/state";
-import { straightQuotes } from "./text";
+import { straightQuotes } from "./text.ts";
 
 // pen keeps plain " and '. Curly ones still arrive from imports, pastes, phone
 // keyboards with smart punctuation, and text typed before this rule; they're

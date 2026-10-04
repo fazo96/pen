@@ -1,7 +1,7 @@
 // Manuscript structure, shared by the outline drawer and Construct's tools.
 // H1 = title, H2 = part (roman-numbered), H3 = chapter (numbered straight through).
 
-import { wordCount } from "./text";
+import { wordCount } from "./text.ts";
 
 const ROMAN: [number, string][] = [
   [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"],
