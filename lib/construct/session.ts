@@ -2,23 +2,18 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
-import {
-  type Client,
-  type ContentBlock,
-  type RequestPermissionRequest,
-  type RequestPermissionResponse,
-  type SessionConfigOption,
-  type SessionNotification,
-} from "@agentclientprotocol/sdk";
-import { parseCitation, withSnippets } from "../cite";
+import type { Client, ContentBlock, RequestPermissionRequest, RequestPermissionResponse, SessionNotification } from "@agentclientprotocol/sdk";
+import { anchorCitations } from "../cite";
 import { agentHome, readChats, readDoc, readVersion, trashChat, writeChat } from "../docs";
-import { type AgentLaunch, type AgentProcess, initialize, isNotice, modelOption, optionValues, spawnAgent, startupInfoOf } from "../acp";
+import { type AgentLaunch, type AgentProcess, initialize, modelOption, optionValues, spawnAgent, startupInfoOf } from "../acp";
 import { titleOf } from "../text";
-import { type CodexChange, createdEntryIn, listTools, type ToolContext } from "./tools";
+import { type CodexChange, listTools, type ToolContext } from "./tools";
 import { DEFAULT_AGENT } from "./agentInfo";
 import { type AgentId, type AgentPreset, AGENTS, fallbackAgent, isAgentId, launchFor, MCP_NAME, penToolName, systemPrompt, toolNameOf } from "./agents";
+import { type ChatNames, chatTitle, cleanChatName, isStoredChat, metaOf, newChatId, type StoredChat } from "./chats";
 import { modelFor } from "./ask";
-import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, ContextUsage, PromptContext } from "./types";
+import { type Change, settled, Transcript, visibleConfig } from "./transcript";
+import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, PromptContext } from "./types";
 
 // One Construct conversation at a time per project, driving an ACP agent over
 // stdio. Lives in the server process (on globalThis, so dev reloads keep it);
@@ -26,57 +21,14 @@ import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, ContextUsage, 
 // stored in the project folder, with the agent's session id, so it can be
 // picked up again after a restart (ACP session/resume).
 
-const MAX_ITEMS = 400;
 const SAVE_EVERY_MS = 1500;
-
-/** A chat as stored in <project>/construct/<id>.json. */
-type StoredChat = ChatMeta & {
-  v: 1;
-  agent: string;
-  sessionId: string | null;
-  seq: number;
-  items: ChatItem[];
-  /** The last context reading: the agent doesn't repeat it when a chat is resumed. */
-  context?: ContextUsage;
-  /** The writer's name for it, and the agent's; see chatTitle. */
-  name?: string;
-  autoTitle?: string;
-};
-
-type ChatNames = { name?: string; autoTitle?: string };
-
-/** The writer's name, else the agent's title, else the opening of the first message. */
-function chatTitle({ name, autoTitle }: ChatNames, items: ChatItem[]) {
-  if (name) return name;
-  if (autoTitle) return autoTitle;
-  const first = items.find((i) => i.type === "user");
-  const text = first?.type === "user" ? first.text.replace(/\s+/g, " ").trim() : "";
-  return text.length > 60 ? `${text.slice(0, 57).trimEnd()}…` : text || "New chat";
-}
-
-const newChatId = () => `${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`;
-
-function isStoredChat(x: unknown): x is StoredChat {
-  const c = x as StoredChat;
-  return !!c && typeof c === "object" && c.v === 1 && typeof c.id === "string" && Array.isArray(c.items);
-}
-
-const metaOf = ({ id, title, created, updated }: ChatMeta): ChatMeta => ({ id, title, created, updated });
-
-/** Keep only the small, displayable bits of a tool call's input. */
-function brief(input: unknown): Record<string, string> | undefined {
-  if (!input || typeof input !== "object") return undefined;
-  const out: Record<string, string> = {};
-  for (const k of ["id", "new_id", "heading", "query", "name", "from_line", "to_line", "scope", "version", "from", "to"]) {
-    const v = (input as Record<string, unknown>)[k];
-    if (typeof v === "string" || typeof v === "number") out[k] = String(v).slice(0, 120);
-  }
-  return Object.keys(out).length ? out : undefined;
-}
 
 class ConstructSession {
   readonly token = randomBytes(24).toString("base64url");
-  private items: ChatItem[] = [];
+  private log = new Transcript();
+  private get items() {
+    return this.log.items;
+  }
   private state: ConstructState;
   private listeners = new Set<(e: ConstructEvent) => void>();
   private proc: AgentProcess | null = null;
@@ -88,12 +40,9 @@ class ConstructSession {
   /** The agent the running process is, and how it was started. */
   private runningAgent: AgentId | null = null;
   private launched: (AgentLaunch & { mcpUrl: string }) | null = null;
-  private seq = 0;
   private running = false;
   /** The turn running is the writer's Compact, not a message. */
   private compacting = false;
-  /** The message or thought currently streaming, to append chunks to. */
-  private streaming: { id: string; type: "agent" | "thought" } | null = null;
   /**
    * The chat shown; `sessionId` is the agent's, kept to resume it later, and
    * `model` the one to pick when the agent opens a new session for it.
@@ -136,8 +85,7 @@ class ConstructSession {
   private async fresh() {
     const { agent, model } = await modelFor("chat");
     this.chat = { id: newChatId(), created: Date.now(), sessionId: null, agent, model };
-    this.items = [];
-    this.streaming = null;
+    this.log = new Transcript();
     this.state = { ...this.state, agent, chatId: this.chat.id, context: undefined };
   }
 
@@ -145,16 +93,7 @@ class ConstructSession {
     // A chat stays with the agent it was started on: only that one can resume it.
     const agent = isAgentId(c.agent) && AGENTS[c.agent].available() ? c.agent : fallbackAgent();
     this.chat = { id: c.id, created: c.created, sessionId: c.sessionId, agent, name: c.name, autoTitle: c.autoTitle };
-    this.seq = c.seq;
-    // A turn cut short by a restart leaves tools (or a compaction) that will never finish.
-    this.items = c.items.map((i) =>
-      i.type === "tool" && (i.status === "pending" || i.status === "in_progress")
-        ? { ...i, status: "failed" }
-        : i.type === "compaction" && i.status === "in_progress"
-          ? { ...i, status: "cancelled" }
-          : i,
-    );
-    this.streaming = null;
+    this.log = new Transcript(settled(c.items), c.seq);
     this.state = { ...this.state, agent, chatId: c.id, context: c.context };
   }
 
@@ -189,7 +128,7 @@ class ConstructSession {
       updated: this.state.chats.find((c) => c.id === this.chat.id)?.updated ?? Date.now(),
       agent: this.chat.agent,
       sessionId: this.chat.sessionId,
-      seq: this.seq,
+      seq: this.log.seq,
       items: this.items,
       ...(this.state.context && { context: this.state.context }),
       ...(this.chat.name && { name: this.chat.name }),
@@ -242,8 +181,7 @@ class ConstructSession {
     await this.starting?.catch(() => {}); // let a launch finish before stopping it
     this.stop();
     this.chat = { id: newChatId(), created: Date.now(), sessionId: null, agent, model };
-    this.items = [];
-    this.streaming = null;
+    this.log = new Transcript();
     this.state = { ...this.state, agent, chatId: this.chat.id, context: undefined, config: [] };
     this.emit({ t: "snapshot", items: this.items, state: this.state });
     if (wasRunning) await this.start().catch(() => {});
@@ -258,7 +196,7 @@ class ConstructSession {
 
   /** Name a chat; an empty name gives it back its automatic title. */
   async renameChat(chatId: string, name: string) {
-    const clean = name.replace(/\s+/g, " ").trim().slice(0, 80) || undefined;
+    const clean = cleanChatName(name);
     let title: string;
     if (chatId === this.chat.id) {
       this.chat.name = clean;
@@ -309,24 +247,31 @@ class ConstructSession {
     this.emit({ t: "state", state: this.state });
   }
 
-  private nextId(prefix: string) {
-    return `${prefix}-${++this.seq}`;
-  }
-
-  private upsert(item: ChatItem) {
-    const i = this.items.findIndex((x) => x.id === item.id);
-    if (i >= 0) this.items[i] = item;
-    else {
-      this.items.push(item);
-      if (this.items.length > MAX_ITEMS) this.items.splice(0, this.items.length - MAX_ITEMS);
+  /** Pass a change to the transcript on: to the panel now, to the chat file shortly. */
+  private tell(change: Change) {
+    switch (change.t) {
+      case "item":
+      case "append":
+        this.emit(change);
+        break;
+      case "config":
+        return this.setState({ config: change.config });
+      case "title":
+        this.chat.autoTitle = change.title;
+        break;
+      case "usage":
+        this.setState({ context: change.context });
+        break;
     }
-    this.emit({ t: "item", item });
     this.persist();
   }
 
+  private upsert(item: ChatItem) {
+    this.tell(this.log.upsert(item));
+  }
+
   private notice(text: string, tone: "info" | "error" = "info") {
-    this.streaming = null;
-    this.upsert({ id: this.nextId("n"), type: "notice", text, tone });
+    this.tell(this.log.notice(text, tone));
   }
 
   // ─── Agent process ──────────────────────────────────────────
@@ -460,7 +405,7 @@ class ConstructSession {
     this.proc = null;
     this.sessionId = null;
     this.runningAgent = null;
-    this.streaming = null;
+    this.log.breakStream();
     proc?.stop();
     if (this.state.status !== "error") this.setState({ status: "idle", config: [] });
   }
@@ -474,21 +419,38 @@ class ConstructSession {
   /** Send a message and wait for the turn to end. Errors end up in the chat. */
   async prompt(text: string, context: PromptContext) {
     if (this.running) return;
-    this.running = true;
-    this.streaming = null;
-    const userId = this.nextId("u");
+    this.log.breakStream();
+    const userId = this.log.nextId("u");
     this.upsert({ id: userId, type: "user", text, context });
+    await this.runTurn(
+      [
+        { type: "text", text: describeContext(context) },
+        { type: "text", text },
+      ],
+      { failure: "Construct failed.", after: () => this.anchorCitations(userId) },
+    );
+  }
+
+  /** Have the agent summarize the conversation so far, to free its context. */
+  async compact() {
+    if (this.running) return;
+    this.log.breakStream();
+    // Claude Code's own command; it has to be the whole prompt to count as one.
+    await this.runTurn([{ type: "text", text: "/compact" }], {
+      compacting: true,
+      failure: "Construct couldn’t compact the conversation.",
+    });
+  }
+
+  /** One turn: start the agent if needed, send `prompt`, wait for the end; failures become notices. */
+  private async runTurn(prompt: ContentBlock[], opts: { compacting?: boolean; failure: string; after?: () => Promise<void> }) {
+    this.running = true;
+    this.compacting = !!opts.compacting;
     try {
       await this.start();
       this.setState({ status: "busy" });
-      const res = await this.conn!.prompt({
-        sessionId: this.sessionId!,
-        prompt: [
-          { type: "text", text: describeContext(context) },
-          { type: "text", text },
-        ],
-      });
-      this.streaming = null;
+      const res = await this.conn!.prompt({ sessionId: this.sessionId!, prompt });
+      this.log.breakStream();
       if (res.stopReason === "max_tokens" || res.stopReason === "max_turn_requests") {
         this.notice("Construct stopped: it hit its limit for one answer.");
       } else if (res.stopReason === "refusal") {
@@ -497,31 +459,9 @@ class ConstructSession {
       if (this.state.status === "busy") this.setState({ status: "ready" });
     } catch (err) {
       if (this.conn) this.setState({ status: "ready" });
-      this.notice((err as Error).message || "Construct failed.", "error");
+      this.notice((err as Error).message || opts.failure, "error");
     } finally {
-      await this.anchorCitations(userId).catch((err) => console.error("construct: couldn't anchor citations", err));
-      this.running = false;
-      await this.save();
-    }
-  }
-
-  /** Have the agent summarize the conversation so far, to free its context. */
-  async compact() {
-    if (this.running) return;
-    this.running = true;
-    this.compacting = true;
-    this.streaming = null;
-    try {
-      await this.start();
-      this.setState({ status: "busy" });
-      // Claude Code's own command; it has to be the whole prompt to count as one.
-      await this.conn!.prompt({ sessionId: this.sessionId!, prompt: [{ type: "text", text: "/compact" }] });
-      this.streaming = null;
-      if (this.state.status === "busy") this.setState({ status: "ready" });
-    } catch (err) {
-      if (this.conn) this.setState({ status: "ready" });
-      this.notice((err as Error).message || "Construct couldn’t compact the conversation.", "error");
-    } finally {
+      await opts.after?.().catch((err) => console.error("construct: after a turn", err));
       this.compacting = false;
       this.running = false;
       await this.save();
@@ -546,14 +486,8 @@ class ConstructSession {
       return texts.get(key)!;
     };
     for (const item of this.items.slice(start + 1)) {
-      if (item.type !== "agent" || !item.text.includes("](pen:")) continue;
-      let text = item.text;
-      for (const [, href] of item.text.matchAll(/\]\((pen:[^)\s]+)\)/g)) {
-        const c = parseCitation(href);
-        if (!c || c.kind === "codex" || c.q) continue;
-        const lines = await linesOf(c.kind === "version" ? c.version : undefined);
-        if (lines) text = text.replaceAll(`](${href})`, `](${withSnippets(href, lines)})`);
-      }
+      if (item.type !== "agent") continue;
+      const text = await anchorCitations(item.text, linesOf);
       if (text !== item.text) this.upsert({ ...item, text });
     }
   }
@@ -593,106 +527,18 @@ class ConstructSession {
     if (this.replaying && u.sessionUpdate !== "usage_update" && u.sessionUpdate !== "config_option_update") return;
     // (A session being loaded has no `sessionId` yet: it's the chat's.)
     if (sessionId !== (this.sessionId ?? this.chat.sessionId)) return;
-    switch (u.sessionUpdate) {
-      case "agent_message_chunk":
-      case "agent_thought_chunk": {
-        if (u.content.type !== "text") return;
-        // pi-acp's own notices and hello come as messages; and nothing's said between turns.
-        if (!this.running || isNotice(u._meta) || u.content.text === this.startupInfo) return;
-        const type = u.sessionUpdate === "agent_message_chunk" ? "agent" : "thought";
-        if (this.streaming?.type === type) {
-          const item = this.items.find((x) => x.id === this.streaming!.id);
-          if (item && (item.type === "agent" || item.type === "thought")) {
-            item.text += u.content.text;
-            this.emit({ t: "append", id: item.id, text: u.content.text });
-            this.persist();
-            return;
-          }
-        }
-        const id = this.nextId(type === "agent" ? "a" : "th");
-        this.streaming = { id, type };
-        this.upsert({ id, type, text: u.content.text });
-        return;
-      }
-      case "tool_call":
-      case "tool_call_update": {
-        this.streaming = null;
-        const prev = this.items.find((x) => x.id === u.toolCallId);
-        const base = prev?.type === "tool" ? prev : null;
-        const name = toolNameOf(this.runningAgent ?? this.chat.agent, u) ?? base?.name;
-        let input = brief(u.rawInput) ?? base?.input;
-        // A new entry's id is only known from the result.
-        const created = createdEntryIn(u.rawOutput);
-        if (created) input = { ...input, id: created };
-        this.upsert({
-          id: u.toolCallId,
-          type: "tool",
-          name: (name && penToolName(name, MCP_NAME)) ?? name,
-          title: u.title ?? base?.title ?? name ?? "Tool",
-          status: u.status ?? base?.status ?? "pending",
-          input,
-        });
-        return;
-      }
-      case "plan":
-        this.streaming = null;
-        this.upsert({
-          id: "plan",
-          type: "plan",
-          entries: u.entries.map((e) => ({ content: e.content, status: e.status })),
-        });
-        return;
-      case "config_option_update":
-        this.setState({ config: visibleConfig(u.configOptions) });
-        return;
-      case "session_info_update":
-        // Claude Code names the session after its first exchange.
-        if (u.title !== undefined) {
-          this.chat.autoTitle = u.title?.trim() || undefined;
-          this.persist();
-        }
-        return;
-      case "usage_update":
-        if (u.size > 0) {
-          this.setState({ context: { used: u.used, size: u.size } });
-          this.persist();
-        }
-        return;
-      case "compaction_update":
-      case "compaction_summary_chunk": {
-        this.streaming = null;
-        const id = `compact-${u.compactionId}`;
-        const prev = this.items.find((x) => x.id === id);
-        const base = prev?.type === "compaction" ? prev : null;
-        const item: Extract<ChatItem, { type: "compaction" }> = base
-          ? { ...base }
-          : { id, type: "compaction", status: "in_progress", ...(this.compacting && { manual: true }) };
-        if (u.sessionUpdate === "compaction_summary_chunk") {
-          if (u.content.type === "text") item.summary = (item.summary ?? "") + u.content.text;
-        } else {
-          const status = u.status;
-          item.status = status === "completed" || status === "failed" || status === "cancelled" ? status : "in_progress";
-          // Patches: left out keeps the old value, null clears it.
-          if (u.summary !== undefined) item.summary = textOf(u.summary ?? []) || undefined;
-          if (u.error !== undefined) item.error = u.error ?? undefined;
-        }
-        this.upsert(item);
-        return;
-      }
-      default:
-        return; // user_message_chunk (echo), commands, modes…
-    }
+    const agent = this.runningAgent ?? this.chat.agent;
+    const changes = this.log.apply(u, {
+      running: this.running,
+      compacting: this.compacting,
+      startupInfo: this.startupInfo,
+      toolName: (call) => {
+        const name = toolNameOf(agent, call);
+        return name && (penToolName(name, MCP_NAME) ?? name);
+      },
+    });
+    for (const change of changes) this.tell(change);
   }
-}
-
-const textOf = (blocks: ContentBlock[]) =>
-  blocks.map((b) => (b.type === "text" ? b.text : "")).join("").trim();
-
-/** The writer only picks the model and how hard it thinks; modes stay default. */
-function visibleConfig(options: SessionConfigOption[] | null | undefined) {
-  return (options ?? []).filter(
-    (o) => o.type === "select" && (o.category === "model" || o.category === "thought_level"),
-  );
 }
 
 function describeContext(c: PromptContext) {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { getSchema } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { findPassage, lineSnippet, parseCitation, withSnippets } from "../lib/cite.ts";
+import { anchorCitations, findPassage, lineSnippet, parseCitation, withSnippets } from "../lib/cite.ts";
 
 // Construct's pen: citation links (lib/cite.ts).
 
@@ -52,6 +52,16 @@ test("withSnippets adds the cited lines' text, once", () => {
   assert.equal(withSnippets("pen:L3?q=x", lines), "pen:L3?q=x");
   assert.equal(withSnippets("pen:codex/mara", lines), "pen:codex/mara");
   assert.equal(withSnippets("pen:L2", lines), "pen:L2"); // a blank line has nothing to quote
+});
+
+test("anchorCitations anchors a reply's manuscript and version links, leaving Codex and anchored ones", async () => {
+  const linesOf = async (version?: string) => (version === "gone" ? null : version ? ["Old first line."] : ["# Title", "The rain fell."]);
+  const reply = "See [the rain](pen:L2), [again](pen:L2), [then](pen:v/v1/L1), [lost](pen:v/gone/L1), [Mara](pen:codex/mara) and [done](pen:L2?q=x).";
+  assert.equal(
+    await anchorCitations(reply, linesOf),
+    "See [the rain](pen:L2?q=The%20rain%20fell.), [again](pen:L2?q=The%20rain%20fell.), [then](pen:v/v1/L1?q=Old%20first%20line.), [lost](pen:v/gone/L1), [Mara](pen:codex/mara) and [done](pen:L2?q=x).",
+  );
+  assert.equal(await anchorCitations("No links here.", linesOf), "No links here.");
 });
 
 const schema = getSchema([StarterKit]);

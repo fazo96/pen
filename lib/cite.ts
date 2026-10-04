@@ -130,3 +130,20 @@ export function withSnippets(href: string, lines: string[]): string {
   const path = href.slice(4).split("?", 1)[0];
   return `pen:${path}?q=${enc(q)}${qe ? `&qe=${enc(qe)}` : ""}`;
 }
+
+/**
+ * Adds the cited lines' opening words to a reply's pen: links (see
+ * withSnippets), so they still find their passage after the writer edits.
+ * `linesOf` reads the manuscript (no version) or a saved version, null when
+ * it can't; links that already carry their words, and Codex links, are left.
+ */
+export async function anchorCitations(text: string, linesOf: (version?: string) => Promise<string[] | null>): Promise<string> {
+  let out = text;
+  for (const [, href] of text.matchAll(/\]\((pen:[^)\s]+)\)/g)) {
+    const c = parseCitation(href);
+    if (!c || c.kind === "codex" || c.q) continue;
+    const lines = await linesOf(c.kind === "version" ? c.version : undefined);
+    if (lines) out = out.replaceAll(`](${href})`, `](${withSnippets(href, lines)})`);
+  }
+  return out;
+}

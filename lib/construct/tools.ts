@@ -17,6 +17,7 @@ import { type Section, sectionsOf } from "../outline";
 import { straightQuotes, titleOf, wordCount } from "../text";
 import { alignBlocks, blockKey, countWords, wordDiff } from "../textdiff";
 import { checkGrammar, type GrammarReport } from "./grammarCheck";
+import { createdEntry } from "./transcript";
 
 // Everything Construct can do, and nothing more. The agent's own file, shell
 // and web tools are switched off; these are served to it over MCP (see
@@ -30,18 +31,6 @@ export type ToolContext = {
   /** Called after every change to the Codex, so open views can refresh. */
   onCodexChange: (change: CodexChange) => void;
 };
-
-/** create_codex_entry's reply. The new id is only known from it, so the
- * session reads it back with `createdEntryIn`; keep the two together. */
-const createdEntry = (id: string) => `Created codex entry "${id}".`;
-
-/** The id a create_codex_entry result names, wherever the agent nested it. */
-export function createdEntryIn(output: unknown): string | null {
-  const text = JSON.stringify(output ?? "");
-  // Stringified, the reply's quotes come out backslash-escaped.
-  const m = text.match(/Created codex entry \\+"([a-z0-9][a-z0-9-]*)\\+"/);
-  return m ? m[1] : null;
-}
 
 type JsonSchema = { type: "object"; properties: Record<string, unknown>; required?: string[] };
 
