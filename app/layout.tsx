@@ -1,20 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Literata } from "next/font/google";
+// Fonts from npm (@fontsource-variable) rather than next/font/google, so a build
+// never has to reach Google; the families are named in globals.css.
+import "@fontsource-variable/literata/wght.css";
+import "@fontsource-variable/literata/wght-italic.css";
+import "@fontsource-variable/jetbrains-mono/wght.css";
 import "./globals.css";
-
-const serif = Literata({
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  variable: "--font-serif",
-  display: "swap",
-});
-
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["300", "400", "500"],
-  variable: "--font-mono",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "pen",
@@ -39,7 +29,7 @@ const themeScript = `try{var d=document.documentElement,t=localStorage.getItem("
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${serif.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>

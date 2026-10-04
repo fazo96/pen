@@ -17,6 +17,8 @@
   --shadow: 0 10px 30px -12px rgb(60 40 10 / 0.28), 0 1px 0 rgb(255 255 255 / 0.4) inset;
   --vignette: radial-gradient(ellipse at 50% 35%, transparent 55%, rgb(120 85 30 / 0.1));
 
+  --font-serif: "Literata Variable";
+  --font-mono: "JetBrains Mono Variable";
   --font-ui: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --font-body: var(--font-serif), "Iowan Old Style", Georgia, serif;
   --topbar-h: 52px;
