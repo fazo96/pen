@@ -175,7 +175,7 @@ panel ──SSE/POST──▶ pen server ──ACP (stdio)──▶ agent (Claud
 ```
 
 - **One agent per book** (`lib/construct/session.ts`), launched on demand and streamed to the panel over server-sent events.
-- **Locked down.** Every built-in tool the agent normally has (files, shell, web) is switched off, and it ignores the user's own settings and MCP servers. The only tools it gets are pen's own, served from a small MCP endpoint with a per-session token (`lib/construct/tools.ts`):
+- **Locked down.** Every built-in tool the agent normally has (files, shell, web) is switched off, and it ignores the user's own settings and MCP servers. The only tools it gets are pen's own, served from a small MCP endpoint with a per-session token (`lib/construct/tools/`):
   - manuscript, read-only: `outline`, `read_manuscript`, `search`
   - history, read-only: `list_versions`, `read_version`
   - Codex, read-write: `list_codex`, `read_codex_entry`, `create_codex_entry`, `edit_codex_entry`, `write_codex_entry`, `rename_codex_entry`, `delete_codex_entry`

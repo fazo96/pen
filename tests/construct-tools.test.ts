@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createDoc, createEntry, readEntry } from "../lib/docs.ts";
 import { handleMcp } from "../lib/construct/mcp.ts";
-import { callTool, type CodexChange } from "../lib/construct/tools.ts";
+import { callTool, type CodexChange } from "../lib/construct/tools/index.ts";
 
-// Construct's tools (lib/construct/tools.ts) and the MCP endpoint that serves
+// Construct's tools (lib/construct/tools/) and the MCP endpoint that serves
 // them (lib/construct/mcp.ts), on the scratch library.
 
 const changes: CodexChange[] = [];
@@ -58,4 +58,35 @@ test("the MCP endpoint speaks JSON-RPC: handshake, tool list, calls, batches and
       [5, -32601],
     ],
   );
+});
+
+test("arguments are checked against each tool's schema", async () => {
+  const { id } = await createDoc("# Args Book\n\n## Part One\n\nLine three.\nLine four.");
+  const call = (name: string, args: Record<string, unknown>) => callTool(name, args, ctx(id));
+
+  assert.deepEqual(await call("search", {}), { text: 'Missing "query".', isError: true });
+  assert.deepEqual(await call("search", { query: "" }), { text: 'Missing "query".', isError: true });
+  assert.deepEqual(await call("search", { query: 3 }), { text: '"query" must be a string.', isError: true });
+  assert.deepEqual(await call("search", { query: "line", scope: "web" }), {
+    text: '"scope" must be one of: all, manuscript, codex.',
+    isError: true,
+  });
+  assert.equal((await call("search", { query: "line four", scope: "manuscript" })).text, "manuscript:6 [Part I]  Line four.");
+  // Integers may come as strings; anything else is refused.
+  assert.equal((await call("read_manuscript", { from_line: "5", to_line: 5 })).text, "Lines 5–5 of 6:\n5\tLine three.");
+  assert.deepEqual(await call("read_manuscript", { from_line: 0 }), { text: '"from_line" must be a positive integer.', isError: true });
+  assert.deepEqual(await call("read_manuscript", { to_line: 1.5 }), { text: '"to_line" must be a positive integer.', isError: true });
+  assert.match((await call("grammar_check", { entry: "Not An Id" })).text, /not a valid entry id/);
+  // Arguments the schema doesn't name are ignored.
+  assert.equal((await call("list_versions", { anything: true })).isError, false);
+
+  // new_text may be empty; replace_all takes "true" as true.
+  await createEntry(id, "# Kit\n\nOne. A cat. A cat.");
+  assert.equal((await call("edit_codex_entry", { id: "kit", old_text: " A cat.", new_text: "" })).isError, true); // twice
+  assert.equal((await call("edit_codex_entry", { id: "kit", old_text: " A cat.", new_text: "", replace_all: "true" })).isError, false);
+  assert.equal((await readEntry(id, "kit"))?.content, "# Kit\n\nOne.");
+  assert.deepEqual(await call("edit_codex_entry", { id: "kit", old_text: "cat", new_text: "dog", replace_all: "yes" }), {
+    text: '"replace_all" must be true or false.',
+    isError: true,
+  });
 });

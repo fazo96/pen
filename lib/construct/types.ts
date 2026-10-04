@@ -3,7 +3,7 @@
 import type { SessionConfigOption } from "@agentclientprotocol/sdk";
 import type { AgentId } from "./agentInfo.ts";
 
-/** pen's tools, as Construct's agent calls them (served by ./tools.ts, described in the panel by Construct.tsx). */
+/** pen's tools, as Construct's agent calls them (served by ./tools/, described in the panel by Construct.tsx). */
 export type ToolName =
   | "outline"
   | "read_manuscript"

@@ -18,7 +18,7 @@ The server spawns an ACP agent per project (`agents.ts`: Claude Code via `@agent
 
 ## Tools
 
-The agent's built-in tools are all off; It only gets pen's tools (`tools.ts`: manuscript/versions read-only, Codex read-write, `grammar_check`) from a small MCP endpoint, `/api/construct/mcp`, authenticated by a per-session bearer token (exempt from the lock proxy). There is deliberately no tool that writes the manuscript.
+The agent's built-in tools are all off; It only gets pen's tools (`lib/construct/tools/`, one file per area: `manuscript.ts` with `grammar_check` and `versions.ts` read-only, `codex.ts` read-write; each made with `tool()` in `core.ts`, whose JSON schema is both what the agent sees and what `readArgs` checks and types its arguments against) from a small MCP endpoint, `/api/construct/mcp`, authenticated by a per-session bearer token (exempt from the lock proxy). There is deliberately no tool that writes the manuscript.
 
 ## Chats
 

@@ -9,7 +9,7 @@ import { aiSwitchedOff, claudeFound, piFound } from "./detect";
 
 // The ACP agents Construct can run on. Each one is launched with every
 // built-in tool switched off, so the only things it can touch are pen's own
-// tools (./tools.ts), served to it over MCP.
+// tools (./tools/), served to it over MCP.
 
 /** The MCP server pen's tools come from, as the agent names it: its tools are `mcp__pen__<tool>`. */
 export const MCP_NAME = "pen";

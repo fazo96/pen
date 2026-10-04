@@ -10,7 +10,8 @@ export async function resolve(specifier, context, next) {
   try {
     return await next(specifier, context);
   } catch (err) {
-    if (err?.code !== "ERR_MODULE_NOT_FOUND" || !/^(\.|\/|file:)/.test(specifier)) throw err;
+    const missing = err?.code === "ERR_MODULE_NOT_FOUND" || err?.code === "ERR_UNSUPPORTED_DIR_IMPORT";
+    if (!missing || !/^(\.|\/|file:)/.test(specifier)) throw err;
     for (const ext of [".ts", "/index.ts"]) {
       try {
         return await next(specifier + ext, context);

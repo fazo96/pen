@@ -161,7 +161,7 @@ export function visibleConfig(options: SessionConfigOption[] | null | undefined)
 }
 
 /**
- * What create_codex_entry answers (./tools.ts); a new entry's id is read back
+ * What create_codex_entry answers (./tools/codex.ts); a new entry's id is read back
  * from it with `createdEntryIn`. Keep the two together.
  */
 export const createdEntry = (id: string) => `Created codex entry "${id}".`;
