@@ -68,3 +68,21 @@ test("the palette's Ask… leaves a question in Construct's input", async ({ pag
   await expect(input(page)).toBeFocused();
   await expect(input(page)).toHaveValue(/harbour/);
 });
+
+test("New chat from the palette waits for a closed Construct to load", async ({ page, request }) => {
+  const id = await makeBook(request, uniqueId("chat-later"));
+  await openBook(page, id);
+  await page.getByRole("button", { name: "Construct", exact: true }).click();
+  await input(page).fill("Remember this");
+  await page.keyboard.press("Enter");
+  await expect(replies(page).last()).toContainText("Remember this", { timeout: 30_000 });
+
+  // A fresh page: Construct closed, its conversation not loaded yet.
+  await openBook(page, id);
+  await command(page, "New Construct chat");
+  await expect(input(page)).toBeVisible();
+  await expect(construct(page).locator(".construct-msg")).toHaveCount(0);
+  // It really started over, rather than showing nothing while loading.
+  await page.waitForTimeout(1000);
+  await expect(construct(page).locator(".construct-msg")).toHaveCount(0);
+});

@@ -1,7 +1,7 @@
 "use client";
 
 import { Marked } from "marked";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Citation, parseCitation } from "@/lib/cite";
 import { matches, TOUCH } from "@/lib/media";
 import type { SessionConfigOption } from "@agentclientprotocol/sdk";
@@ -26,19 +26,24 @@ type Props = {
   onOpen: (href: string) => void;
   /** Jump to a passage Construct cited; false if it can't be found any more. */
   onCite: (c: Exclude<Citation, { kind: "codex" }>, href: string) => boolean | Promise<boolean>;
-  /** A message from elsewhere in pen (a new `id` each time): sent, or left in the input to finish. */
-  request?: ConstructRequest | null;
-  /** Bumped to start a new chat (from the command palette). */
-  newChat?: number;
-  /** Bumped to compact the conversation (from the command palette). */
-  compact?: number;
-  /** Bumped to put the cursor in the input (Ctrl+Shift+A, the palette). */
-  focus?: number;
+  /** What the rest of the page asks of it (see ConstructHandle). */
+  handle: React.Ref<ConstructHandle>;
   /** Esc in the input: give the cursor back to the text. */
   onEscape?: () => void;
 };
 
-export type ConstructRequest = { id: number; text: string; context: PromptContext; send: boolean };
+/** A message from elsewhere in pen (the look-up and grammar buttons): sent, or left in the input to finish. */
+export type ConstructRequest = { text: string; context: PromptContext; send: boolean };
+
+export type ConstructHandle = {
+  ask: (request: ConstructRequest) => void;
+  /** A new chat (from the command palette), once the conversation has loaded. */
+  newChat: () => void;
+  /** Compact the conversation (from the command palette), once it has loaded. */
+  compact: () => void;
+  /** The cursor into the input (Ctrl+Shift+A, the palette), if it's open: opening puts it there anyway. */
+  focus: () => void;
+};
 
 const AGENT_NAMES: Record<string, string> = { claude: "Claude Code", pi: "pi" };
 
@@ -264,10 +269,7 @@ export default function Construct({
   onCodexChange,
   onOpen,
   onCite,
-  request,
-  newChat,
-  compact,
-  focus,
+  handle,
   onEscape,
 }: Props) {
   const c = useConstruct(projectId, open, onCodexChange);
@@ -294,10 +296,6 @@ export default function Construct({
   useEffect(() => {
     if (open && !isTouch()) input.current?.focus();
   }, [open]);
-  useEffect(() => {
-    if (focus && open && !isTouch()) input.current?.focus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focus]);
 
   // Follow the conversation unless the writer has scrolled up to reread.
   useLayoutEffect(() => {
@@ -319,12 +317,10 @@ export default function Construct({
     }
   };
 
+
   // Look-up and grammar buttons: send right away, unless Construct is still
   // answering (then the message waits in the input) or it's a question to finish.
-  const handled = useRef(0);
-  useEffect(() => {
-    if (!request || request.id === handled.current) return;
-    handled.current = request.id;
+  const ask = (request: ConstructRequest) => {
     if (!request.send || busy) {
       setDraft(request.text);
       requestAnimationFrame(() => {
@@ -342,30 +338,34 @@ export default function Construct({
       if (ok) stick.current = true;
       else setDraft(request.text);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [request?.id]);
-
-  // The command palette's New chat: once the conversation has loaded, if there is one.
-  const handledNew = useRef(0);
-  useEffect(() => {
-    if (!newChat || newChat === handledNew.current || !c.state) return;
-    handledNew.current = newChat;
+  };
+  const newChat = () => {
     setShowChats(false);
     if (c.items.length) void c.reset();
     if (!isTouch()) input.current?.focus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newChat, c.state]);
-
-  // The command palette's Compact: once the conversation has loaded.
-  const handledCompact = useRef(0);
-  useEffect(() => {
-    if (!compact || compact === handledCompact.current || !c.state) return;
-    handledCompact.current = compact;
+  };
+  const compact = () => {
     setShowChats(false);
     stick.current = true;
     if (c.items.length && !busy) void c.compact();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compact, c.state]);
+  };
+  // New chat and Compact wait for the conversation to load (opening the panel connects).
+  const waiting = useRef<("newChat" | "compact")[]>([]);
+  const later = { newChat, compact };
+  const whenLoaded = (what: "newChat" | "compact") => (c.state ? later[what]() : waiting.current.push(what));
+  const runWaiting = useEffectEvent(() => {
+    for (const what of waiting.current.splice(0)) later[what]();
+  });
+  const loaded = !!c.state;
+  useEffect(() => {
+    if (loaded) runWaiting();
+  }, [loaded]);
+  useImperativeHandle(handle, () => ({
+    ask,
+    newChat: () => whenLoaded("newChat"),
+    compact: () => whenLoaded("compact"),
+    focus: () => open && !isTouch() && input.current?.focus(),
+  }));
 
   const config = c.state?.config ?? [];
   // A chat is listed once it has a message; until then the header says "Construct".

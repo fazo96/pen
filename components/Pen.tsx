@@ -28,7 +28,7 @@ import { askDraft, constructPrompt, pickedWords, type QuickKind, requestLookUp }
 import Codex from "./Codex";
 import CodexPanel, { type CodexPanelHandle } from "./CodexPanel";
 import ConflictBanner from "./ConflictBanner";
-import Construct, { type ConstructRequest } from "./Construct";
+import Construct, { type ConstructHandle } from "./Construct";
 import Drawer from "./Drawer";
 import { useFind } from "./FindBar";
 import WordStats from "./WordStats";
@@ -432,7 +432,7 @@ export default function Pen({
   // Look-up and grammar buttons that ask Construct: a quick answer in a popover
   // (the quick-action model, outside the chat), or a question left in the
   // chat's input to finish.
-  const [constructRequest, setConstructRequest] = useState<ConstructRequest | null>(null);
+  const construct = useRef<ConstructHandle>(null);
   const [quick, setQuick] = useState<Quick | null>(null);
   const closeQuick = useCallback(() => setQuick(null), []);
   const askConstruct = (ed: Editor): AskConstruct => (text, range, send, kind) => {
@@ -441,7 +441,7 @@ export default function Pen({
     setQuick({ id: Date.now(), editor: ed, from: range.from, to: range.to, text: ed.state.doc.textBetween(range.from, range.to, " ", " "), prompt: text, context, kind });
   };
   const askChat = (ed: Editor, text: string, range: { from: number; to: number }, send: boolean) => {
-    setConstructRequest({ id: Date.now(), text, context: contextIn(ed, range), send });
+    construct.current?.ask({ text, context: contextIn(ed, range), send });
     setOutlineOpen(false);
     if (!constructOpen && panelEntry && ed !== panelEditor && !matches(ROOMY)) void closeEntry();
     setConstructOpen(true);
@@ -496,8 +496,6 @@ export default function Pen({
   useEffect(() => {
     if (visited) setRecent((r) => [visited, ...r.filter((e) => e !== visited)]);
   }, [visited]);
-  const [newChat, setNewChat] = useState(0);
-  const [compactChat, setCompactChat] = useState(0);
   const { cycle: cycleTheme } = useTheme();
   const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
@@ -603,11 +601,10 @@ export default function Pen({
     setConstructOpen(false);
     focusText(toolEditor);
   };
-  const [constructFocus, setConstructFocus] = useState(0);
   const toConstruct = () => {
     if (constructOpen) setOutlineOpen(false);
     else toggleConstruct();
-    setConstructFocus((n) => n + 1);
+    construct.current?.focus();
   };
   const jumps = useRef({ switchView, toManuscript, toCodex, toConstruct, closePalette });
   jumps.current = { switchView, toManuscript, toCodex, toConstruct, closePalette };
@@ -726,11 +723,11 @@ export default function Pen({
         closeConstruct,
         newChat: () => {
           openConstruct();
-          setNewChat((n) => n + 1);
+          construct.current?.newChat();
         },
         compactChat: () => {
           openConstruct();
-          setCompactChat((n) => n + 1);
+          construct.current?.compact();
         },
         toggleGrammar,
         saveVersion: (label) => void saveVersion(label),
@@ -983,10 +980,7 @@ export default function Pen({
           onCodexChange={onCodexChange}
           onOpen={open}
           onCite={cite}
-          request={constructRequest}
-          newChat={newChat}
-          compact={compactChat}
-          focus={constructFocus}
+          handle={construct}
           onEscape={() => focusText(toolEditor)}
         />
       )}
