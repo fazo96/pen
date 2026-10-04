@@ -4,7 +4,8 @@ import path from "node:path";
 import { listDocs } from "./docs";
 import { DOCS_DIR } from "./paths";
 import { queue } from "./queue";
-import { arrange, renameBook, sanitize, type Layout } from "./shelfLayout";
+import { readRenames } from "./renames";
+import { arrange, followRenames, renameBook, sanitize, type Layout } from "./shelfLayout";
 
 // The homepage's shelves: which book sits where. Books the file doesn't
 // mention go on the first shelf, so losing it only loses the arrangement.
@@ -26,7 +27,8 @@ export async function getShelves(bookIds: string[]): Promise<Layout> {
 const serialize = queue("shelves");
 
 async function write(layout: Layout): Promise<Layout> {
-  const fitted = arrange(layout, (await listDocs()).map((d) => d.id));
+  const ids = (await listDocs()).map((d) => d.id);
+  const fitted = arrange(followRenames(layout, await readRenames(), new Set(ids)), ids);
   await mkdir(DOCS_DIR, { recursive: true });
   const tmp = `${SHELVES_FILE}.${process.pid}.${Date.now()}.tmp`;
   await writeFile(tmp, JSON.stringify(fitted, null, 2), "utf8");

@@ -4,6 +4,7 @@ import {
   addShelf,
   arrange,
   findBook,
+  followRenames,
   moveBook,
   moveShelf,
   removeShelf,
@@ -76,4 +77,15 @@ test("sanitize accepts layouts and rejects malformed ones", () => {
 test("renameBook keeps a book in its place", () => {
   const l = layout(["one", "", ["a", "b"]], ["two", "", ["c"]]);
   assert.deepEqual(renameBook(l, "b", "z"), layout(["one", "", ["a", "z"]], ["two", "", ["c"]]));
+});
+
+test("followRenames puts renamed books back under their new ids", () => {
+  const stale = layout(["one", "", ["a", "old"]], ["two", "", ["c"]]);
+  const exists = new Set(["a", "new", "c"]);
+  const followed = followRenames(stale, { old: "new" }, exists);
+  assert.deepEqual(followed, layout(["one", "", ["a", "new"]], ["two", "", ["c"]]));
+  // Arranged, it stays where it was instead of going first as an unknown book.
+  assert.deepEqual(arrange(followed, ["new", "a", "c"]), followed);
+  // An old id that names a book again is that book.
+  assert.deepEqual(followRenames(stale, { old: "new" }, new Set([...exists, "old"])), stale);
 });

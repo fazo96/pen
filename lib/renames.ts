@@ -10,7 +10,7 @@ import { type Renames, withRename } from "./renameMap";
 const RENAMES_FILE = path.join(DOCS_DIR, ".pen-renames.json");
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
 
-async function readRenames(): Promise<Renames> {
+export async function readRenames(): Promise<Renames> {
   try {
     const data = JSON.parse(await readFile(RENAMES_FILE, "utf8")) as unknown;
     if (!data || typeof data !== "object") return {};

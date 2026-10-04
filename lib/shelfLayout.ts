@@ -106,3 +106,14 @@ export function moveShelf(layout: Layout, id: string, delta: number): Layout {
 export function renameBook(layout: Layout, from: string, to: string): Layout {
   return { shelves: layout.shelves.map((s) => ({ ...s, books: s.books.map((b) => (b === from ? to : b)) })) };
 }
+
+/**
+ * The layout with books that were renamed away (`renames`: old id → current
+ * id) under their current ids, so a page opened before a rename, saving its
+ * arrangement after it, doesn't knock the renamed book off its place. An old
+ * id that's a book again (`exists`) is left alone.
+ */
+export function followRenames(layout: Layout, renames: Record<string, string>, exists: Set<string>): Layout {
+  const current = (b: string) => (!exists.has(b) && renames[b]) || b;
+  return { shelves: layout.shelves.map((s) => ({ ...s, books: s.books.map(current) })) };
+}
