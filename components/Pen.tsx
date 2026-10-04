@@ -12,22 +12,23 @@ import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
 import { matches, ROOMY, TOUCH, WIDE } from "@/lib/media";
 import { showPassage } from "@/lib/passage";
 import { buildCommands, buildPlaces, type DrawerTab } from "@/lib/penCommands";
-import { hasCurlyQuotes, straightenQuotes } from "@/lib/quotes";
 import type { Spot } from "@/lib/spot";
 import { slugify, wordCount } from "@/lib/text";
-import { STATUS_LABEL, type Story, useAutosave } from "@/lib/useAutosave";
+import { STATUS_LABEL, type Story } from "@/lib/useAutosave";
+import { useDocScan, useEditorDoc } from "@/lib/useEditorDoc";
 import { useFocusMode } from "@/lib/useFocusMode";
 import { useKeys } from "@/lib/useKeys";
 import { useLibrary } from "@/lib/useLibrary";
 import { useMedia } from "@/lib/useMedia";
 import { useSpot } from "@/lib/useSpot";
 import { setSteady, useSteady } from "@/lib/useSteady";
-import { HEADINGS, usePenEditor } from "@/lib/usePenEditor";
+import { HEADINGS } from "@/lib/usePenEditor";
 import { useTheme, THEME_LABEL, type Theme } from "@/lib/useTheme";
 import type { VersionMeta } from "@/lib/types";
 import { askDraft, constructPrompt, pickedWords, type QuickKind, requestLookUp } from "@/lib/wordTools";
 import Codex from "./Codex";
 import CodexPanel, { type CodexPanelHandle } from "./CodexPanel";
+import ConflictBanner from "./ConflictBanner";
 import Construct, { type ConstructRequest } from "./Construct";
 import Drawer from "./Drawer";
 import FindBar, { type FindMode } from "./FindBar";
@@ -102,7 +103,6 @@ export default function Pen({
   const scrollBeforePreview = useRef(0);
   const [typing, setTyping] = useState(false);
   const [progress, setProgress] = useState(0);
-  const touchRef = useRef<() => void>(() => {});
   // The codex entry open beside the manuscript, and which editor the toolbar serves.
   const [panelEntry, setPanelEntry] = useState<string | null>(isEntry ? null : (initialEntry ?? null));
   const [panelEditor, setPanelEditor] = useState<Editor | null>(null);
@@ -113,25 +113,23 @@ export default function Pen({
   const [panelFocused, setPanelFocused] = useState(false);
   const panel = useRef<CodexPanelHandle>(null);
 
-  const editor = usePenEditor(kind, initial.content, () => {
-    touchRef.current();
-    setTyping(true);
-  });
-
-  const getContent = useCallback(() => (editor ? editor.getMarkdown() : null), [editor]);
-  const setContent = useCallback(
-    (md: string) => editor?.commands.setContent(md, { contentType: "markdown", emitUpdate: false }),
-    [editor],
-  );
-  const { status, conflict, touch, leave, adopt, pull, resolveConflict } = useAutosave({
+  const { editor, status, conflict, leave, adopt, pull, resolveConflict } = useEditorDoc({
+    kind,
     initial,
     url: isEntry ? `/api/docs/${projectId}/codex/${initial.id}` : `/api/docs/${projectId}`,
     backupKey: isEntry ? `pen:backup:${projectId}/codex/${initial.id}` : `pen:backup:${projectId}`,
-    getContent,
-    setContent,
-    ready: !!editor,
+    onEdit: () => setTyping(true),
+    // A manuscript gets a version first, so nothing is lost.
+    beforeStraightening: async () => {
+      if (isEntry) return true;
+      const saved = await postVersion(projectId, "Before straightening quotes").then(
+        () => true,
+        () => false,
+      );
+      if (saved) setHistoryKey((k) => k + 1);
+      return saved;
+    },
   });
-  touchRef.current = touch;
 
   // Reopen where the writer left off, unless a citation brought them here.
   const spotUrl = `/api/docs/${projectId}/spot`;
@@ -143,51 +141,17 @@ export default function Pen({
     paused: !!preview,
   });
 
-  // Curly quotes from imports or older text are straightened on open (and saved
-  // by autosave). A manuscript gets a version first, so nothing is lost.
-  useEffect(() => {
-    if (!editor || !hasCurlyQuotes(editor.state.doc)) return;
-    void (async () => {
-      if (!isEntry) {
-        const saved = await postVersion(projectId, "Before straightening quotes").then(
-          () => true,
-          () => false,
-        );
-        if (!saved) return; // try again next time it opens
-        setHistoryKey((k) => k + 1);
-      }
-      const tr = straightenQuotes(editor.state);
-      if (tr) editor.view.dispatch(tr);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor]);
-
   // Derive outline + word count from the document, lightly debounced.
-  useEffect(() => {
-    if (!editor) return;
-    let t: ReturnType<typeof setTimeout> | null = null;
-    const scan = () => {
-      const hs: Heading[] = [];
-      editor.state.doc.forEach((node, offset) => {
-        if (node.type.name === "heading") {
-          hs.push({ pos: offset, level: node.attrs.level as number, text: textWithoutComments(node).trim() });
-        }
-      });
-      setHeadings(hs);
-      setWords(wordCount(textWithoutComments(editor.state.doc)));
-    };
-    const onTx = ({ transaction }: { transaction: { docChanged: boolean } }) => {
-      if (!transaction.docChanged) return;
-      if (t) clearTimeout(t);
-      t = setTimeout(scan, 200);
-    };
-    scan();
-    editor.on("transaction", onTx);
-    return () => {
-      editor.off("transaction", onTx);
-      if (t) clearTimeout(t);
-    };
-  }, [editor]);
+  useDocScan(editor, (doc) => {
+    const hs: Heading[] = [];
+    doc.forEach((node, offset) => {
+      if (node.type.name === "heading") {
+        hs.push({ pos: offset, level: node.attrs.level as number, text: textWithoutComments(node).trim() });
+      }
+    });
+    setHeadings(hs);
+    setWords(wordCount(textWithoutComments(doc)));
+  });
 
   // Track the heading in view and overall reading progress.
   useEffect(() => {
@@ -943,22 +907,7 @@ export default function Pen({
         </div>
       </header>
 
-      {conflict && (
-        <div className="conflict" role="alert">
-          <p>
-            <span className="label">Conflict</span>
-            This manuscript was changed on another device.
-          </p>
-          <div className="conflict-actions">
-            <button type="button" onClick={() => resolveConflict("theirs")}>
-              Load theirs
-            </button>
-            <button type="button" className="primary" onClick={() => resolveConflict("mine")}>
-              Keep mine
-            </button>
-          </div>
-        </div>
-      )}
+      {conflict && <ConflictBanner what="This manuscript was changed on another device." onResolve={resolveConflict} />}
 
       <Drawer
         open={outlineOpen}

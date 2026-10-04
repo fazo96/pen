@@ -1,12 +1,12 @@
 "use client";
 
 import { type Editor, EditorContent } from "@tiptap/react";
-import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { textWithoutComments } from "@/lib/comments";
-import { straightenQuotes } from "@/lib/quotes";
-import { STATUS_LABEL, type Story, useAutosave } from "@/lib/useAutosave";
-import { usePenEditor } from "@/lib/usePenEditor";
+import { STATUS_LABEL, type Story } from "@/lib/useAutosave";
+import { useDocScan, useEditorDoc } from "@/lib/useEditorDoc";
+import ConflictBanner from "./ConflictBanner";
 import { IconClose, IconExpand } from "./icons";
 
 export type CodexPanelHandle = {
@@ -91,35 +91,15 @@ function EntryEditor({
   children,
 }: Props & { entry: Story }) {
   const [title, setTitle] = useState<string | null>(null);
-  const touchRef = useRef<() => void>(() => {});
-  const editor = usePenEditor("entry", entry.content, () => {
-    touchRef.current();
-    onChange();
-  });
-
-  const getContent = useCallback(() => (editor ? editor.getMarkdown() : null), [editor]);
-  const setContent = useCallback(
-    (md: string) => editor?.commands.setContent(md, { contentType: "markdown", emitUpdate: false }),
-    [editor],
-  );
-  const autosave = useAutosave({
+  const { editor, status, conflict, leave, pull, resolveConflict } = useEditorDoc({
+    kind: "entry",
     initial: entry,
     url: `/api/docs/${projectId}/codex/${entry.id}`,
     backupKey: `pen:backup:${projectId}/codex/${entry.id}`,
-    getContent,
-    setContent,
-    ready: !!editor,
+    onEdit: onChange,
   });
-  const { status, conflict, leave, pull, resolveConflict } = autosave;
-  touchRef.current = autosave.touch;
 
   useImperativeHandle(handle, () => ({ leave, pull }), [leave, pull]);
-
-  // Curly quotes from imports or older text are straightened on open (saved by autosave).
-  useEffect(() => {
-    const tr = editor ? straightenQuotes(editor.state) : null;
-    if (tr) editor!.view.dispatch(tr);
-  }, [editor]);
 
   useEffect(() => {
     onEditor(editor);
@@ -128,30 +108,13 @@ function EntryEditor({
   }, [editor]);
 
   // The title is the first top-level heading, as on the entry's own page.
-  useEffect(() => {
-    if (!editor) return;
-    let t: ReturnType<typeof setTimeout> | null = null;
-    const scan = () => {
-      let found = "";
-      editor.state.doc.forEach((node) => {
-        if (!found && node.type.name === "heading" && node.attrs.level === 1) {
-          found = textWithoutComments(node).trim();
-        }
-      });
-      setTitle(found);
-    };
-    const onTx = ({ transaction }: { transaction: { docChanged: boolean } }) => {
-      if (!transaction.docChanged) return;
-      if (t) clearTimeout(t);
-      t = setTimeout(scan, 200);
-    };
-    scan();
-    editor.on("transaction", onTx);
-    return () => {
-      editor.off("transaction", onTx);
-      if (t) clearTimeout(t);
-    };
-  }, [editor]);
+  useDocScan(editor, (doc) => {
+    let found = "";
+    doc.forEach((node) => {
+      if (!found && node.type.name === "heading" && node.attrs.level === 1) found = textWithoutComments(node).trim();
+    });
+    setTitle(found);
+  });
 
   useEffect(() => {
     if (title !== null) onTitle(entry.id, title);
@@ -177,20 +140,7 @@ function EntryEditor({
       </div>
 
       {conflict && (
-        <div className="conflict codex-panel-conflict" role="alert">
-          <p>
-            <span className="label">Conflict</span>
-            This entry was changed elsewhere.
-          </p>
-          <div className="conflict-actions">
-            <button type="button" onClick={() => resolveConflict("theirs")}>
-              Load theirs
-            </button>
-            <button type="button" className="primary" onClick={() => resolveConflict("mine")}>
-              Keep mine
-            </button>
-          </div>
-        </div>
+        <ConflictBanner what="This entry was changed elsewhere." className="codex-panel-conflict" onResolve={resolveConflict} />
       )}
 
       {children}

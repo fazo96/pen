@@ -134,3 +134,23 @@ test("focus mode, and export", async ({ page, request }) => {
   const text = await (await file.createReadStream()).toArray();
   expect(Buffer.concat(text).toString("utf8")).toBe(`# ${title}\n\nBody text.`);
 });
+
+test("curly quotes are straightened on open, a manuscript after saving a version", async ({ page }) => {
+  const id = await makeBook(page.request, uniqueId("quotes"), "“Go,” she said. It’s late.");
+  const entry = await makeEntry(page, id, "Note");
+  await page.request.put(`/api/docs/${id}/codex/${entry}`, {
+    data: { content: "# Note\n\n‘Curly’ in an entry.\n", baseVersion: null, force: true },
+  });
+  await page.goto(`/d/${id}?entry=${entry}`);
+  await expect(page.locator("main .ProseMirror")).toContainText(`"Go," she said. It's late.`);
+  await expect(page.getByRole("complementary", { name: "Codex entry" }).locator(".ProseMirror")).toContainText("'Curly' in an entry.");
+  const versions = (await (await page.request.get(`/api/docs/${id}/versions`)).json()) as { label: string }[];
+  expect(versions.map((v) => v.label)).toContain("Before straightening quotes");
+  // Autosave writes both back.
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/docs/${id}`)).json()) as { content: string }).content, { timeout: 15_000 })
+    .toContain(`"Go," she said.`);
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/docs/${id}/codex/${entry}`)).json()) as { content: string }).content, { timeout: 15_000 })
+    .toContain("'Curly'");
+});
