@@ -188,7 +188,16 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
 
   const remove = async (eid: string) => {
     setConfirming(null);
-    await fetch(`${base}/${eid}`, { method: "DELETE" });
+    setError(null);
+    try {
+      const res = await fetch(`${base}/${eid}`, { method: "DELETE" });
+      // 404: already gone (deleted elsewhere), which is what was asked.
+      if (!res.ok && res.status !== 404) throw new Error();
+    } catch {
+      setError("Couldn’t delete the entry.");
+      await load();
+      return;
+    }
     try {
       localStorage.removeItem(`pen:backup:${projectId}/codex/${eid}`);
     } catch {}

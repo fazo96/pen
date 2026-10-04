@@ -151,7 +151,14 @@ export default function History({ docId, refreshKey, previewing, beforeSave, onP
 
   const remove = async (vid: string) => {
     setConfirming(null);
-    await fetch(`/api/docs/${docId}/versions/${vid}`, { method: "DELETE" });
+    setError(null);
+    try {
+      const res = await fetch(`/api/docs/${docId}/versions/${vid}`, { method: "DELETE" });
+      // 404: already gone (deleted elsewhere), which is what was asked.
+      if (!res.ok && res.status !== 404) throw new Error();
+    } catch {
+      setError("Couldn’t delete the version.");
+    }
     await load();
   };
 
