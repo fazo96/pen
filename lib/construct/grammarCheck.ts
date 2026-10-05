@@ -20,7 +20,7 @@ import { PenOrderedList } from "../orderedList";
 export type LineFlag = { line: number; flag: Flag };
 export type GrammarReport = { flags: LineFlag[]; checked: number; words: { word: string; count: number }[] };
 
-const extensions = [StarterKit.configure({ heading: { levels: [1, 2, 3] }, orderedList: false }), PenOrderedList, ...CommentExtensions];
+const extensions = [StarterKit.configure({ heading: { levels: [1, 2, 3, 4] }, orderedList: false }), PenOrderedList, ...CommentExtensions];
 const schema = getSchema(extensions);
 const markdown = new MarkdownManager({ marked: new Marked() as never, extensions });
 

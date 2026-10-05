@@ -36,12 +36,16 @@ const places = (over: Partial<PlacesContext> = {}) =>
     ...over,
   });
 
-test("places number parts and chapters on the manuscript, not in an entry", () => {
+test("places number parts, chapters and scenes on the manuscript, not in an entry", () => {
   const headings = [
     { pos: 0, level: 1, text: "Book" },
+    { pos: 5, level: 4, text: "Prologue" },
     { pos: 10, level: 2, text: "Arrival" },
     { pos: 20, level: 3, text: "The Harbour" },
+    { pos: 25, level: 4, text: "Fog" },
+    { pos: 27, level: 4, text: "Bells" },
     { pos: 30, level: 3, text: "" },
+    { pos: 35, level: 4, text: "Dawn" },
     { pos: 40, level: 2, text: "Departure" },
   ];
   const rows = places({ headings }).filter((p) => p.section === "Contents");
@@ -49,13 +53,18 @@ test("places number parts and chapters on the manuscript, not in an entry", () =
     rows.map((p) => [p.prefix, p.label]),
     [
       [undefined, "Book"],
+      ["1", "Prologue"],
       ["Part I", "Arrival"],
       ["01", "The Harbour"],
+      ["1.1", "Fog"],
+      ["1.2", "Bells"],
       ["02", "Untitled"],
+      ["2.1", "Dawn"],
       ["Part II", "Departure"],
     ],
   );
-  assert.match(rows[2].keywords!, /chapter 1/);
+  assert.match(rows[3].keywords!, /chapter 1/);
+  assert.match(rows[5].keywords!, /scene 1\.2/);
   const inEntry = places({ isEntry: true, here: "mara", headings });
   assert.ok(inEntry.filter((p) => p.key.startsWith("h:")).every((p) => p.section === "Headings" && !p.prefix));
 });

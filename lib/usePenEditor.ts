@@ -14,11 +14,11 @@ import { CitedPassage } from "./passage";
 import { StraightQuotes } from "./quotes";
 import { wordCount } from "./text";
 
-// Heading names: the manuscript is structured (title, parts, chapters);
+// Heading names: the manuscript is structured (title, parts, chapters, scenes);
 // codex entries are plain notes.
 export const HEADINGS = {
-  manuscript: ["Title", "Part", "Chapter"],
-  entry: ["Title", "Heading", "Subheading"],
+  manuscript: ["Title", "Part", "Chapter", "Scene"],
+  entry: ["Title", "Heading", "Subheading", "Minor heading"],
 } as const;
 
 /** A Tiptap editor set up for the manuscript or a codex entry. `onPaste` hears how many words were pasted. */
@@ -39,7 +39,7 @@ export function usePenEditor(
     immediatelyRender: false,
     extensions: [
       StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
+        heading: { levels: [1, 2, 3, 4] },
         link: { openOnClick: false },
         orderedList: false,
       }),

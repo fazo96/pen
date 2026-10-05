@@ -29,6 +29,8 @@ export const SHORTCUTS = {
   h1: { keys: "Mod+Alt+1", what: "Heading 1 (the title)", group: "Format" },
   h2: { keys: "Mod+Alt+2", what: "Heading 2 (a part)", group: "Format" },
   h3: { keys: "Mod+Alt+3", what: "Heading 3 (a chapter)", group: "Format" },
+  h4: { keys: "Mod+Alt+4", what: "Heading 4 (a scene)", group: "Format" },
+  text: { keys: "Mod+Alt+0", what: "Normal text", group: "Format" },
   bold: { keys: "Mod+B", what: "Bold", group: "Format" },
   italic: { keys: "Mod+I", what: "Italic", group: "Format" },
   strike: { keys: "Mod+Shift+S", what: "Strikethrough", group: "Format" },

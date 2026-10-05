@@ -53,6 +53,33 @@ test("the switcher jumps to a chapter", async ({ page, request }) => {
   await expect.poll(async () => (await page.evaluate(() => (document.querySelector(".ProseMirror") as EditorElement).editor.state.selection.$from.parent.textContent))).toBe("Rain");
 });
 
+test("the paragraph style menu makes a line a scene, and text again", async ({ page, request }) => {
+  const id = await makeBook(request, uniqueId("style"), "### One\n\nThe fog came.\n\nIt stayed.");
+  await openBook(page, id);
+  await page.locator(".ProseMirror p").first().click();
+  const markdown = () => page.evaluate(() => (document.querySelector(".ProseMirror") as EditorElement).editor.getMarkdown());
+
+  const style = page.getByRole("button", { name: "Paragraph style: Text" });
+  await style.click();
+  const menu = page.getByRole("menu");
+  await expect(menu.getByRole("menuitemradio", { name: "Text" })).toHaveAttribute("aria-checked", "true");
+  await menu.getByRole("menuitemradio", { name: "Scene" }).click();
+  await expect(menu).toBeHidden();
+  await expect(page.locator(".ProseMirror h4")).toHaveText("The fog came.");
+  await expect.poll(markdown).toContain("#### The fog came.");
+  await expect(page.getByRole("button", { name: "Paragraph style: Scene" })).toBeVisible();
+  // The cursor stayed in the text.
+  await expect.poll(() => cursor(page)).toEqual({ where: "manuscript", block: "The fog came." });
+
+  await page.getByRole("button", { name: "Paragraph style: Scene" }).click();
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await page.getByRole("button", { name: "Paragraph style: Scene" }).click();
+  await menu.getByRole("menuitemradio", { name: "Text" }).click();
+  await expect(page.locator(".ProseMirror h4")).toHaveCount(0);
+  await expect.poll(markdown).toContain("### One\n\nThe fog came.");
+});
+
 test("the cursor moves between the manuscript and the Codex panel", async ({ page }) => {
   const id = await makeBook(page.request, uniqueId("switch"), "Manuscript text here.");
   const entry = await makeEntry(page, id, "Mara Voss");

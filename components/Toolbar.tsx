@@ -1,10 +1,13 @@
 "use client";
 
 import { type Editor, useEditorState } from "@tiptap/react";
+import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ShortcutId } from "@/lib/shortcuts";
+import { useDismiss } from "@/lib/useDismiss";
 import { useKeys } from "@/lib/useKeys";
 import { askDraft, constructPrompt, pickedWords, requestLookUp } from "@/lib/wordTools";
-import { IconBook, IconBullets, IconConstruct, IconNumbers, IconQuote, IconRedo, IconUndo } from "./icons";
+import { IconBook, IconBullets, IconConstruct, IconDown, IconNumbers, IconQuote, IconRedo, IconUndo } from "./icons";
 import type { Ask } from "./WordTools";
 
 type ButtonProps = {
@@ -37,9 +40,78 @@ function Button({ label, keys, active, disabled, onPress, children, className }:
   );
 }
 
+const HEADING_KEYS: ShortcutId[] = ["text", "h1", "h2", "h3", "h4"];
+
+/** What the paragraph is: normal text or a heading, picked from a menu over the toolbar. */
+function HeadingMenu({ editor, level, names }: { editor: Editor; level: number; names: readonly string[] }) {
+  const k = useKeys();
+  // Where the menu opens: in the toolbar, outside its scrolling row, which would clip it.
+  const [at, setAt] = useState<{ bar: Element; left: number } | null>(null);
+  const open = !!at;
+  const button = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const close = () => setAt(null);
+  useDismiss(open, (t) => !!button.current?.contains(t) || !!menu.current?.contains(t), close, { escapeFirst: true });
+  const kinds = ["Text", ...names];
+
+  const toggle = () => {
+    const b = button.current;
+    const bar = b?.closest(".toolbar");
+    if (open || !b || !bar) return close();
+    const barBox = bar.getBoundingClientRect();
+    // Keep the menu (about 220px wide) inside the toolbar when the button sits near its right end.
+    setAt({ bar, left: Math.max(0, Math.min(b.getBoundingClientRect().left - barBox.left, barBox.width - 220)) });
+  };
+  const pick = (l: number) => {
+    const chain = editor.chain().focus();
+    (l ? chain.setHeading({ level: l as 1 | 2 | 3 | 4 }) : chain.setParagraph()).run();
+    close();
+  };
+
+  return (
+    <>
+      <button
+        ref={button}
+        type="button"
+        className="tool tool-text heading-tool"
+        aria-label={`Paragraph style: ${kinds[level]}`}
+        title="Paragraph style"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={toggle}
+      >
+        {kinds[level]}
+        <IconDown />
+      </button>
+      {at &&
+        createPortal(
+          <div ref={menu} className="popover-menu heading-menu" role="menu" style={{ left: at.left }}>
+            {kinds.map((name, l) => (
+              <button
+                key={name}
+                type="button"
+                role="menuitemradio"
+                aria-checked={l === level}
+                className={`heading-menu-${l} ${l === level ? "is-on" : ""}`}
+                title={k.title(name, HEADING_KEYS[l])}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => pick(l)}
+              >
+                {name}
+                <span className="heading-menu-keys">{k.key(HEADING_KEYS[l])}</span>
+              </button>
+            ))}
+          </div>,
+          at.bar,
+        )}
+    </>
+  );
+}
+
 type Props = {
   editor: Editor;
-  /** Names for heading levels 1–3, shown as tooltips. */
+  /** Names for heading levels 1–4, shown in the paragraph style menu. */
   headingNames: readonly string[];
   /** Construct's questions about the selection; none when AI is off. */
   onAsk?: Ask;
@@ -49,9 +121,7 @@ export default function Toolbar({ editor, headingNames, onAsk }: Props) {
   const s = useEditorState({
     editor,
     selector: ({ editor: e }) => ({
-      h1: e.isActive("heading", { level: 1 }),
-      h2: e.isActive("heading", { level: 2 }),
-      h3: e.isActive("heading", { level: 3 }),
+      level: e.isActive("heading") ? (e.getAttributes("heading").level as number) : 0,
       bold: e.isActive("bold"),
       italic: e.isActive("italic"),
       strike: e.isActive("strike"),
@@ -101,15 +171,7 @@ export default function Toolbar({ editor, headingNames, onAsk }: Props) {
             <span className="tool-sep" aria-hidden />
           </span>
         )}
-        <Button label={headingNames[0]} keys="h1" active={s.h1} onPress={() => run().toggleHeading({ level: 1 }).run()}>
-          <span className="glyph-h">H1</span>
-        </Button>
-        <Button label={headingNames[1]} keys="h2" active={s.h2} onPress={() => run().toggleHeading({ level: 2 }).run()}>
-          <span className="glyph-h">H2</span>
-        </Button>
-        <Button label={headingNames[2]} keys="h3" active={s.h3} onPress={() => run().toggleHeading({ level: 3 }).run()}>
-          <span className="glyph-h">H3</span>
-        </Button>
+        <HeadingMenu editor={editor} level={s.level} names={headingNames} />
         <span className="tool-sep" aria-hidden />
         <Button label="Bold" keys="bold" active={s.bold} onPress={() => run().toggleBold().run()}>
           <b className="glyph">B</b>

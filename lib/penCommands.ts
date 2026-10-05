@@ -2,7 +2,7 @@
 // the writer is. Pure: Pen.tsx gathers the page's state and actions into a
 // context and renders what comes back; tests load it with plain Node.
 
-import { roman } from "./outline.ts";
+import { roman, sceneNumber } from "./outline.ts";
 import type { PaletteItem } from "./palette.ts";
 import type { ShortcutId } from "./shortcuts.ts";
 import type { DocMeta, EntryMeta } from "./types.ts";
@@ -64,6 +64,7 @@ export function buildPlaces(c: PlacesContext): PaletteItem[] {
   }
   let part = 0;
   let chapter = 0;
+  let scene = 0;
   for (const h of c.headings) {
     let prefix: string | undefined;
     let keywords: string | undefined;
@@ -73,6 +74,10 @@ export function buildPlaces(c: PlacesContext): PaletteItem[] {
     } else if (!c.isEntry && h.level === 3) {
       prefix = String(++chapter).padStart(2, "0");
       keywords = `chapter ${chapter} ch ${chapter}`;
+      scene = 0;
+    } else if (!c.isEntry && h.level === 4) {
+      prefix = sceneNumber(chapter, ++scene);
+      keywords = `scene ${prefix}`;
     }
     items.push({
       key: `h:${h.pos}`,

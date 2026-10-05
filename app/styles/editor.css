@@ -154,7 +154,8 @@
 
 .prose h1,
 .prose h2,
-.prose h3 {
+.prose h3,
+.prose h4 {
   font-weight: 450;
   line-height: 1.25;
   letter-spacing: -0.01em;
@@ -208,6 +209,7 @@
 /* Chapter: numbered straight through the book. */
 .prose h3 {
   counter-increment: chapter;
+  counter-reset: scene;
   font-size: 1.5rem;
   margin: 3.5rem 0 1.4rem;
 }
@@ -225,9 +227,35 @@
   margin-top: 0;
 }
 
+/* Scene: a quiet line inside the chapter, numbered within it (3.2). */
+.prose h4 {
+  counter-increment: scene;
+  font-size: 1.15rem;
+  font-style: italic;
+  margin: 2.4rem 0 1rem;
+}
+.prose h4:not(.is-empty)::before {
+  content: counter(chapter) "." counter(scene);
+  margin-right: 0.7em;
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  color: var(--accent);
+}
+/* Before the first chapter, scenes are numbered on their own. */
+.prose h4:not(h3 ~ h4):not(.is-empty)::before {
+  content: counter(scene);
+}
+.prose h3 + h4 {
+  margin-top: 0;
+}
+
 .prose h1:first-child,
 .prose h2:first-child,
-.prose h3:first-child {
+.prose h3:first-child,
+.prose h4:first-child {
   margin-top: 0.5rem;
 }
 
@@ -337,7 +365,8 @@
 .prose p.is-empty::before,
 .prose h1.is-empty::before,
 .prose h2.is-empty::before,
-.prose h3.is-empty::before {
+.prose h3.is-empty::before,
+.prose h4.is-empty::before {
   content: attr(data-placeholder);
   float: left;
   height: 0;
@@ -417,6 +446,33 @@
   font-size: 11.5px;
   font-weight: 500;
   letter-spacing: 0.04em;
+}
+
+/* Paragraph style: one button, a menu of text and the heading kinds. */
+.tool.heading-tool {
+  min-width: 92px;
+  justify-content: space-between;
+}
+.tool.heading-tool svg {
+  width: 12px;
+  height: 12px;
+}
+.heading-menu {
+  bottom: calc(100% + 8px);
+  min-width: 200px;
+}
+.heading-menu > button {
+  justify-content: space-between;
+}
+.heading-menu-keys {
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+@media (pointer: coarse) {
+  .heading-menu-keys {
+    display: none;
+  }
 }
 
 .tool-sep {
@@ -520,6 +576,18 @@
 }
 .outline-item.is-part .outline-text {
   font-style: italic;
+}
+.outline-item.is-scene {
+  grid-template-columns: 2.2em 2.6em 1fr;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  font-size: 14px;
+  font-style: italic;
+}
+/* Scenes sit under their chapter's title, behind an empty column. */
+.outline-item.is-scene::after {
+  content: "";
+  order: -1;
 }
 .outline-item.is-active {
   color: var(--accent);

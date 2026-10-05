@@ -23,7 +23,7 @@ You can start a new manuscript, or bring one in by importing (or just dropping) 
 
 The editor is WYSIWYG, but the file underneath is plain markdown. What you see is the book, and what's saved is a `manuscript.md` you can open anywhere.
 
-- **Structure from headings.** `#` is the book's title, `##` a part (numbered in roman numerals), `###` a chapter (numbered straight through the book). The outline builds itself from them, follows you as you scroll, and jumps to any chapter.
+- **Structure from headings.** `#` is the book's title, `##` a part (numbered in roman numerals), `###` a chapter (numbered straight through the book), `####` a scene (numbered within its chapter). The outline builds itself from them, follows you as you scroll, and jumps to any chapter.
 - **A small toolbar** for what fiction needs: three heading levels, bold, italic, strikethrough, quotes, lists, a scene break (`⁂`), and comments.
 - **Comments** written as `%% like this %%` (or `<!-- this -->`) are notes to yourself. They stay in the file but out of the word count.
 - **Word count and reading time** for the whole book, always in view.

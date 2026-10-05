@@ -60,7 +60,7 @@ export default function VersionPreview({ meta, content, draft, cite, onCited, on
     immediatelyRender: false,
     editable: false,
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3] }, orderedList: false }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3, 4] }, orderedList: false }),
       PenOrderedList,
       PenMarkdown,
       ...CommentExtensions,

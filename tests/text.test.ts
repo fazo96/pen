@@ -82,6 +82,33 @@ test("sectionsOf numbers parts and chapters and counts their words", () => {
   assert.equal(s[5].words, 2);
 });
 
+test("sectionsOf numbers scenes within their chapter", () => {
+  const md = [
+    "# Book", //       1
+    "#### Prologue", // 2
+    "### One", //       3
+    "#### Fog", //      4
+    "Mist.",
+    "#### Bells", //    6
+    "Ding dong.",
+    "### Two", //       8
+    "#### Dawn", //     9
+    "##### not a scene",
+  ].join("\n");
+  assert.deepEqual(
+    sectionsOf(md).map(({ level, text, label, line, end, words }) => [level, text, label, line, end, words]),
+    [
+      [1, "Book", "", 1, 10, 13],
+      [4, "Prologue", "Scene 1", 2, 2, 1],
+      [3, "One", "Chapter 1", 3, 7, 6],
+      [4, "Fog", "Scene 1.1", 4, 5, 2],
+      [4, "Bells", "Scene 1.2", 6, 7, 3],
+      [3, "Two", "Chapter 2", 8, 10, 5],
+      [4, "Dawn", "Scene 2.1", 9, 10, 4],
+    ],
+  );
+});
+
 test("sectionsOf ignores headings inside comments", () => {
   const s = sectionsOf("# Book\n%%\n## Cut part\n%%\n## Kept\n");
   assert.deepEqual(

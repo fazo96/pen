@@ -132,10 +132,15 @@
   font-size: 14px;
   font-style: italic;
 }
+.outline-item.is-note.lvl-4 .outline-text {
+  padding-left: 2em;
+  font-size: 13px;
+}
 
 /* Codex entries are notes: plain headings, no part/chapter furniture. */
 .prose.is-notes h2,
-.prose.is-notes h3 {
+.prose.is-notes h3,
+.prose.is-notes h4 {
   text-align: left;
   counter-increment: none;
   margin: 2.2rem 0 0.8rem;
@@ -147,8 +152,18 @@
   font-size: 1.12rem;
   font-style: italic;
 }
+.prose.is-notes h4 {
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  font-style: normal;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 1.8rem 0 0.6rem;
+}
 .prose.is-notes h2:not(.is-empty)::before,
 .prose.is-notes h3:not(.is-empty)::before,
+.prose.is-notes h4:not(.is-empty)::before,
 .prose.is-notes h2::after {
   content: none;
 }

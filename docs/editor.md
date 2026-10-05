@@ -12,7 +12,9 @@ Where the writer was (`lib/spot.ts`, `lib/useSpot.ts`): `<project>/spot.json` ho
 
 ## Headings
 
-Headings: `#` manuscript title, `##` part (roman-numbered), `###` chapter (numbered straight through). Editor allows levels 1–3.
+Headings: `#` manuscript title, `##` part (roman-numbered), `###` chapter (numbered straight through), `####` scene (numbered within its chapter, 3.2; on their own before the first chapter). Editor allows levels 1–4; in a Codex entry they're Title, Heading, Subheading and Minor heading, unnumbered (`HEADINGS` in `lib/usePenEditor.ts`). The numbers are CSS counters in the text, and `sectionsOf`/`sceneNumber` (`lib/outline.ts`) everywhere else: the outline, the switcher, Construct's tools. A scene stays inside its chapter for the [writing stats](stats.md).
+
+The toolbar has one paragraph style button (`HeadingMenu` in `components/Toolbar.tsx`), named after what the paragraph is, whose menu sets it to Text or a heading kind (Ctrl+Alt+0–4 do the same). The menu renders in `.toolbar`, not its scrolling row, which would clip it.
 
 ## Comments
 
