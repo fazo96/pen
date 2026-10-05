@@ -150,3 +150,27 @@ test("a stale page saving the shelves keeps a renamed book in its place", async 
   const layout = (await saved.json()) as { shelves: { books: string[] }[] };
   expect(layout.shelves[1].books).toEqual([renamed]);
 });
+
+test("writing stats: saves are counted, pasted words and forced saves aren't", async ({ request }) => {
+  const id = uniqueId("api-stats");
+  await request.post("/api/docs", { data: { content: "# Stats\n\nOne.", name: id } });
+  const save = (content: string, extra: object = {}) =>
+    request.put(`/api/docs/${id}`, { data: { content, baseVersion: null, ...extra } });
+  expect((await save("# Stats\n\nOne.\n\nFour words typed here.")).status()).toBe(200);
+  expect((await save("# Stats\n\nOne.\n\nFour words typed here.\n\nThree pasted words.", { pasted: 3 })).status()).toBe(200);
+  expect((await save("# Stats\n\nForced.", { force: true })).status()).toBe(200);
+
+  // Recorded in the background, after the save answers.
+  await expect(async () => {
+    const res = await request.get("/api/stats");
+    expect(res.status()).toBe(200);
+    const report = (await res.json()) as { slots: { book: string; drafted: number; pasted: number; saves: number }[]; books: Record<string, { title: string }> };
+    const mine = report.slots.filter((s) => s.book === id);
+    expect(mine.map((s) => [s.drafted, s.pasted, s.saves])).toEqual([[4, 3, 2]]);
+    expect(report.books[id].title).toBe("Stats");
+  }).toPass();
+
+  expect((await request.get("/api/stats?from=5&to=1")).status()).toBe(400);
+  expect((await request.get("/api/stats?from=nope")).status()).toBe(400);
+  await request.delete(`/api/docs/${id}`);
+});

@@ -19,7 +19,8 @@ export const STATUS_LABEL: Record<SaveStatus, string> = {
 const IDLE_MS = 1200;
 const RETRY_MS = 5000;
 
-type Backup = { content: string; baseVersion: string };
+/** `pasted`: words pasted since the last save, sent with it for the writing stats. */
+type Backup = { content: string; baseVersion: string; pasted?: number };
 
 function readBackup(key: string): Backup | null {
   try {
@@ -71,6 +72,7 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
   const inFlight = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blocked = useRef(false); // true while a conflict is unresolved
+  const pasted = useRef(0); // words pasted since the last save
 
   const clearTimer = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -84,12 +86,14 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
     if (content === null) return;
     if (content === saved.current && !force) {
       dirty.current = false;
+      pasted.current = 0; // a paste undone
       backup(null);
       setStatus("saved");
       return;
     }
 
-    backup({ content, baseVersion: version.current });
+    const paste = pasted.current;
+    backup({ content, baseVersion: version.current, pasted: paste });
     inFlight.current = true;
     dirty.current = false;
     setStatus("saving");
@@ -97,7 +101,7 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
       const res = await fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content, baseVersion: version.current, force }),
+        body: JSON.stringify({ content, baseVersion: version.current, force, pasted: paste }),
       });
       setReachedAt(Date.now());
       if (res.status === 401) {
@@ -118,6 +122,7 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
       const data = (await res.json()) as { version: string };
       version.current = data.version;
       saved.current = content;
+      pasted.current = Math.max(0, pasted.current - paste);
       void saveCopy(url, { id: initial.id, content, version: data.version });
       const now = Date.now();
       setSavedAt(now);
@@ -182,6 +187,7 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
       if (choice === "theirs") {
         version.current = conflict.version;
         saved.current = conflict.content;
+        pasted.current = 0;
         dirty.current = false;
         blocked.current = false;
         backup(null);
@@ -212,6 +218,7 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
     // answers 409 and the writer chooses. Offline, it retries until it can.
     setContent(stash.content);
     version.current = stash.baseVersion;
+    pasted.current = stash.pasted ?? 0;
     dirty.current = true;
     void flush();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -230,10 +237,10 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
       if (!dirty.current || blocked.current) return;
       const content = getContent();
       if (content === null) return;
-      backup({ content, baseVersion: version.current });
+      backup({ content, baseVersion: version.current, pasted: pasted.current });
       navigator.sendBeacon(
         url,
-        new Blob([JSON.stringify({ content, baseVersion: version.current })], {
+        new Blob([JSON.stringify({ content, baseVersion: version.current, pasted: pasted.current })], {
           type: "application/json",
         }),
       );
@@ -265,6 +272,7 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
       clearTimer();
       version.current = doc.version;
       saved.current = doc.content;
+      pasted.current = 0;
       dirty.current = false;
       blocked.current = false;
       backup(null);
@@ -277,5 +285,10 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
     [setContent],
   );
 
-  return { status, savedAt, reachedAt, conflict, touch, flush, leave, adopt, pull, resolveConflict };
+  /** Call with the words in every paste. */
+  const notePaste = useCallback((words: number) => {
+    pasted.current += words;
+  }, []);
+
+  return { status, savedAt, reachedAt, conflict, touch, notePaste, flush, leave, adopt, pull, resolveConflict };
 }

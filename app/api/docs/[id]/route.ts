@@ -1,7 +1,7 @@
 import { dropSession } from "@/lib/construct/session";
 import { isValidId, readDoc, renameDoc, trashDoc, writeDoc } from "@/lib/docs";
 import { badRequest, fail, noContent, notFound, noStore, readJson, route } from "@/lib/route";
-import { readSaveBody } from "@/lib/saveBody";
+import { readSaveBody, trackOf } from "@/lib/saveBody";
 import { renameOnShelves } from "@/lib/shelves";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export const GET = route<{ id: string }>(async (_req, { id }) => {
 const save = route<{ id: string }>(async (req, { id }) => {
   const body = await readSaveBody(req);
   if (body instanceof Response) return body;
-  const result = await writeDoc(id, body.content, body.baseVersion, body.force);
+  const result = await writeDoc(id, body.content, body.baseVersion, body.force, trackOf(body));
   if (!result.ok) return Response.json(result.current, { status: 409 });
   return Response.json({ version: result.version });
 });

@@ -5,7 +5,7 @@ import ConstructSettings from "./ConstructSettings";
 import EditorSettings from "./EditorSettings";
 import GrammarSettings from "./GrammarSettings";
 import KeySettings from "./KeySettings";
-import { IconBack, IconBooks, IconExport } from "./icons";
+import { IconBack, IconBooks, IconChart, IconExport } from "./icons";
 import Logo from "./Logo";
 import LockSettings from "./LockSettings";
 import Stats from "./Stats";
@@ -49,10 +49,13 @@ export default function Settings({
             <SettingsHead icon={<IconBooks />} title="Library" id="library-title" />
             <Stats stats={stats} library={stats} />
             <p className="settings-text">
-              Export everything as a zip: every book with its versions, Codex and Construct chats, the trash, and the
-              shelves. Unzipped, it’s a data folder pen can run from.
+              Export everything as a zip: every book with its versions, Codex and Construct chats, the trash, the
+              shelves and the writing stats. Unzipped, it’s a data folder pen can run from.
             </p>
             <div className="settings-actions">
+              <Link className="btn" href="/stats">
+                <IconChart /> Writing stats
+              </Link>
               <a className="btn" href="/api/export" download>
                 <IconExport /> Export library
               </a>

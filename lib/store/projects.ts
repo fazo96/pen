@@ -12,6 +12,7 @@ import { pinAgentHome } from "./chats";
 import { lastCodexEdit } from "./codex";
 import { chatsDir, dirOf, fileOf, isMissing, projectExists, readDoc, ready, serialize, stale, trashPath, versionOf, type WriteResult } from "./core";
 import { findCover } from "./cover";
+import { trackSave } from "./stats";
 
 // Projects as a whole: listing, creating, saving the manuscript, trashing and renaming.
 
@@ -79,12 +80,14 @@ export function createDoc(content: string, name?: string): Promise<Doc> {
  * Write a manuscript if the caller's baseVersion still matches what's on disk.
  * `force` skips the check (used to resolve a conflict with "keep mine").
  * A project deleted elsewhere is recreated rather than losing the writing.
+ * `track`: count the change in the writing stats (the writer's own saves).
  */
 export function writeDoc(
   id: string,
   content: string,
   baseVersion: string | null,
   force = false,
+  track?: { pasted: number },
 ): Promise<WriteResult> {
   return serialize(async () => {
     const current = await readDoc(id);
@@ -97,6 +100,10 @@ export function writeDoc(
         }
       }
       await writeAtomic(fileOf(id), content);
+      if (track) {
+        const title = titleOf(content, id);
+        trackSave({ book: id, kind: "manuscript", before: current?.content ?? "", after: content, pasted: track.pasted, title });
+      }
     }
     return { ok: true, version: versionOf(content) };
   });

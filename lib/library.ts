@@ -10,6 +10,7 @@ import type { ZipSource } from "./zip";
 // Figures for the settings pages, and the files that go into an export.
 
 const TRASH_DIR = path.join(DOCS_DIR, ".trash");
+const STATS_DIR = path.join(DOCS_DIR, ".pen-stats"); // lib/store/stats.ts
 // What a library export holds besides the book folders and the trash. Anything
 // else in the data folder (the password hash, Construct's sign-in state under
 // .claude in Docker) stays out.
@@ -128,7 +129,7 @@ export async function* bookFiles(id: string): AsyncGenerator<ZipSource> {
   }
 }
 
-/** The whole library: every book folder, the trash, and the shelves and renames. Unzipped, it's a data folder. */
+/** The whole library: every book folder, the trash, the writing stats, and the shelves and renames. Unzipped, it’s a data folder. */
 export async function* libraryFiles(): AsyncGenerator<ZipSource> {
   const names = (await list(DOCS_DIR)).sort();
   for (const n of names) {
@@ -136,6 +137,7 @@ export async function* libraryFiles(): AsyncGenerator<ZipSource> {
     if (isValidId(n) && (await lstat(full)).isDirectory()) yield* filesUnder(full, n);
   }
   yield* filesUnder(TRASH_DIR, ".trash");
+  yield* filesUnder(STATS_DIR, ".pen-stats");
   for (const n of LIBRARY_FILES) {
     try {
       // A path in the data folder, not a file of the app: nothing to trace.

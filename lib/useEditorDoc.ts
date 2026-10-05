@@ -33,10 +33,16 @@ export function useEditorDoc({ kind, initial, url, backupKey, onEdit, beforeStra
   useEffect(() => {
     edited.current = onEdit;
   });
-  const editor = usePenEditor(kind, initial.content, () => {
-    touch.current();
-    edited.current?.();
-  });
+  const notePaste = useRef<(words: number) => void>(() => {});
+  const editor = usePenEditor(
+    kind,
+    initial.content,
+    () => {
+      touch.current();
+      edited.current?.();
+    },
+    (words) => notePaste.current(words),
+  );
   const getContent = useCallback(() => (editor ? editor.getMarkdown() : null), [editor]);
   const setContent = useCallback(
     (md: string) => editor?.commands.setContent(md, { contentType: "markdown", emitUpdate: false }),
@@ -45,7 +51,8 @@ export function useEditorDoc({ kind, initial, url, backupKey, onEdit, beforeStra
   const autosave = useAutosave({ initial, url, backupKey, getContent, setContent, ready: !!editor });
   useEffect(() => {
     touch.current = autosave.touch;
-  }, [autosave.touch]);
+    notePaste.current = autosave.notePaste;
+  }, [autosave.touch, autosave.notePaste]);
 
   const before = useEffectEvent(() => (beforeStraightening ? beforeStraightening() : Promise.resolve(true)));
   useEffect(() => {

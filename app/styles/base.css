@@ -13,6 +13,9 @@
   --signal: #2f6f68;
   --warn: #b0701c;
   --selection: rgb(138 51 36 / 0.16);
+  /* The writing stats: drafted and edited words (checked for color blindness against --paper) */
+  --chart-draft: #8a3324;
+  --chart-edit: #008a7b;
   --grain-opacity: 0.32;
   --shadow: 0 10px 30px -12px rgb(60 40 10 / 0.28), 0 1px 0 rgb(255 255 255 / 0.4) inset;
   --vignette: radial-gradient(ellipse at 50% 35%, transparent 55%, rgb(120 85 30 / 0.1));
@@ -57,6 +60,8 @@
     --signal: #7fc4b5;
     --warn: #e2a55a;
     --selection: rgb(226 165 90 / 0.22);
+    --chart-draft: #c4842f;
+    --chart-edit: #1fa08c;
     --grain-opacity: 0.1;
     --shadow: 0 12px 34px -12px rgb(0 0 0 / 0.7), 0 1px 0 rgb(255 240 210 / 0.04) inset;
     --vignette: radial-gradient(ellipse at 50% 30%, rgb(226 165 90 / 0.035), transparent 60%);
@@ -76,6 +81,8 @@
   --signal: #7fc4b5;
   --warn: #e2a55a;
   --selection: rgb(226 165 90 / 0.22);
+  --chart-draft: #c4842f;
+  --chart-edit: #1fa08c;
   --grain-opacity: 0.1;
   --shadow: 0 12px 34px -12px rgb(0 0 0 / 0.7), 0 1px 0 rgb(255 240 210 / 0.04) inset;
   --vignette: radial-gradient(ellipse at 50% 30%, rgb(226 165 90 / 0.035), transparent 60%);

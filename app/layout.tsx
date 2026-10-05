@@ -18,6 +18,7 @@ import "./styles/page-states.css";
 import "./styles/construct.css";
 import "./styles/settings.css";
 import "./styles/tools.css";
+import "./styles/stats.css";
 
 export const metadata: Metadata = {
   title: "pen",

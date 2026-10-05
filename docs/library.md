@@ -20,7 +20,7 @@ Renaming a project (`PATCH /api/docs/<id>` `{ id }`, `renameDoc`) moves its fold
 
 ## Stats and export
 
-Stats and export (`lib/library.ts`): both settings pages show words, Codex, versions, size on disk and trash size (a book's trash is the `.trash/<id>--…` items, so things trashed before a rename count under the old id). `GET /api/docs/<id>/export` zips a book's folder plus its trash items; `GET /api/export` zips every book folder, `.trash`, `.pen-shelves.json`, `.pen-renames.json`, `.pen-grammar.json` and `.pen-construct.json` (`LIBRARY_FILES`), a whitelist: the password hash and anything else in the data folder (Construct's `.claude` in Docker) stay out. The zip writer is `lib/zip.ts` (node:zlib, streamed a file at a time, no ZIP64).
+Stats and export (`lib/library.ts`): both settings pages show words, Codex, versions, size on disk and trash size (a book's trash is the `.trash/<id>--…` items, so things trashed before a rename count under the old id). `GET /api/docs/<id>/export` zips a book's folder plus its trash items; `GET /api/export` zips every book folder, `.trash`, `.pen-stats/` ([writing stats](stats.md)), `.pen-shelves.json`, `.pen-renames.json`, `.pen-grammar.json` and `.pen-construct.json` (`LIBRARY_FILES`), a whitelist: the password hash and anything else in the data folder (Construct's `.claude` in Docker) stay out. The zip writer is `lib/zip.ts` (node:zlib, streamed a file at a time, no ZIP64).
 
 ## The cache
 

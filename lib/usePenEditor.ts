@@ -12,6 +12,7 @@ import { PenMarkdown } from "./markdownEscape";
 import { PenOrderedList } from "./orderedList";
 import { CitedPassage } from "./passage";
 import { StraightQuotes } from "./quotes";
+import { wordCount } from "./text";
 
 // Heading names: the manuscript is structured (title, parts, chapters);
 // codex entries are plain notes.
@@ -20,12 +21,19 @@ export const HEADINGS = {
   entry: ["Title", "Heading", "Subheading"],
 } as const;
 
-/** A Tiptap editor set up for the manuscript or a codex entry. */
-export function usePenEditor(kind: "manuscript" | "entry", content: string, onChange: () => void) {
+/** A Tiptap editor set up for the manuscript or a codex entry. `onPaste` hears how many words were pasted. */
+export function usePenEditor(
+  kind: "manuscript" | "entry",
+  content: string,
+  onChange: () => void,
+  onPaste?: (words: number) => void,
+) {
   const isEntry = kind === "entry";
   const headingNames = HEADINGS[kind];
   const changed = useRef(onChange);
   changed.current = onChange;
+  const pasted = useRef(onPaste);
+  pasted.current = onPaste;
 
   return useEditor({
     immediatelyRender: false,
@@ -81,6 +89,11 @@ export function usePenEditor(kind: "manuscript" | "entry", content: string, onCh
       attributes: {
         class: isEntry ? "prose is-notes" : "prose",
         "aria-label": isEntry ? "Codex entry" : "Manuscript",
+      },
+      // Counted for the writing stats, where pasted words aren't writing; the paste itself goes ahead.
+      handlePaste: (_view, _event, slice) => {
+        pasted.current?.(wordCount(slice.content.textBetween(0, slice.content.size, "\n\n", " ")));
+        return false;
       },
     },
     onUpdate: ({ transaction }) => {

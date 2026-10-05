@@ -1,6 +1,6 @@
 import { readEntry, trashEntry, writeEntry } from "@/lib/docs";
 import { noContent, notFound, noStore, route } from "@/lib/route";
-import { readSaveBody } from "@/lib/saveBody";
+import { readSaveBody, trackOf } from "@/lib/saveBody";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export const GET = route<Params>(async (_req, { id, eid }) => {
 const save = route<Params>(async (req, { id, eid }) => {
   const body = await readSaveBody(req);
   if (body instanceof Response) return body;
-  const result = await writeEntry(id, eid, body.content, body.baseVersion, body.force);
+  const result = await writeEntry(id, eid, body.content, body.baseVersion, body.force, trackOf(body));
   if (!result.ok) return Response.json(result.current, { status: 409 });
   return Response.json({ version: result.version });
 });

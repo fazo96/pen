@@ -269,3 +269,10 @@ export const IconSearch = (p: P) => (
     <path d="m12.2 12.2 4.3 4.3" />
   </svg>
 );
+
+/** Bars on a baseline: the writing stats. */
+export const IconChart = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M3 16.5h14M5.5 16.5V11M9 16.5V6M12.5 16.5V9M16 16.5V4" />
+  </svg>
+);

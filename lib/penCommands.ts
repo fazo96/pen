@@ -126,6 +126,7 @@ export type CommandsContext = Shared & {
     toCodex: () => void;
     toConstruct: () => void;
     library: () => void;
+    stats: () => void;
     showTab: (tab: DrawerTab) => void;
     find: (mode: "find" | "replace") => void;
     lookUp: () => void;
@@ -194,6 +195,7 @@ export function buildCommands(c: CommandsContext): PaletteItem[] {
       run: run.toConstruct,
     },
     { key: "library", section: "Go", label: "Library", keywords: "books shelves home", run: run.library },
+    { key: "stats", section: "Go", label: "Writing stats", keywords: "words today drafting editing progress", run: run.stats },
     { key: "contents", section: "Go", label: "Show contents", keywords: "outline chapters drawer", run: () => run.showTab("contents") },
     { key: "codex-list", section: "Go", label: "Show the Codex", keywords: "entries notes drawer", run: () => run.showTab("codex") },
 

@@ -30,5 +30,6 @@ A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Ti
 | [docs/pages.md](docs/pages.md) | The pages, the library's shelves, the optional lock |
 | [docs/editor.md](docs/editor.md) | The editor page: saving and its hooks, the writer's spot and the switch, headings, comments, quotes, quick switcher, find and replace, Look up |
 | [docs/grammar.md](docs/grammar.md) | The grammar check (Harper on the server), its cache and settings |
+| [docs/stats.md](docs/stats.md) | Writing stats: what a save counts as drafting or editing, `.pen-stats/`, `/stats` and the library's card |
 | [docs/construct.md](docs/construct.md) | Construct, the AI panel: agents, tools, chats, pi, models, quick actions, citations |
 | [docs/imports.md](docs/imports.md) | Importing into the Codex: Critique Circle crits, handwritten notes |

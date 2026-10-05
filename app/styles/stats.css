@@ -1,0 +1,310 @@
+/* ─── Writing stats (/stats, and the library's card) ─────────── */
+.wstats {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wstats-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+.wstats-ranges {
+  display: flex;
+  gap: 6px;
+}
+.wstats-ranges button {
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  min-height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+}
+.wstats-ranges button:hover {
+  color: var(--ink);
+}
+.wstats-ranges button[aria-checked="true"] {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  background: var(--accent-wash);
+}
+.wstats-book {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.wstats-book select {
+  max-width: 14rem;
+  min-width: 0;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-soft);
+  min-height: 34px;
+  padding: 0 8px;
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+}
+.wstats-figures {
+  margin-top: 1.6rem;
+}
+.wstats-work {
+  margin: 1.4rem 0 0.5rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+.wstats-section {
+  margin-top: 2.4rem;
+}
+.wstats-section h2 {
+  margin: 0 0 0.6rem;
+}
+.wstats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.wstats-table th {
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-align: right;
+  padding: 0 0 6px 12px;
+}
+.wstats-table td {
+  text-align: right;
+  padding: 7px 0 7px 12px;
+  border-top: 1px solid var(--rule);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.wstats-table th:first-child,
+.wstats-table td:first-child {
+  text-align: left;
+  padding-left: 0;
+  white-space: normal;
+}
+.wstats-table td:last-child {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+@media (max-width: 480px) {
+  /* Phones: time and work fit by dropping the time column. */
+  .wstats-table th:nth-child(4):not(:last-child),
+  .wstats-table td:nth-child(4):not(:last-child) {
+    display: none;
+  }
+}
+
+/* Drafting against editing */
+.wsplit-bar {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.wsplit-edit {
+  background: var(--chart-edit);
+}
+.wsplit-legend,
+.wchart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 8px 0 0;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+.wsplit-legend span,
+.wchart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.wchart-key {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+.wchart-key.is-draft {
+  background: var(--chart-draft);
+}
+.wchart-key.is-edit {
+  background: var(--chart-edit);
+}
+.wchart-key.is-removed {
+  background: var(--ink-faint);
+}
+
+/* The chart: columns of words, drafted under edited, removed below the line */
+.wchart {
+  margin: 1.8rem 0 0;
+  min-width: 0;
+}
+.wchart-plot {
+  position: relative;
+  display: flex;
+  gap: 2px;
+}
+.wchart-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 1px;
+  border-radius: 4px;
+  cursor: default;
+}
+.wchart-col:hover,
+.wchart-col.is-on {
+  background: var(--accent-wash);
+}
+.wchart-up {
+  height: var(--up);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  border-bottom: 1px solid var(--rule);
+}
+.wchart-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 22px;
+  width: 70%;
+  margin: 0 auto;
+  border-radius: 4px 4px 0 0;
+  overflow: hidden;
+}
+.wchart-stack > span {
+  flex-basis: 0;
+  min-height: 1px;
+}
+.wchart-draft {
+  background: var(--chart-draft);
+}
+.wchart-edit {
+  background: var(--chart-edit);
+}
+.wchart-down {
+  height: var(--down);
+  display: flex;
+  flex-direction: column;
+}
+.wchart-removed {
+  max-width: 22px;
+  width: 70%;
+  margin: 2px auto 0;
+  background: var(--ink-faint);
+  border-radius: 0 0 4px 4px;
+}
+.wchart-axis {
+  display: flex;
+  gap: 2px;
+  margin-top: 6px;
+}
+.wchart-axis span {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: visible;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  color: var(--ink-faint);
+  text-align: center;
+}
+.wchart-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  z-index: var(--z-float);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 11rem;
+  padding: 10px 12px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--ink-soft);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  pointer-events: none;
+}
+.wchart-tip.is-left {
+  left: max(0px, calc(var(--at) - 1.5rem));
+}
+.wchart-tip.is-right {
+  right: max(0px, calc(100% - var(--at) - 1.5rem));
+}
+.wchart-tip strong {
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.wchart-tip span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* The library's card */
+.wcard {
+  align-self: stretch;
+  max-width: 22rem;
+  margin-top: 2.6rem;
+}
+.wcard-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.wcard-head h2 {
+  margin: 0;
+}
+.wcard-more {
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+.wcard-more:hover {
+  color: var(--accent);
+}
+.wcard-today {
+  margin: 0.6rem 0 0;
+  color: var(--ink-soft);
+}
+.wcard-today strong {
+  font-weight: 500;
+  color: var(--ink);
+}
+.wcard .wchart {
+  margin-top: 0.8rem;
+}
+.wcard-week {
+  display: block;
+  margin-top: 0.5rem;
+}
+.wcard + .shelves {
+  margin-top: 2.4rem;
+}
+.wchart-legend + .settings-hint {
+  margin-top: 0.8rem;
+}

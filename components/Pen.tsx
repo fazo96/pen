@@ -631,6 +631,7 @@ export default function Pen({
         toggleSteady: () => setSteady(!steady),
         cycleTheme,
         penSettings: () => void go("/settings"),
+        stats: () => void go("/stats"),
         exportMarkdown,
         bookSettings: openSettings,
       },

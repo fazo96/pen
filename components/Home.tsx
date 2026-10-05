@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import type { DocMeta } from "@/lib/types";
 import type { Layout } from "@/lib/shelfLayout";
+import type { WritingReport } from "@/lib/writing";
 import { IMPORT_ACCEPT, useLibrary } from "@/lib/useLibrary";
 import DropImport from "./DropImport";
 import LastEdited from "./LastEdited";
@@ -11,12 +12,13 @@ import { IconGithub, IconImport, IconPlus, IconSettings } from "./icons";
 import Logo from "./Logo";
 import Shelves from "./Shelves";
 import ThemeButton from "./ThemeButton";
+import WritingCard from "./WritingCard";
 
 /** Books in the library before the last edited one is shown over the shelves. */
 const LAST_EDITED_FROM = 4;
 
 /** The welcome page, and the library as a shelf once there's something on it. */
-export default function Home({ docs, shelves }: { docs: DocMeta[]; shelves: Layout }) {
+export default function Home({ docs, shelves, writing }: { docs: DocMeta[]; shelves: Layout; writing: WritingReport }) {
   const picker = useRef<HTMLInputElement>(null);
   const lib = useLibrary();
   const [naming, setNaming] = useState(false);
@@ -134,6 +136,8 @@ export default function Home({ docs, shelves }: { docs: DocMeta[]; shelves: Layo
           )}
 
           {last && <LastEdited doc={last} />}
+
+          {shelved && <WritingCard report={writing} />}
 
           {shelved && (
             <Shelves

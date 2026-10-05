@@ -1,0 +1,31 @@
+# Writing stats
+
+What the writer typed, counted at every save, and whether it looks like drafting or editing.
+
+## Counting a save
+
+The save routes (`PUT`/`POST /api/docs/<id>` and `.../codex/<eid>`) pass `track` to `writeDoc`/`writeEntry`; nothing else does, so Construct's tools, restores, imported drafts and new books aren't counted. A forced save ("keep mine" after a conflict) isn't counted either: it's measured against the other device's text (`trackOf` in `lib/saveBody.ts`). When the text changed, `trackSave` (`lib/store/stats.ts`) records it in the background, one save after another, after the save has answered; an error there is logged and never fails the save. `statsSettled()` waits for it in tests.
+
+`measureEdit` (`lib/writingStats.ts`, pure and tested) compares the two texts with comments stripped, quotes straightened and entities dropped (an empty paragraph is saved as `&nbsp;`), block by block and word by word with `lib/textdiff.ts`:
+
+- **Drafted**: words in new paragraphs, and words added at the end of a paragraph. Retyping up to 3 words there (a typo, a word the save cut in half) still counts as drafting, net, so words aren't counted twice. A short paragraph replaced in place is writing on if the new one starts with the old one, else a rewrite.
+- **Added in edits**: words inserted inside existing text, or a rewrite's new words.
+- **Removed**: words deleted or replaced.
+- Words both removed and added in one save (a paragraph split or joined) cancel out.
+- **Pasted**: the editor counts the words in every paste (`handlePaste` in `lib/usePenEditor.ts`), and `useAutosave` sends the count with the next save (`pasted`, kept in the backup and the beacon too). The server takes those words out of drafted first, then edits, and keeps them apart: pasting isn't writing. Text written offline arrives all at once but isn't a paste, which is why the editor counts pastes rather than the server guessing from size.
+
+Whether a span of time was drafting or editing is decided when it's shown (`workOf`: drafting when drafted words outnumber added-in-edits plus removed), never stored, so the heuristic can change and old data follows.
+
+## On disk
+
+`PEN_DIR/.pen-stats/<YYYY-MM>.json`, one file per UTC month (`jsonStore`, so read through a sanitizer and written whole, one update at a time). Only the current month's file is rewritten; files are kept forever and go into the library export. Each holds `slots`, one per 15 minutes per book and kind (`manuscript` or `codex`): drafted, editAdded, removed, pasted, saves and activeMs. 15 minutes lets the browser sort them into local days in any time zone. `titles` keeps each book's last manuscript title, so a deleted book still has a name.
+
+Active time: a save within 5 minutes of the book's previous save (manuscript or Codex) adds the time between. The last save times live in memory, so after a restart the first save adds none.
+
+Slots keep the id the book had then. `writingReport` (`lib/writing.ts`) maps them to the current id through `.pen-renames.json` and names gone books from `titles`, flagged `gone`. Writing before a book was trashed stays in the totals; a new book later given the same id shares its history.
+
+The Codex is recorded but not shown yet (`summarize` defaults to `kind: "manuscript"`).
+
+## Showing them
+
+`GET /api/stats?from=&to=` (ms since the epoch; the last 32 days by default) returns `{ slots, books }`. `/stats` (`components/WritingPage.tsx`, `WritingStats.tsx`) and the library's card (`components/WritingCard.tsx`, over the shelves) get the last 32 days from the server and sort them in the browser (`lib/statsView.ts`, pure and tested), after the first render, since the server doesn't know the writer's time zone. `/stats` has Today (by hour), 7 days and 30 days (by day), a book filter (both remembered in localStorage), totals, the drafting/editing split, the chart (`components/WritingChart.tsx`: drafted under added-in-edits above the line, removed below it, each column explained on hover, focus or tap), and tables by book and by day. Its chart colors are `--chart-draft` and `--chart-edit` in `base.css`, checked for color blindness against each theme's paper. It's reached from the card, `/settings`'s Library section and the command palette's "Writing stats".

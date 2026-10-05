@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { makeBook, openBook, response, uniqueId } from "./helpers";
+import { type EditorElement, makeBook, openBook, response, uniqueId } from "./helpers";
 
 // The library, the switcher's lists, book settings and the grammar checker's
 // requests: the remaining screens that talk to the API through lib/api.ts.
@@ -42,4 +42,40 @@ test("a new manuscript from the library", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(new RegExp(`/d/${title.toLowerCase().replace(" ", "-")}$`));
   await expect(page.locator(".ProseMirror h1")).toHaveText(title);
+});
+
+test("writing in a book shows on the library's card and the stats page; pasted text doesn't count", async ({ page, request, context }) => {
+  const id = await makeBook(request, uniqueId("stats"), "First line.");
+  await openBook(page, id);
+  // At the end of the text: words typed there are drafting, words typed before it editing.
+  await page.evaluate(() => (document.querySelector(".ProseMirror") as EditorElement).editor.commands.focus("end"));
+  const saved = response(page, "PUT", new RegExp(`^/api/docs/${id}$`));
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Five new words typed here.");
+  expect((await saved).status()).toBe(200);
+
+  // A paste: counted by the editor and sent with the next save, which leaves it out.
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.evaluate(() => navigator.clipboard.writeText("These six words were pasted in."));
+  const pasted = page.waitForRequest(
+    (r) => r.method() === "PUT" && new URL(r.url()).pathname === `/api/docs/${id}` && /"pasted":6/.test(r.postData() ?? ""),
+  );
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Control+v");
+  await pasted;
+
+  await expect(async () => {
+    await page.goto("/stats");
+    await page.getByRole("radio", { name: "Today" }).click();
+    const book = page.locator(".wstats-book select");
+    if (await book.isVisible()) await book.selectOption(id);
+    await expect(page.locator(".wstats-figures")).toContainText("5 words", { timeout: 1000 });
+    await expect(page.getByText("6 pasted words aren’t counted.")).toBeVisible({ timeout: 1000 });
+  }).toPass();
+  await expect(page.locator(".wstats-work")).toHaveText("Mostly drafting (100%)");
+
+  await page.goto("/?library");
+  await expect(page.locator(".wcard")).toContainText("words today");
+  await page.locator(".wcard").getByRole("link", { name: "All stats →" }).click();
+  await expect(page).toHaveURL(/\/stats$/);
 });
