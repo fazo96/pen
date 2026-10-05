@@ -58,7 +58,6 @@ class Checker {
 
   private async check(run: number) {
     if (!grammar.enabled) {
-      // Also resets spellcheck.
       this.dispatch({ decos: DecorationSet.empty, active: null, progress: null });
       return;
     }
@@ -168,7 +167,7 @@ export const Grammar = Extension.create<{ check: boolean }>({
 
   addProseMirrorPlugins() {
     // Unchecked (a Codex entry): the plugin stays, so its state is there for
-    // the grammar pane, but nothing is ever flagged, by pen or the browser.
+    // the grammar pane, but nothing is ever flagged.
     const check = this.options.check;
     let checker: Checker | null = null;
     return [
@@ -189,8 +188,9 @@ export const Grammar = Extension.create<{ check: boolean }>({
         },
         props: {
           decorations: (state) => grammarKey.getState(state)!.decos,
-          // With the checker on, the browser's own spell check would only double up.
-          attributes: (): Record<string, string> => ({ spellcheck: !check || grammar.enabled ? "false" : "true" }),
+          // Never the browser's own spell check: it would double up pen's, and
+          // text the writer chose not to check stays unchecked.
+          attributes: { spellcheck: "false" },
           handleClick: (view, pos) => {
             setActive(view, grammar.enabled ? flagAt(view.state, pos) : null);
             return false;

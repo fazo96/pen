@@ -258,6 +258,8 @@ test("on a phone, the top bar's tools are in the More menu", async ({ page }) =>
   await more.click();
   await page.getByRole("menuitemcheckbox", { name: /Grammar/ }).click();
   await expect(page.getByRole("menuitemcheckbox", { name: /Grammar/ })).toHaveAttribute("aria-checked", "false");
+  // Off means unchecked: the browser's spell check doesn't take over.
+  await expect(page.locator("main .ProseMirror")).toHaveAttribute("spellcheck", "false");
   await page.getByRole("menuitemcheckbox", { name: /Grammar/ }).click(); // back on, for the tests after
   await page.getByRole("menuitem", { name: "Book settings" }).click();
   await expect(page).toHaveURL(new RegExp(`/d/${id}/settings$`));
