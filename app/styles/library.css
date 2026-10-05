@@ -132,10 +132,28 @@
 }
 
 /* ─── Shelf ────────────────────────────────────────────────── */
-/* The book written in last, over the shelves */
-.last-edited {
+/* Over the shelves: the writing stats (stats.css) and the book written in
+   last, side by side when both fit. Wrapped in reverse, so on a narrow screen
+   Last edited stacks above the stats. */
+.library-glance {
   align-self: stretch;
   margin-top: 2.6rem;
+  display: flex;
+  flex-wrap: wrap-reverse;
+  gap: 2.4rem 3rem;
+}
+.library-glance > * {
+  flex: 0 1 22rem;
+  min-width: 0;
+}
+/* The two headings on one line */
+.library-glance h2 {
+  margin-top: 0;
+}
+.library-glance + .shelves {
+  margin-top: 2.4rem;
+}
+.last-edited {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -176,10 +194,6 @@
   gap: 4px;
   min-width: 0;
 }
-.last-edited + .shelves {
-  margin-top: 2.4rem;
-}
-
 .shelves {
   align-self: stretch;
   margin-top: 3.2rem;

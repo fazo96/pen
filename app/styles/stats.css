@@ -266,11 +266,6 @@
 }
 
 /* The library's card */
-.wcard {
-  align-self: stretch;
-  max-width: 22rem;
-  margin-top: 2.6rem;
-}
 .wcard-head {
   display: flex;
   justify-content: space-between;
@@ -301,9 +296,6 @@
 .wcard-week {
   display: block;
   margin-top: 0.5rem;
-}
-.wcard + .shelves {
-  margin-top: 2.4rem;
 }
 .wchart-legend + .settings-hint {
   margin-top: 0.8rem;

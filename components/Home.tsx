@@ -135,9 +135,12 @@ export default function Home({ docs, shelves, writing }: { docs: DocMeta[]; shel
             </p>
           )}
 
-          {last && <LastEdited doc={last} />}
-
-          {shelved && <WritingCard report={writing} />}
+          {shelved && (
+            <div className="library-glance">
+              <WritingCard report={writing} />
+              {last && <LastEdited doc={last} />}
+            </div>
+          )}
 
           {shelved && (
             <Shelves
