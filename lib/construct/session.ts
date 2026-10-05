@@ -12,7 +12,7 @@ import type {
   SessionNotification,
 } from "@agentclientprotocol/sdk";
 import { anchorCitations } from "../cite";
-import { agentHome, readChats, readDoc, readVersion, trashChat, writeChat } from "../docs";
+import { agentHome, readChats, readDoc, readEntry, readVersion, trashChat, writeChat } from "../docs";
 import { type AgentLaunch, type AgentProcess, initialize, modelOption, optionValues, spawnAgent, startupInfoOf } from "../acp";
 import { titleOf } from "../text";
 import { type CodexChange, listTools, type ToolContext } from "./tools";
@@ -20,7 +20,7 @@ import { DEFAULT_AGENT } from "./agentInfo";
 import { type AgentId, type AgentPreset, AGENTS, fallbackAgent, isAgentId, launchFor, MCP_NAME, penToolName, toolNameOf } from "./agents";
 import { type ChatNames, chatTitle, cleanChatName, isStoredChat, metaOf, newChatId, type StoredChat } from "./chats";
 import { modelFor } from "./ask";
-import { describeContext, systemPrompt } from "./prompts";
+import { AGENTS_ENTRY, agentsText, agentsUpdate, describeContext, systemPrompt } from "./prompts";
 import { type Change, settled, Transcript, visibleConfig } from "./transcript";
 import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, PromptContext } from "./types";
 
@@ -49,6 +49,9 @@ class ConstructSession {
   /** The agent the running process is, and how it was started. */
   private runningAgent: AgentId | null = null;
   private launched: (AgentLaunch & { mcpUrl: string }) | null = null;
+  /** The AGENTS entry's text in the system prompt, and as the agent last saw it (an update can follow). */
+  private agentsLaunched: string | null = null;
+  private agentsSeen: string | null = null;
   private running = false;
   /** The turn running is the writer's Compact, not a message. */
   private compacting = false;
@@ -301,10 +304,12 @@ class ConstructSession {
     let proc: AgentProcess | null = null;
     try {
       const doc = await readDoc(this.projectId);
+      const agents = await this.readAgents();
+      this.agentsLaunched = this.agentsSeen = agents;
       const mcpUrl = `${this.baseUrl}/api/construct/mcp`;
       const launch = await launchFor(agent, {
         cwd: path.join(os.tmpdir(), "pen-construct", await agentHome(this.projectId)),
-        systemPrompt: systemPrompt(doc ? titleOf(doc.content, this.projectId) : this.projectId),
+        systemPrompt: systemPrompt(doc ? titleOf(doc.content, this.projectId) : this.projectId, agents),
         mcp: { url: mcpUrl, token: this.token, tools: listTools().map((t) => t.name) },
       });
       this.launched = { ...launch, mcpUrl };
@@ -432,7 +437,9 @@ class ConstructSession {
     const userId = this.log.nextId("u");
     this.upsert({ id: userId, type: "user", text, context });
     await this.runTurn(
-      [
+      async () => [
+        // After the agent started, which read AGENTS into its system prompt.
+        ...(await this.agentsChange()),
         { type: "text", text: describeContext(context) },
         { type: "text", text },
       ],
@@ -445,20 +452,35 @@ class ConstructSession {
     if (this.running) return;
     this.log.breakStream();
     // Claude Code's own command; it has to be the whole prompt to count as one.
-    await this.runTurn([{ type: "text", text: "/compact" }], {
+    await this.runTurn(() => [{ type: "text", text: "/compact" }], {
       compacting: true,
       failure: "Construct couldn’t compact the conversation.",
     });
   }
 
+  /** The AGENTS entry, if it changed since the agent last saw it: as a block to send ahead of a message. */
+  private async agentsChange(): Promise<ContentBlock[]> {
+    const agents = await this.readAgents();
+    if (agents === this.agentsSeen) return [];
+    this.agentsSeen = agents;
+    return [{ type: "text", text: agentsUpdate(agents) }];
+  }
+
+  private async readAgents() {
+    return agentsText((await readEntry(this.projectId, AGENTS_ENTRY))?.content);
+  }
+
   /** One turn: start the agent if needed, send `prompt`, wait for the end; failures become notices. */
-  private async runTurn(prompt: ContentBlock[], opts: { compacting?: boolean; failure: string; after?: () => Promise<void> }) {
+  private async runTurn(
+    prompt: () => ContentBlock[] | Promise<ContentBlock[]>,
+    opts: { compacting?: boolean; failure: string; after?: () => Promise<void> },
+  ) {
     this.running = true;
     this.compacting = !!opts.compacting;
     try {
       await this.start();
       this.setState({ status: "busy" });
-      const res = await this.conn!.prompt({ sessionId: this.sessionId!, prompt });
+      const res = await this.conn!.prompt({ sessionId: this.sessionId!, prompt: await prompt() });
       this.log.breakStream();
       if (res.stopReason === "max_tokens" || res.stopReason === "max_turn_requests") {
         this.notice("Construct stopped: it hit its limit for one answer.");
@@ -547,6 +569,8 @@ class ConstructSession {
       },
     });
     for (const change of changes) this.tell(change);
+    // A compaction may drop an AGENTS update sent with a message; the system prompt's version stays.
+    if (u.sessionUpdate === "compaction_update") this.agentsSeen = this.agentsLaunched;
   }
 }
 

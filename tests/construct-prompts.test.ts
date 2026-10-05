@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { describeContext, promptContextFrom, quickQuestion } from "../lib/construct/prompts.ts";
+import { agentsText, agentsUpdate, describeContext, promptContextFrom, quickPrompt, quickQuestion, systemPrompt } from "../lib/construct/prompts.ts";
 
 // What Construct is told along with a message (lib/construct/prompts.ts).
 
@@ -29,4 +29,21 @@ test("a quick question carries its passage, with nothing to search", () => {
   assert.equal(quickQuestion("Synonyms?", {}), "Synonyms?");
   const q = quickQuestion("Synonyms?", { selection: "rain", paragraph: "The rain fell." });
   assert.equal(q, `The writer selected this text:\n"""\nrain\n"""\n\nIt's in this paragraph:\n"""\nThe rain fell.\n"""\n\nSynonyms?`);
+});
+
+test("the AGENTS entry joins the system prompts as standing instructions", () => {
+  for (const prompt of [systemPrompt, quickPrompt]) {
+    assert.doesNotMatch(prompt("Book"), /standing instructions/);
+    assert.doesNotMatch(prompt("Book", "  \n"), /standing instructions/, "a blank entry is no entry");
+    assert.match(prompt("Book", "# AGENTS\n\nBritish spelling."), /standing instructions[\s\S]*theirs win:\n"""\n# AGENTS\n\nBritish spelling\.\n"""$/);
+  }
+  assert.match(systemPrompt("Book", "x".repeat(25_000)), /"""\nx{20000}\n""" \(cut short: read_codex_entry "agents" has the rest\)$/);
+  assert.match(quickPrompt("Book", "x".repeat(25_000)), /x{20000}\n""" \(cut short\)$/);
+});
+
+test("a change to AGENTS mid-chat is sent as an update", () => {
+  assert.equal(agentsUpdate("Be blunt."), '[The writer updated their standing instructions (Codex entry AGENTS). They now read, replacing what you had before:\n"""\nBe blunt.\n"""]');
+  assert.match(agentsUpdate(null), /no longer apply/);
+  assert.equal(agentsText(" \n "), null);
+  assert.equal(agentsText(undefined), null);
 });

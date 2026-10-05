@@ -37,6 +37,32 @@ test("a chat: send, compact, new chat", async ({ page, request }) => {
   await expect(construct(page).locator(".construct-msg")).toHaveCount(0);
 });
 
+test("the AGENTS entry is in the system prompt, and an edit to it reaches the chat once", async ({ page, request }) => {
+  const id = await makeBook(request, uniqueId("agents"));
+  const made = await request.post(`/api/docs/${id}/codex`, { data: { content: "# AGENTS\n\nBritish spelling.\n" } });
+  expect(((await made.json()) as { id: string }).id).toBe("agents");
+  await openBook(page, id);
+  await page.getByRole("button", { name: "Construct", exact: true }).click();
+  await expect(input(page)).toBeVisible({ timeout: 30_000 });
+  const send = async (text: string) => {
+    await input(page).fill(text);
+    await page.keyboard.press("Enter");
+    await expect(replies(page).last()).toContainText(text, { timeout: 30_000 });
+    return (await replies(page).last().textContent()) ?? "";
+  };
+
+  // Read when the agent started: not sent again with the message.
+  expect(await send("First")).not.toContain("standing instructions");
+
+  const entry = await (await request.get(`/api/docs/${id}/codex/agents`)).json();
+  const saved = await request.put(`/api/docs/${id}/codex/agents`, { data: { content: "# AGENTS\n\nBe blunt.\n", baseVersion: entry.version } });
+  expect(saved.ok()).toBe(true);
+  const second = await send("Second");
+  expect(second).toContain("updated their standing instructions");
+  expect(second).toContain("Be blunt.");
+  expect(await send("Third")).not.toContain("standing instructions");
+});
+
 test("the Chats list opens, renames and deletes chats", async ({ page, request }) => {
   const id = await makeBook(request, uniqueId("chats"));
   await openBook(page, id);

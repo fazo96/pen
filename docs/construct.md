@@ -20,6 +20,10 @@ The server spawns an ACP agent per project (`agents.ts`: Claude Code via `@agent
 
 The agent's built-in tools are all off; It only gets pen's tools (`lib/construct/tools/`, one file per area: `manuscript.ts` with `grammar_check` and `versions.ts` read-only, `codex.ts` read-write; each made with `tool()` in `core.ts`, whose JSON schema is both what the agent sees and what `readArgs` checks and types its arguments against) from a small MCP endpoint, `/api/construct/mcp`, authenticated by a per-session bearer token (exempt from the lock proxy). There is deliberately no tool that writes the manuscript.
 
+## Standing instructions (AGENTS)
+
+A Codex entry with the id `agents` (`AGENTS_ENTRY`; one titled AGENTS gets it) is the writer's standing instructions, like an AGENTS.md: its text (blank counts as none, cut at 20k characters) closes the system prompt of chats and of quick actions, which defer to it. A chat's agent reads it when it starts (new chat, resumed chat, after a restart), so the session remembers what the agent has seen: if the entry changed by the time a message is sent, the new text (or that it's gone) goes ahead of the message (`agentsUpdate`), and a compaction resets that to the system prompt's version, so an update the summary may have dropped is sent again. Transcribing notes doesn't use it.
+
 ## Chats
 
 Chats are stored in `<project>/construct/<chat>.json` (transcript + the agent's session id) and resumed with ACP `session/resume` after a restart. A chat's title is the writer's name for it (renamed from the Chats list), else the one Claude Code gives the session (`session_info_update`), else the first message's opening. Under the header, one line holds the model/effort pickers (behind a popover) and how full the agent's context is (ACP `usage_update`, kept in the chat file since a resume doesn't resend it) with a Compact button (and palette command) that sends Claude Code's `/compact` as the whole prompt; pen advertises the `session.compaction` client capability, so compactions, automatic or not, arrive as `compaction_update`s and show in the log with their summary.

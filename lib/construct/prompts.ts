@@ -4,7 +4,8 @@ import type { PromptContext } from "./types.ts";
 // What Construct is told: its system prompts, and how a message carries where
 // the writer is and what they selected. Pure, so tests load it with plain Node.
 
-export function systemPrompt(title: string) {
+/** Chats' system prompt; `agents` is the AGENTS entry's text, if any. */
+export function systemPrompt(title: string, agents?: string | null) {
   return `You are Construct, the writing companion inside pen, a quiet editor for fiction. You're working with a writer on their project "${title}".
 
 What you can do, all through pen's tools:
@@ -19,14 +20,45 @@ Manuscript conventions: "# " is the book's title, "## " a part (numbered in roma
 
 When you point at a passage, cite it with a markdown link the writer can tap to jump there, instead of quoting line numbers in prose: [the storm scene](pen:L120) for a line of the manuscript, [the argument](pen:L120-L134) for a range, [her first entrance](pen:v/<version id>/L40) for lines of a saved version, and [Mara](pen:codex/mara) for a Codex entry. Use the line numbers the tools gave you, and a short label that says what's there (not "line 120").
 
-Start with outline when you need to find your way around, and read only the sections you need. Replies appear in a narrow side panel, often on a phone: be concise, use short paragraphs and lists, and skip preamble. Write in the language the writer uses.`;
+Start with outline when you need to find your way around, and read only the sections you need. Replies appear in a narrow side panel, often on a phone: be concise, use short paragraphs and lists, and skip preamble. Write in the language the writer uses.${standing(agents, true)}`;
 }
 
 /** For the look-up and grammar buttons: one question about the selection, answered once, outside the chat. */
-export function quickPrompt(title: string) {
+export function quickPrompt(title: string, agents?: string | null) {
   return `You are Construct, the writing companion inside pen, a quiet editor for fiction, answering one quick question about a passage of the writer's book "${title}". You have no tools: the passage is in the message.
 
-The prose is the writer's own: answer what's asked, and don't rewrite their sentences. The answer appears in a small popover over the text, often on a phone: be brief, skip preamble, and use plain markdown (short lists at most). Write in the language the writer uses.`;
+The prose is the writer's own: answer what's asked, and don't rewrite their sentences. The answer appears in a small popover over the text, often on a phone: be brief, skip preamble, and use plain markdown (short lists at most). Write in the language the writer uses.${standing(agents, false)}`;
+}
+
+/** The Codex entry whose text Construct always gets: the writer's standing instructions, like an AGENTS.md. */
+export const AGENTS_ENTRY = "agents";
+const AGENTS_MAX = 20_000;
+
+/** The AGENTS entry's text as Construct is given it: null when there's none or it's blank. */
+export const agentsText = (content: string | null | undefined) => content?.trim() || null;
+
+/** The entry quoted, cut to size; `canRead` says where the rest is. */
+function quoteAgents(text: string, canRead: boolean) {
+  if (text.length <= AGENTS_MAX) return `"""\n${text}\n"""`;
+  const rest = canRead ? ` (cut short: read_codex_entry "${AGENTS_ENTRY}" has the rest)` : " (cut short)";
+  return `"""\n${text.slice(0, AGENTS_MAX)}\n"""${rest}`;
+}
+
+function standing(agents: string | null | undefined, canRead: boolean) {
+  const text = agentsText(agents);
+  if (!text) return "";
+  return `
+
+The writer's standing instructions, from their Codex entry AGENTS. Follow them; where they differ from the guidance above, theirs win:
+${quoteAgents(text, canRead)}`;
+}
+
+/** Sent ahead of a chat message when the AGENTS entry changed since the agent last saw it. */
+export function agentsUpdate(agents: string | null) {
+  const text = agentsText(agents);
+  return text
+    ? `[The writer updated their standing instructions (Codex entry AGENTS). They now read, replacing what you had before:\n${quoteAgents(text, true)}]`
+    : "[The writer removed their standing instructions (Codex entry AGENTS): they no longer apply.]";
 }
 
 const clip = (x: unknown, max: number) => (typeof x === "string" && x.trim() ? x.slice(0, max) : undefined);
