@@ -5,6 +5,7 @@ import { useEffect, useImperativeHandle, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { textWithoutComments } from "@/lib/comments";
 import type { Story } from "@/lib/useAutosave";
+import { focusFromMargin } from "@/lib/marginFocus";
 import { useDocScan, useEditorDoc } from "@/lib/useEditorDoc";
 import ConflictBanner from "./ConflictBanner";
 import SaveStatus from "./SaveStatus";
@@ -143,7 +144,8 @@ function EntryEditor({
       )}
 
       {children}
-      <div className="codex-panel-body">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: a click beside the text focuses the editor, which keyboards reach directly */}
+      <div className="codex-panel-body" onMouseDown={(e) => focusFromMargin(editor, e)}>
         {editor ? <EditorContent editor={editor} /> : <div className="prose loading" aria-busy />}
       </div>
     </aside>

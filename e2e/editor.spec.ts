@@ -248,3 +248,43 @@ test("the save status explains itself: when it saved, and offline", async ({ pag
   await page.keyboard.press("Escape");
   await expect(status.locator(".status")).toHaveAttribute("aria-expanded", "false");
 });
+
+test("a click on the page around a short text focuses the editor", async ({ page, request }) => {
+  const id = await makeBook(request, uniqueId("margin"), "Short.\n\nSecond line.");
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await openBook(page, id);
+  const editor = page.locator(".ProseMirror");
+  const box = (await editor.boundingBox())!;
+  const atEnd = () =>
+    page.evaluate(() => {
+      const { state } = (document.querySelector(".ProseMirror") as EditorElement).editor;
+      return state.selection.from === state.doc.content.size - 1;
+    });
+
+  // Well below the text, on the page: the end of the document.
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height + 200);
+  expect(await cursor(page)).toEqual({ where: "manuscript", block: "Second line." });
+  expect(await atEnd()).toBe(true);
+
+  // Beside the first line, just right of the text column: that line.
+  const first = (await editor.locator("p").first().boundingBox())!;
+  await page.mouse.click(box.x + box.width + 12, first.y + first.height / 2);
+  expect(await cursor(page)).toEqual({ where: "manuscript", block: "Short." });
+
+  // Typing goes where the cursor went.
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height + 200);
+  await page.keyboard.type(" More.");
+  await expect(editor.locator("p").last()).toHaveText("Second line. More.");
+});
+
+test("a click below a short Codex entry in the side panel focuses it", async ({ page, request }) => {
+  const id = await makeBook(request, uniqueId("margin-panel"));
+  const entry = await makeEntry(page, id, "Harbour");
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(`/d/${id}?entry=${entry}`);
+  const panelEditor = page.locator(".codex-panel .ProseMirror");
+  await expect(panelEditor).toContainText("Notes about Harbour.");
+  const box = (await panelEditor.boundingBox())!;
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height + 150);
+  await expect.poll(() => cursor(page)).toEqual({ where: "panel", block: "Notes about Harbour." });
+});

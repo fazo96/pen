@@ -8,6 +8,7 @@ import { type Citation, findPassage, parseCitation } from "@/lib/cite";
 import { textWithoutComments } from "@/lib/comments";
 import type { PromptContext } from "@/lib/construct/types";
 import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
+import { focusFromMargin } from "@/lib/marginFocus";
 import { matches, ROOMY, WIDE } from "@/lib/media";
 import { showPassage } from "@/lib/passage";
 import { buildCommands, buildPlaces, type DrawerTab } from "@/lib/penCommands";
@@ -731,7 +732,7 @@ export default function Pen({
         )}
       </Drawer>
 
-      <main className="page">
+      <main className="page" onMouseDown={(e) => !preview && focusFromMargin(editor, e)}>
         {findBar(editor)}
         {preview && (
           <VersionPreview
