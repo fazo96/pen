@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { measureEdit, workOf } from "../lib/writingStats.ts";
+import { measureEdit, measureSave, workOf } from "../lib/writingStats.ts";
 
 // How one save changed a document, drafting or editing (lib/writingStats.ts).
 
@@ -118,4 +118,36 @@ test("workOf: drafting when new words outweigh editing", () => {
   assert.equal(workOf({ drafted: 0, editAdded: 0, removed: 0, pasted: 30 }), null);
   assert.equal(workOf({ drafted: 500, editAdded: 40, removed: 60, pasted: 0 }), "drafting");
   assert.equal(workOf({ drafted: 100, editAdded: 80, removed: 60, pasted: 0 }), "editing");
+});
+
+const novel = (...lines: string[]) =>
+  ["# Rain", "## Part One", "Before any chapter.", "### The Harbour", "Mara walked down.", "### Salt", "The road was dust."]
+    .concat(lines)
+    .join("\n\n");
+
+test("the chapters a save touched, by heading; added text by where it is now, removed by where it was", () => {
+  const base = novel();
+  assert.deepEqual(measureSave(base, base.replace("Mara walked down.", "Mara walked down to the water.")).chapters, ["The Harbour"]);
+  assert.deepEqual(
+    measureSave(base, base.replace("Mara walked down.", "Mara ran.").replace("The road was dust.", "The road was dust and ash.")).chapters,
+    ["The Harbour", "Salt"],
+  );
+  // A new paragraph at the end belongs to the last chapter; a removed one to its old chapter.
+  assert.deepEqual(measureSave(base, novel("A new paragraph.")).chapters, ["Salt"]);
+  assert.deepEqual(measureSave(base, base.replace("\n\nMara walked down.", "")).chapters, ["The Harbour"]);
+  // Renaming a chapter touches it under both names.
+  assert.deepEqual(measureSave(base, base.replace("### Salt", "### Salt and Ash")).chapters, ["Salt", "Salt and Ash"]);
+  // Formatting heading text doesn't change its name; escapes stay.
+  assert.deepEqual(measureSave(novel(), novel().replace("### Salt", "### *Salt* \\*1")).chapters, ["Salt", "Salt *1"]);
+});
+
+test("no chapter when unsure: before the first, under a part heading, under a heading with no words", () => {
+  const base = novel();
+  assert.deepEqual(measureSave(base, base.replace("Before any chapter.", "Before any chapter at all.")).chapters, []);
+  const untitled = "# Rain\n\n### The Harbour\n\nOne.\n\n###\n\nUnder no name.";
+  assert.deepEqual(measureSave(untitled, untitled.replace("Under no name.", "Under no name yet.")).chapters, []);
+  const parted = "# Rain\n\n### The Harbour\n\nOne.\n\n## Part Two\n\nIn the part.";
+  assert.deepEqual(measureSave(parted, parted.replace("In the part.", "In the part, still.")).chapters, []);
+  // A save with no words changed (a heading level, say) touches nothing it can name.
+  assert.deepEqual(measureSave(base, base).chapters, []);
 });

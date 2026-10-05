@@ -24,14 +24,29 @@ export const NO_CHANGE: Delta = { drafted: 0, editAdded: 0, removed: 0, pasted: 
 /** Retyping this many words at the end of a paragraph (a typo, a word cut off by the save) is still drafting. */
 const TYPO_WORDS = 3;
 
-// Blocks with words in them: an empty paragraph is saved as "&nbsp;", which
-// isn't a word, and neither is any other entity.
-const blocksOf = (markdown: string) =>
-  straightQuotes(stripComments(markdown))
+/**
+ * Blocks with words in them (an empty paragraph is saved as "&nbsp;", which
+ * isn't a word, and neither is any other entity), and the chapter each is in:
+ * the text of the `###` heading over it, or null before the first chapter,
+ * after a title or part heading, and under a chapter heading without words
+ * (not sure what to call it).
+ */
+function blocksOf(markdown: string): { blocks: string[]; chapters: (string | null)[] } {
+  const blocks: string[] = [];
+  const chapters: (string | null)[] = [];
+  let chapter: string | null = null;
+  for (const raw of straightQuotes(stripComments(markdown))
     .replace(/&(?:[a-z]+|#\d+|#x[\da-f]+);/gi, " ")
-    .split(/\n[ \t]*\n/)
-    .map(blockKey)
-    .filter((b) => wordCount(b) > 0);
+    .split(/\n[ \t]*\n/)) {
+    const block = blockKey(raw);
+    const h = block.match(/^(#{1,3})(?!#)(?:\s+(.*?))?(?:\s+#+)?$/);
+    if (h) chapter = h[1].length === 3 ? (h[2] ?? "").replace(/\\([!-/:-@[-`{-~])|[*_~`]/g, (_m, esc?: string) => esc ?? "").trim() || null : null;
+    if (!wordCount(block)) continue;
+    blocks.push(block);
+    chapters.push(chapter);
+  }
+  return { blocks, chapters };
+}
 
 function bag(texts: string[]) {
   const m = new Map<string, number>();
@@ -48,13 +63,21 @@ function moved(removed: string[], added: string[]) {
   return n;
 }
 
+/** What one save changed: the words (`measureEdit`), and the chapters it touched, in order. */
+export type Measured = { delta: Delta; chapters: string[] };
+
 /**
  * What changed between two saves of a document. `pasted`: words the editor saw
  * pasted since the last save, which count as neither drafting nor editing.
  */
-export function measureEdit(before: string, after: string, pasted = 0): Delta {
-  const a = blocksOf(before);
-  const b = blocksOf(after);
+export const measureEdit = (before: string, after: string, pasted = 0): Delta => measureSave(before, after, pasted).delta;
+
+/** `measureEdit`, and the chapters whose text changed: added or edited text's chapter in the new text, removed text's in the old. */
+export function measureSave(before: string, after: string, pasted = 0): Measured {
+  const { blocks: a, chapters: inA } = blocksOf(before);
+  const { blocks: b, chapters: inB } = blocksOf(after);
+  const touched = new Set<string>();
+  const touch = (chapter: string | null) => chapter !== null && touched.add(chapter);
   let drafted = 0;
   const draftedText: string[] = [];
   const editAddedText: string[] = [];
@@ -64,11 +87,14 @@ export function measureEdit(before: string, after: string, pasted = 0): Delta {
   for (let i = 0; i < ops.length; i++) {
     const op = ops[i];
     if (op.op === "same") continue;
+    if (op.op !== "added") touch(inA[op.a]);
+    if (op.op !== "removed") touch(inB[op.b]);
     const next = ops[i + 1];
     if (op.op === "removed" && next?.op === "added") {
       // A paragraph replaced in place: writing on if the new one starts with the
       // old one (too short to be paired as an edit), else a rewrite.
       i++;
+      touch(inB[next.b]);
       const [gone, fresh] = [a[op.a], b[next.b]];
       if (fresh.toLowerCase().startsWith(gone.toLowerCase())) {
         drafted += Math.max(0, wordCount(fresh) - wordCount(gone));
@@ -124,7 +150,10 @@ export function measureEdit(before: string, after: string, pasted = 0): Delta {
   // Pasted words: taken from drafting first (most pastes land as new paragraphs).
   const paste = Math.max(0, Math.min(Math.floor(pasted), drafted + editAdded));
   const fromDraft = Math.min(paste, drafted);
-  return { drafted: drafted - fromDraft, editAdded: editAdded - (paste - fromDraft), removed, pasted: paste };
+  return {
+    delta: { drafted: drafted - fromDraft, editAdded: editAdded - (paste - fromDraft), removed, pasted: paste },
+    chapters: [...touched],
+  };
 }
 
 /** Counts for a span of time, summed from slots. */
@@ -161,6 +190,10 @@ export type Slot = Delta & {
   t: number;
   book: string;
   kind: StatsKind;
+  /** The Codex entry's id, for kind codex (absent in slots from before it was kept). */
+  entry?: string;
+  /** Manuscript chapters the saves changed, by heading; empty when none was sure. */
+  chapters?: string[];
   saves: number;
   activeMs: number;
 };

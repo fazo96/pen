@@ -8,7 +8,7 @@ import { slugify, titleOf, wordCount } from "../text";
 import type { Doc, EntryMeta } from "../types";
 import { codexDir, entryFile, isMissing, projectExists, ready, serialize, stale, trashPath, versionOf, type WriteResult } from "./core";
 import { updateSpots } from "./spots";
-import { trackSave } from "./stats";
+import { recordEntryRename, trackSave } from "./stats";
 
 // Notes that sit beside the manuscript: <project>/codex/<entry>.md.
 
@@ -103,7 +103,10 @@ export function writeEntry(
     if (stale(current, content, baseVersion, force)) return { ok: false, current: current! };
     if (current?.content !== content) {
       await writeAtomic(entryFile(id, eid), content);
-      if (track) trackSave({ book: id, kind: "codex", before: current?.content ?? "", after: content, pasted: track.pasted });
+      if (track) {
+        const title = titleOf(content, eid);
+        trackSave({ book: id, kind: "codex", entry: eid, before: current?.content ?? "", after: content, pasted: track.pasted, title });
+      }
     }
     return { ok: true, version: versionOf(content) };
   });
@@ -136,6 +139,7 @@ export function renameEntry(id: string, eid: string, newEid: string): Promise<bo
     try {
       await rename(from, to);
       await updateSpots(id, (s) => renamedEntry(s, eid, newEid));
+      await recordEntryRename(id, eid, newEid); // so its writing stats follow it
       return true;
     } catch (err) {
       if (isMissing(err)) return false;

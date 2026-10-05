@@ -81,7 +81,7 @@ test("a damaged stats file reads as empty rather than failing", async () => {
   const { writeFile, mkdir } = await import("node:fs/promises");
   await mkdir(path.dirname(statsFile("2024-03")), { recursive: true });
   await writeFile(statsFile("2024-03"), "{ not json");
-  assert.deepEqual(await readSlots(Date.UTC(2024, 2, 1), Date.UTC(2024, 3, 1)), { slots: [], titles: {} });
+  assert.deepEqual(await readSlots(Date.UTC(2024, 2, 1), Date.UTC(2024, 3, 1)), { slots: [], titles: {}, entries: {} });
   await writeFile(statsFile("2024-03"), JSON.stringify({ slots: [{ t: 5, book: "../evil", kind: "manuscript" }, "junk"] }));
   assert.deepEqual((await readSlots(0, Date.UTC(2024, 3, 1))).slots.filter((s) => s.t === 5), []);
 });
@@ -90,4 +90,49 @@ test("the library export includes the writing stats", async () => {
   const names: string[] = [];
   for await (const f of libraryFiles()) names.push(f.name);
   assert.ok(names.includes(".pen-stats/2025-01.json"), names.join(", "));
+});
+
+test("Codex saves keep their entry and its title; a renamed entry's slots follow it", async () => {
+  const doc = await docs.createDoc("# Entries\n\nOne.");
+  const eid = (await docs.createEntry(doc.id, "# Mara Voss\n\nA sailor.", "mara"))!.id;
+  await docs.writeEntry(doc.id, eid, "# Mara Voss\n\nA sailor. Born in the north.", null, false, { pasted: 0 });
+  await statsSettled();
+  let slots = (await readSlots(0, Date.now() + SLOT_MS)).slots.filter((s) => s.book === doc.id);
+  assert.deepEqual(
+    slots.map((s) => [s.kind, s.entry, s.chapters]),
+    [["codex", "mara", undefined]],
+  );
+  assert.ok(await docs.renameEntry(doc.id, eid, "mara-voss"));
+  const report = await writingReport(0, Date.now() + SLOT_MS);
+  slots = report.slots.filter((s) => s.book === doc.id);
+  assert.deepEqual(
+    slots.map((s) => s.entry),
+    ["mara-voss"],
+  );
+  assert.equal(report.entries[`${doc.id}/mara-voss`], "Mara Voss");
+});
+
+test("manuscript slots gather the chapters their saves touched", async () => {
+  const doc = await docs.createDoc("# Chapters\n\n### The Harbour\n\nOne.\n\n### Salt\n\nTwo.");
+  await docs.writeDoc(doc.id, "# Chapters\n\n### The Harbour\n\nOne more.\n\n### Salt\n\nTwo.", null, false, { pasted: 0 });
+  await docs.writeDoc(doc.id, "# Chapters\n\n### The Harbour\n\nOne more.\n\n### Salt\n\nTwo more.", null, false, { pasted: 0 });
+  await statsSettled();
+  const slots = (await readSlots(0, Date.now() + SLOT_MS)).slots.filter((s) => s.book === doc.id);
+  assert.equal(slots.length, 1);
+  assert.deepEqual(slots[0].chapters, ["The Harbour", "Salt"]);
+  assert.equal(slots[0].entry, undefined);
+});
+
+test("a hand-edited slot's entry and chapters are checked", async () => {
+  const { writeFile, mkdir } = await import("node:fs/promises");
+  await mkdir(path.dirname(statsFile("2024-05")), { recursive: true });
+  const t = Date.UTC(2024, 4, 2);
+  await writeFile(
+    statsFile("2024-05"),
+    JSON.stringify({ slots: [{ t, book: "ok", kind: "codex", entry: "../evil", chapters: [1, "Salt", null] }], entries: { "../x": "Bad", "ok/fine": "Fine" } }),
+  );
+  const month = await readSlots(t, t + 1);
+  assert.equal(month.slots[0].entry, undefined);
+  assert.deepEqual(month.slots[0].chapters, ["Salt"]);
+  assert.deepEqual(month.entries, { "ok/fine": "Fine" });
 });
