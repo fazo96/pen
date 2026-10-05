@@ -1,10 +1,11 @@
 "use client";
 
-import { STATUS_LABEL, type SaveStatus } from "@/lib/useAutosave";
+import { STATUS_LABEL, type SaveStatus as Status } from "@/lib/useAutosave";
 import { useKeys } from "@/lib/useKeys";
 import EditorMenu from "./EditorMenu";
 import { IconCodex, IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconManuscript, IconOutline } from "./icons";
 import Logo from "./Logo";
+import SaveStatus from "./SaveStatus";
 import ThemeButton from "./ThemeButton";
 import WordStats from "./WordStats";
 
@@ -27,7 +28,10 @@ type Props = {
   isEntry: boolean;
   /** For the unlock link's way back. */
   docId: string;
-  status: SaveStatus;
+  status: Status;
+  /** When this device last saved, and last reached the server (useAutosave). */
+  savedAt: number | null;
+  reachedAt: number | null;
   words: number;
   outlineOpen: boolean;
   /** A Codex entry is open beside the manuscript. */
@@ -45,6 +49,8 @@ export default function EditorTopBar({
   isEntry,
   docId,
   status,
+  savedAt,
+  reachedAt,
   words,
   outlineOpen,
   panelOpen,
@@ -80,10 +86,7 @@ export default function EditorTopBar({
             <span className="status-label">Locked · unlock</span>
           </a>
         ) : (
-          <span className={`status status-${status}`} role="status" aria-live="polite">
-            <span className="status-dot" aria-hidden />
-            <span className="status-label">{STATUS_LABEL[status]}</span>
-          </span>
+          <SaveStatus status={status} savedAt={savedAt} reachedAt={reachedAt} />
         )}
         <button
           type="button"

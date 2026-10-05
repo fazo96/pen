@@ -4,9 +4,10 @@ import { type Editor, EditorContent } from "@tiptap/react";
 import { useEffect, useImperativeHandle, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { textWithoutComments } from "@/lib/comments";
-import { STATUS_LABEL, type Story } from "@/lib/useAutosave";
+import type { Story } from "@/lib/useAutosave";
 import { useDocScan, useEditorDoc } from "@/lib/useEditorDoc";
 import ConflictBanner from "./ConflictBanner";
+import SaveStatus from "./SaveStatus";
 import { IconClose, IconExpand } from "./icons";
 
 export type CodexPanelHandle = {
@@ -91,7 +92,7 @@ function EntryEditor({
   children,
 }: Props & { entry: Story }) {
   const [title, setTitle] = useState<string | null>(null);
-  const { editor, status, conflict, leave, pull, resolveConflict } = useEditorDoc({
+  const { editor, status, savedAt, reachedAt, conflict, leave, pull, resolveConflict } = useEditorDoc({
     kind: "entry",
     initial: entry,
     url: `/api/docs/${projectId}/codex/${entry.id}`,
@@ -127,9 +128,7 @@ function EntryEditor({
           Codex · {title || "Untitled"}
         </span>
         <div className="construct-head-actions">
-          <span className={`status status-${status}`} role="status" aria-live="polite" title={STATUS_LABEL[status]}>
-            <span className="status-dot" aria-hidden />
-          </span>
+          <SaveStatus status={status} savedAt={savedAt} reachedAt={reachedAt} dotOnly />
           <button type="button" className="icon-btn" onClick={onExpand} aria-label="Open full page" title="Open full page">
             <IconExpand />
           </button>

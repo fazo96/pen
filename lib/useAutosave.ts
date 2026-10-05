@@ -58,6 +58,12 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
 
   const [status, setStatus] = useState<SaveStatus>("saved");
   const [conflict, setConflict] = useState<Story | null>(null);
+  // When this device last saved it (kept beside the backup, so it outlives a
+  // reload) and when the server last answered at all (this visit only).
+  const savedAtKey = `${backupKey}:saved-at`;
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [reachedAt, setReachedAt] = useState<number | null>(null);
+  useEffect(() => setSavedAt(Number(local.get(savedAtKey)) || null), [savedAtKey]);
 
   const version = useRef(initial.version);
   const saved = useRef(initial.content);
@@ -93,6 +99,7 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content, baseVersion: version.current, force }),
       });
+      setReachedAt(Date.now());
       if (res.status === 401) {
         // Signed out (e.g. the password changed elsewhere). The local backup
         // keeps the text; it saves after unlocking. Typing retries meanwhile.
@@ -112,6 +119,9 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
       version.current = data.version;
       saved.current = content;
       void saveCopy(url, { id: initial.id, content, version: data.version });
+      const now = Date.now();
+      setSavedAt(now);
+      local.set(savedAtKey, String(now));
       blocked.current = false;
       setConflict(null);
       if (dirty.current) {
@@ -150,6 +160,7 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
       let remote: Story | null;
       try {
         const res = await fetch(url, { cache: "no-store" });
+        setReachedAt(Date.now());
         if (!res.ok) return;
         remote = (await res.json()) as Story;
         void saveCopy(url, remote);
@@ -266,5 +277,5 @@ export function useAutosave({ initial, url, backupKey, getContent, setContent, r
     [setContent],
   );
 
-  return { status, conflict, touch, flush, leave, adopt, pull, resolveConflict };
+  return { status, savedAt, reachedAt, conflict, touch, flush, leave, adopt, pull, resolveConflict };
 }

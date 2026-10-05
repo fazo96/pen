@@ -565,7 +565,7 @@
   border-top: 1px solid var(--rule);
 }
 
-/* Word, reading time and page counts, explained on hover or tap */
+/* Word, reading time and page counts, and the save status, explained on hover or tap */
 .word-stats {
   position: relative;
   display: inline-block;
@@ -579,7 +579,8 @@
   white-space: nowrap;
   cursor: help;
 }
-.word-stats-pop {
+.word-stats-pop,
+.save-status-pop {
   position: absolute;
   left: -10px;
   z-index: var(--z-raised);
@@ -639,9 +640,38 @@
   background: none;
 }
 @media (hover: hover) {
-  .word-stats:hover:not(.editor-menu-head *) .word-stats-pop {
+  .word-stats:hover:not(.editor-menu-head *) .word-stats-pop,
+  .save-status:hover .save-status-pop {
     display: flex;
   }
+}
+
+/* The save status opens below, from the right: it sits near the right edge */
+.save-status {
+  position: relative;
+  display: inline-flex;
+}
+.save-status .status {
+  min-height: 36px; /* a tap target, where only the dot shows */
+  cursor: help;
+}
+.save-status-pop {
+  top: calc(100% + 4px);
+  left: auto;
+  right: 0;
+  width: min(280px, calc(100vw - 32px));
+}
+.save-status.is-open .save-status-pop,
+.save-status .status:focus-visible + .save-status-pop {
+  display: flex;
+}
+.save-status-lead {
+  color: var(--ink);
+}
+.save-status-time b {
+  display: block;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 /* Drawer header controls */

@@ -104,7 +104,7 @@ export default function Pen({
   const [typing, setTyping] = useState(false);
   const [progress, setProgress] = useState(0);
 
-  const { editor, status, conflict, leave, adopt, pull, resolveConflict } = useEditorDoc({
+  const { editor, status, savedAt, reachedAt, conflict, leave, adopt, pull, resolveConflict } = useEditorDoc({
     kind,
     initial,
     url: isEntry ? `/api/docs/${projectId}/codex/${initial.id}` : `/api/docs/${projectId}`,
@@ -648,6 +648,8 @@ export default function Pen({
         isEntry={isEntry}
         docId={initial.id}
         status={status}
+        savedAt={savedAt}
+        reachedAt={reachedAt}
         words={words}
         outlineOpen={outlineOpen}
         panelOpen={!!panelEntry}

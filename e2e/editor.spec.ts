@@ -214,3 +214,37 @@ test("on a phone, the top bar's tools are in the More menu", async ({ page }) =>
   await page.getByRole("menuitem", { name: "Book settings" }).click();
   await expect(page).toHaveURL(new RegExp(`/d/${id}/settings$`));
 });
+
+test("the save status explains itself: when it saved, and offline", async ({ page, context }) => {
+  const id = await makeBook(page.request, uniqueId("status"), "Status text.");
+  await openBook(page, id);
+  const status = page.locator(".topbar-right .save-status");
+  const pop = status.locator(".save-status-pop");
+
+  await page.locator("main .ProseMirror p").first().click();
+  await page.keyboard.press("End");
+  await page.keyboard.type(" More.");
+  await expect(status.locator(".status-label")).toHaveText("Saved", { timeout: 15_000 });
+  await status.locator(".status").hover();
+  await expect(pop).toBeVisible();
+  await expect(pop).toContainText("All saved.");
+  await expect(pop).toContainText(/Last saved from this device\s*\d\d:\d\d \(just now\)/);
+  await expect(pop).toContainText(/Last reached the server\s*\d\d:\d\d \(just now\)/);
+
+  await context.setOffline(true);
+  await page.locator("main .ProseMirror p").first().click();
+  await page.keyboard.type(" Away.");
+  await expect(status.locator(".status-label")).toHaveText("Offline", { timeout: 15_000 });
+  await status.locator(".status").hover();
+  await expect(pop).toContainText("Can’t reach the server");
+  await context.setOffline(false);
+  await expect(status.locator(".status-label")).toHaveText("Saved", { timeout: 15_000 });
+
+  // On a phone only the dot shows; a tap opens it, Escape closes it.
+  await page.setViewportSize({ width: 390, height: 800 });
+  await status.locator(".status").click();
+  await expect(status.locator(".status")).toHaveAttribute("aria-expanded", "true");
+  await expect(pop).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(status.locator(".status")).toHaveAttribute("aria-expanded", "false");
+});
