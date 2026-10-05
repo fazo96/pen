@@ -120,6 +120,8 @@ export type CommandsContext = Shared & {
   picked: string | null;
   constructOpen: boolean;
   grammarOn: boolean;
+  /** This page's editor is grammar-checked, so its list of flags means something (not a Codex entry's page). */
+  grammarList: boolean;
   focus: boolean;
   steady: boolean;
   /** What the theme button would switch to. */
@@ -286,7 +288,7 @@ export function buildCommands(c: CommandsContext): PaletteItem[] {
       refocus: true,
       run: run.toggleGrammar,
     },
-    c.grammarOn && {
+    c.grammarOn && c.grammarList && {
       key: "grammar-list",
       section: "Grammar",
       label: "Show grammar flags",

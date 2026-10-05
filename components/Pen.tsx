@@ -7,6 +7,7 @@ import { api, createEntry, saveVersion as postVersion } from "@/lib/api";
 import { type Citation, findPassage, parseCitation } from "@/lib/cite";
 import { textWithoutComments } from "@/lib/comments";
 import type { PromptContext } from "@/lib/construct/types";
+import { CODEX_GRAMMAR } from "@/lib/grammar";
 import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
 import { focusFromMargin } from "@/lib/marginFocus";
 import { matches, ROOMY, WIDE } from "@/lib/media";
@@ -274,6 +275,8 @@ export default function Pen({
   const goLibrary = () => go("/?library");
   const openSettings = () => go(`/d/${projectId}/settings`);
   const grammarOn = useGrammarEnabled();
+  // A Codex entry's page has nothing to list unless entries are checked.
+  const grammarList = !isEntry || CODEX_GRAMMAR;
   const toggleGrammar = () => grammar.setEnabled(!grammarOn);
 
   // ─── Codex entry beside the manuscript ─────────────────────
@@ -600,6 +603,7 @@ export default function Pen({
       picked: picked?.text ?? null,
       constructOpen,
       grammarOn,
+      grammarList,
       focus: focusMode.focus,
       steady,
       nextTheme: THEME_LABEL[nextTheme],
@@ -691,7 +695,7 @@ export default function Pen({
         foot={<WordStats words={words} side="above" />}
       >
         <div className="drawer-tabs" role="tablist">
-          {(["contents", "codex", ...(isEntry ? [] : ["history"]), "grammar"] as DrawerTab[]).map((tab) => (
+          {(["contents", "codex", ...(isEntry ? [] : ["history"]), ...(grammarList ? ["grammar"] : [])] as DrawerTab[]).map((tab) => (
             <button
               key={tab}
               type="button"

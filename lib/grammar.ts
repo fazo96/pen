@@ -158,10 +158,18 @@ function applyTr(tr: Transaction, prev: State): State {
   return { decos, active, progress };
 }
 
-export const Grammar = Extension.create({
+/** Whether Codex entries are checked too. Off: notes are full of names and fragments. */
+export const CODEX_GRAMMAR = false;
+
+export const Grammar = Extension.create<{ check: boolean }>({
   name: "grammar",
 
+  addOptions: () => ({ check: true }),
+
   addProseMirrorPlugins() {
+    // Unchecked (a Codex entry): the plugin stays, so its state is there for
+    // the grammar pane, but nothing is ever flagged, by pen or the browser.
+    const check = this.options.check;
     let checker: Checker | null = null;
     return [
       new Plugin<State>({
@@ -171,18 +179,18 @@ export const Grammar = Extension.create({
           apply: applyTr,
         },
         view: (view) => {
-          checker = new Checker(view);
+          if (check) checker = new Checker(view);
           return {
             update: (v, prevState) => {
-              if (v.state.doc !== prevState.doc) checker!.schedule(DELAY_EDIT);
+              if (v.state.doc !== prevState.doc) checker?.schedule(DELAY_EDIT);
             },
-            destroy: () => checker!.destroy(),
+            destroy: () => checker?.destroy(),
           };
         },
         props: {
           decorations: (state) => grammarKey.getState(state)!.decos,
           // With the checker on, the browser's own spell check would only double up.
-          attributes: (): Record<string, string> => ({ spellcheck: grammar.enabled ? "false" : "true" }),
+          attributes: (): Record<string, string> => ({ spellcheck: !check || grammar.enabled ? "false" : "true" }),
           handleClick: (view, pos) => {
             setActive(view, grammar.enabled ? flagAt(view.state, pos) : null);
             return false;

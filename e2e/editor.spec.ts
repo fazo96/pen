@@ -80,6 +80,27 @@ test("the paragraph style menu makes a line a scene, and text again", async ({ p
   await expect.poll(markdown).toContain("### One\n\nThe fog came.");
 });
 
+test("the grammar check leaves Codex entries alone", async ({ page, request }) => {
+  const id = await makeBook(request, uniqueId("nogrammar"), "She walkd to teh harbour.");
+  const eid = await makeEntry(page, id, "Mara");
+  await page.request.put(`/api/docs/${id}/codex/${eid}`, {
+    data: { content: "# Mara\n\nShe walkd to teh harbour.\n", baseVersion: (await (await page.request.get(`/api/docs/${id}/codex/${eid}`)).json()).version },
+  });
+  await page.goto(`/d/${id}?entry=${eid}`);
+  const panel = page.locator(".codex-panel .ProseMirror");
+  await expect(panel).toContainText("teh harbour");
+  await expect(page.locator("main .ProseMirror .grammar-flag").first()).toBeVisible({ timeout: 30_000 });
+  await expect(panel.locator(".grammar-flag")).toHaveCount(0);
+  await expect(panel).toHaveAttribute("spellcheck", "false");
+
+  // An entry's own page: nothing flagged, and no Grammar tab to list nothing.
+  await page.goto(`/d/${id}/codex/${eid}`);
+  await expect(page.locator(".ProseMirror")).toContainText("teh harbour");
+  await page.waitForTimeout(2500); // past the checker's first pass on the manuscript
+  await expect(page.locator(".ProseMirror .grammar-flag")).toHaveCount(0);
+  await expect(page.getByRole("tab", { name: /Grammar/ })).toHaveCount(0);
+});
+
 test("the cursor moves between the manuscript and the Codex panel", async ({ page }) => {
   const id = await makeBook(page.request, uniqueId("switch"), "Manuscript text here.");
   const entry = await makeEntry(page, id, "Mara Voss");

@@ -7,7 +7,7 @@ import { Placeholder } from "@tiptap/extensions";
 import { useRef } from "react";
 import { CommentExtensions } from "./comments";
 import { Find } from "./findPlugin";
-import { Grammar } from "./grammar";
+import { CODEX_GRAMMAR, Grammar } from "./grammar";
 import { PenMarkdown } from "./markdownEscape";
 import { PenOrderedList } from "./orderedList";
 import { CitedPassage } from "./passage";
@@ -73,7 +73,7 @@ export function usePenEditor(
       StraightQuotes,
       CitedPassage,
       Find,
-      Grammar, // also sets spellcheck on the editor
+      Grammar.configure({ check: !isEntry || CODEX_GRAMMAR }), // also sets spellcheck on the editor
       Placeholder.configure({
         placeholder: ({ node }) =>
           node.type.name === "commentBlock"

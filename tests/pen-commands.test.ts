@@ -114,6 +114,7 @@ const commands = (over: Partial<CommandsContext> = {}) =>
     picked: null,
     constructOpen: false,
     grammarOn: false,
+    grammarList: true,
     focus: false,
     steady: false,
     nextTheme: "Light",
@@ -142,6 +143,7 @@ test("commands follow the page: AI, selection, entry page, panel, preview", () =
   assert.ok(commands({ panelEntry: { id: "mara", title: "Mara Voss" } }).includes("close-entry"));
   assert.ok(!commands({ isEntry: true, panelEntry: { id: "mara", title: "Mara Voss" } }).includes("close-entry"));
   assert.ok(commands({ grammarOn: true }).includes("grammar-list"));
+  assert.ok(!commands({ grammarOn: true, grammarList: false }).includes("grammar-list"));
   assert.ok(commands({ constructOpen: true }).includes("construct"));
 });
 
@@ -154,6 +156,7 @@ test("command labels say what they'll do", () => {
     picked: "rain",
     constructOpen: false,
     grammarOn: true,
+    grammarList: true,
     focus: true,
     steady: true,
     nextTheme: "Dark",
