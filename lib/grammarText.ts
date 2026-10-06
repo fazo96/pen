@@ -91,11 +91,11 @@ export function flagRange(block: TextBlock, flag: Flag): { from: number; to: num
 /** A flag where it sits in the document. */
 export type PlacedFlag = { from: number; to: number; flag: Flag };
 
-export type FlagSection<H> = { heading: H | null; items: PlacedFlag[] };
+export type FlagSection<H, T = PlacedFlag> = { heading: H | null; items: T[] };
 
-/** Flags (in document order) under the last heading before each; headings by position, in order. */
-export function flagsByHeading<H extends { pos: number }>(items: PlacedFlag[], headings: H[]): FlagSection<H>[] {
-  const out: FlagSection<H>[] = [];
+/** Flags (or anything placed, like comments), in document order, under the last heading before each; headings by position, in order. */
+export function flagsByHeading<H extends { pos: number }, T extends { from: number } = PlacedFlag>(items: T[], headings: H[]): FlagSection<H, T>[] {
+  const out: FlagSection<H, T>[] = [];
   let h = -1;
   for (const item of items) {
     while (h + 1 < headings.length && headings[h + 1].pos < item.from) h++;

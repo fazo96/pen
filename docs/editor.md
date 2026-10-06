@@ -18,7 +18,9 @@ The toolbar has one paragraph style button (`HeadingMenu` in `components/Toolbar
 
 ## Comments
 
-Comments (`lib/comments.ts`): `%% … %%` (default for new ones) and `<!-- … -->` are editor content, block or inline, written back verbatim, excluded from word counts and titles. Test round-trips on real files when touching the tokenizers: marked merges a following paragraph into any token typed `paragraph`.
+Comments (`lib/comments.ts`): `%% … %%` (default for new ones) and `<!-- … -->` are editor content, block or inline, written back verbatim, excluded from word counts and titles. Test round-trips on real files when touching the tokenizers: marked merges a following paragraph into any token typed `paragraph`. The drawer's Comments tab (`components/CommentsPane.tsx`, also "Show comments" in the palette) lists them by chapter (`listComments`, tested; `flagsByHeading` groups them as it does grammar flags), an inline one with the words around it, re-read once typing pauses; a click selects the comment in the text.
+
+The drawer's tabs are icons (`DRAWER_TABS` in `components/Pen.tsx`), each named by its `aria-label` and a CSS tooltip on hover or keyboard focus; the open tab's name is written under them, since touch screens get no tooltip. Grammar and Comments carry their count as a badge.
 
 ## Quotes
 

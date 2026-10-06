@@ -276,3 +276,17 @@ export const IconChart = (p: P) => (
     <path d="M3 16.5h14M5.5 16.5V11M9 16.5V6M12.5 16.5V9M16 16.5V4" />
   </svg>
 );
+
+export const IconHistory = (p: P) => (
+  <svg {...base} {...p}>
+    <circle cx="10" cy="10" r="6.5" />
+    <path d="M10 6.5V10l2.5 1.5" />
+  </svg>
+);
+
+export const IconComment = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M4 4.5h12v8.5H9l-3.5 3v-3H4z" />
+    <path d="M7 8h6M7 10.5h4" />
+  </svg>
+);

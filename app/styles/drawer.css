@@ -1,18 +1,17 @@
 /* ─── Drawer tabs & history ────────────────────────────────── */
+/* Icons, named in a tooltip on hover or focus, and the open one's name below. */
 .drawer-tabs {
   display: flex;
-  flex-wrap: wrap;
-  column-gap: 14px;
-  padding: 14px 20px 4px;
+  justify-content: space-between;
+  padding: 10px 14px 0;
 }
 .drawer-tabs button {
-  font-family: var(--font-ui);
-  font-size: var(--text-label);
-  letter-spacing: 0.1em;
-  white-space: nowrap;
-  text-transform: uppercase;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 38px;
   color: var(--ink-faint);
-  padding: 6px 0;
   border-bottom: 1px solid transparent;
   transition: color 0.2s, border-color 0.2s;
 }
@@ -22,6 +21,76 @@
 .drawer-tabs button[aria-selected="true"] {
   color: var(--accent);
   border-bottom-color: var(--accent);
+}
+.drawer-tab-tip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: var(--z-raised);
+  padding: 4px 8px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--ink);
+  background: var(--paper-raised);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: opacity 0.15s, visibility 0.15s;
+}
+@media (hover: hover) {
+  .drawer-tabs button:hover .drawer-tab-tip {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0.35s;
+  }
+}
+.drawer-tabs button:focus-visible .drawer-tab-tip {
+  opacity: 1;
+  visibility: visible;
+}
+.drawer-tab-count {
+  position: absolute;
+  top: 3px;
+  left: calc(50% + 6px);
+  min-width: 14px;
+  padding: 0 3px;
+  font-family: var(--font-ui);
+  font-size: 9px;
+  line-height: 14px;
+  text-align: center;
+  color: var(--ink-soft);
+  background: var(--paper-raised);
+  border-radius: 7px;
+}
+.drawer-tab-name {
+  margin: 0;
+  padding: 10px 20px 0;
+}
+/* The comments list: a comment reads as it does in the text. */
+.comments-text {
+  font-style: italic;
+  color: var(--ink);
+}
+/* A whole-paragraph one on its own, a few lines of it at most. */
+.grammar-item > .comments-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  white-space: pre-wrap;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+.grammar-snippet .comments-text {
+  background: var(--accent-wash);
+  border-radius: 2px;
+  padding: 0 0.2em;
 }
 
 .history-new {

@@ -101,6 +101,39 @@ test("the grammar check leaves Codex entries alone", async ({ page, request }) =
   await expect(page.getByRole("tab", { name: /Grammar/ })).toHaveCount(0);
 });
 
+test("the Comments tab lists the comments and goes to one", async ({ page }) => {
+  const id = await makeBook(page.request, uniqueId("comments"), "# One\n\nShe left %% check this %% at dawn.\n\n# Two\n\n%% a block note %%\n\nMore prose.");
+  await openBook(page, id);
+  const tab = page.getByRole("tab", { name: "Comments" });
+  await expect(tab).toContainText("2");
+  await tab.hover();
+  await expect(tab.locator(".drawer-tab-tip")).toBeVisible();
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".drawer-tab-name")).toHaveText("Comments");
+
+  const items = page.locator(".outline .grammar-item");
+  await expect(items).toHaveCount(2);
+  await expect(items.first()).toHaveText("She left check this at dawn.");
+  await expect(items.nth(1)).toHaveText("a block note");
+  await expect(page.locator(".outline .grammar-section-head")).toHaveText(["One 1", "Two 1"]);
+
+  await items.nth(1).click();
+  const picked = () =>
+    page.evaluate(() => {
+      const { state } = (document.querySelector(".ProseMirror") as EditorElement).editor;
+      return state.doc.textBetween(state.selection.from, state.selection.to);
+    });
+  await expect.poll(picked).toBe("a block note");
+
+  // A new comment shows up once typing pauses.
+  await page.evaluate(() => {
+    const { editor } = document.querySelector(".ProseMirror") as EditorElement;
+    editor.commands.insertContentAt(editor.state.doc.content.size - 1, { type: "text", text: "fresh", marks: [{ type: "comment" }] });
+  });
+  await expect(items).toHaveCount(3);
+});
+
 test("the cursor moves between the manuscript and the Codex panel", async ({ page }) => {
   const id = await makeBook(page.request, uniqueId("switch"), "Manuscript text here.");
   const entry = await makeEntry(page, id, "Mara Voss");

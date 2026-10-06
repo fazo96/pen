@@ -9,7 +9,7 @@ import type { DocMeta, EntryMeta } from "./types.ts";
 
 type Heading = { pos: number; level: number; text: string };
 type Entry = { id: string; title: string };
-export type DrawerTab = "contents" | "codex" | "history" | "grammar";
+export type DrawerTab = "contents" | "codex" | "history" | "grammar" | "comments";
 export type AskKind = "synonyms" | "meaning" | "ask";
 
 /** What both lists need to know. */
@@ -205,6 +205,7 @@ export function buildCommands(c: CommandsContext): PaletteItem[] {
     { key: "stats", section: "Go", label: "Writing stats", keywords: "words today drafting editing progress", run: run.stats },
     { key: "contents", section: "Go", label: "Show contents", keywords: "outline chapters drawer", run: () => run.showTab("contents") },
     { key: "codex-list", section: "Go", label: "Show the Codex", keywords: "entries notes drawer", run: () => run.showTab("codex") },
+    { key: "comments", section: "Go", label: "Show comments", keywords: "notes annotations drawer", run: () => run.showTab("comments") },
 
     c.canFind && {
       key: "find",

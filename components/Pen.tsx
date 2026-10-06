@@ -41,10 +41,11 @@ import DropImport from "./DropImport";
 import EditorTopBar from "./EditorTopBar";
 import FocusControls from "./FocusControls";
 import GrammarPane, { GrammarCount } from "./GrammarPane";
+import CommentsPane, { CommentsCount } from "./CommentsPane";
 import GrammarPopover from "./GrammarPopover";
 import QuickAnswer, { type Quick } from "./QuickAnswer";
 import WordTools from "./WordTools";
-import { IconBack } from "./icons";
+import { IconBack, IconCodex, IconComment, IconGrammar, IconHistory, IconOutline } from "./icons";
 import History from "./History";
 import Outline, { type Heading } from "./Outline";
 import Palette, { type PaletteMode, usePaletteLists } from "./Palette";
@@ -53,6 +54,15 @@ import VersionPreview from "./VersionPreview";
 
 /** sessionStorage: put the cursor in the next page's text (set by the jumps, Ctrl+Shift+M and so on). */
 const FOCUS_ON_ARRIVAL = "pen:focus-on-arrival";
+
+/** The drawer's tabs: an icon each, named in a tooltip. */
+const DRAWER_TABS: Record<DrawerTab, { name: string; Icon: (p: React.SVGProps<SVGSVGElement>) => React.ReactNode }> = {
+  contents: { name: "Contents", Icon: IconOutline },
+  codex: { name: "Codex", Icon: IconCodex },
+  history: { name: "History", Icon: IconHistory },
+  grammar: { name: "Grammar", Icon: IconGrammar },
+  comments: { name: "Comments", Icon: IconComment },
+};
 
 /** A question about some text in `editor`, for Construct: a quick answer (`send`), or left in the chat's input. */
 type AskConstruct = (text: string, range: { from: number; to: number }, send: boolean, kind?: QuickKind) => void;
@@ -695,24 +705,41 @@ export default function Pen({
         foot={<WordStats words={words} side="above" />}
       >
         <div className="drawer-tabs" role="tablist">
-          {(["contents", "codex", ...(isEntry ? [] : ["history"]), ...(grammarList ? ["grammar"] : [])] as DrawerTab[]).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              role="tab"
-              aria-selected={drawerTab === tab}
-              onClick={() => setDrawerTab(tab)}
-            >
-              {tab}
-              {tab === "grammar" && <GrammarCount editor={editor} />}
-            </button>
-          ))}
+          {(
+            ["contents", "codex", ...(isEntry ? [] : ["history"]), ...(grammarList ? ["grammar"] : []), "comments"] as DrawerTab[]
+          ).map((tab) => {
+            const { name, Icon } = DRAWER_TABS[tab];
+            return (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={drawerTab === tab}
+                aria-label={name}
+                onClick={() => setDrawerTab(tab)}
+              >
+                <Icon />
+                {tab === "grammar" && <GrammarCount editor={editor} />}
+                {tab === "comments" && <CommentsCount editor={editor} />}
+                <span className="drawer-tab-tip" aria-hidden>
+                  {name}
+                </span>
+              </button>
+            );
+          })}
         </div>
+        {/* Tooltips don't show on touch screens: say where we are. */}
+        <p className="drawer-tab-name label" aria-hidden>
+          {DRAWER_TABS[drawerTab].name}
+        </p>
         {drawerTab === "contents" && (
           <Outline headings={headings} active={active} onJump={jump} plain={isEntry} />
         )}
         {drawerTab === "grammar" && (
           <GrammarPane editor={editor} headings={headings} onShown={() => setOutlineOpen(false)} />
+        )}
+        {drawerTab === "comments" && (
+          <CommentsPane editor={editor} headings={headings} onShown={() => setOutlineOpen(false)} />
         )}
         {drawerTab === "codex" && (
           <Codex

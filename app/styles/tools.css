@@ -101,12 +101,6 @@
 .grammar-rules .btn.is-on {
   color: var(--accent);
 }
-.drawer-tab-count {
-  margin-left: 4px;
-  font-size: 9px;
-  letter-spacing: 0;
-  opacity: 0.75;
-}
 .grammar-pane {
   padding: 4px 0 20px;
 }
@@ -234,19 +228,6 @@
   line-height: 1.35;
   font-style: italic;
   color: var(--ink-faint);
-}
-/* Four tabs only just fit the rail: close them up, and leave the count to the pane. */
-@media (min-width: 1180px) {
-  .drawer-tabs {
-    justify-content: space-between;
-    column-gap: 8px;
-  }
-  .drawer-tabs button {
-    letter-spacing: 0.08em;
-  }
-  .drawer-tab-count {
-    display: none;
-  }
 }
 
 /* ─── Word tools: selection bar, Look up ───────────────────── */

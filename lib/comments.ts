@@ -212,3 +212,48 @@ export function textWithoutComments(node: PMNode): string {
   });
   return out;
 }
+
+/** A comment where it sits in the document; an inline one with the words around it, within its paragraph. */
+export type PlacedComment = { from: number; to: number; text: string; inline: boolean; before: string; after: string };
+
+const AROUND = 48;
+
+/** Every comment in the document, in order. Neighbouring text with the comment mark is one comment. */
+export function listComments(doc: PMNode): PlacedComment[] {
+  const out: PlacedComment[] = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name === "commentBlock") {
+      out.push({ from: pos + 1, to: pos + node.nodeSize - 1, text: node.textContent, inline: false, before: "", after: "" });
+      return false;
+    }
+    if (!node.isTextblock) return true;
+    const start = pos + 1;
+    const end = pos + node.nodeSize - 1;
+    const first = out.length;
+    let open: PlacedComment | null = null;
+    node.forEach((child, offset) => {
+      const at = start + offset;
+      if (child.isText && child.marks.some((m) => m.type.name === "comment")) {
+        if (open && open.to === at) {
+          open.to += child.nodeSize;
+          open.text += child.text;
+        } else {
+          open = { from: at, to: at + child.nodeSize, text: child.text ?? "", inline: true, before: "", after: "" };
+          out.push(open);
+        }
+      } else {
+        open = null;
+      }
+    });
+    for (const c of out.slice(first)) {
+      let before = doc.textBetween(Math.max(start, c.from - AROUND), c.from, " ", " ");
+      let after = doc.textBetween(c.to, Math.min(end, c.to + AROUND), " ", " ");
+      if (c.from - AROUND > start) before = "…" + before.replace(/^\S*\s/, "");
+      if (c.to + AROUND < end) after = after.replace(/\s\S*$/, "") + "…";
+      c.before = before;
+      c.after = after;
+    }
+    return false;
+  });
+  return out;
+}
