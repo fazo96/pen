@@ -660,7 +660,7 @@
 @media (min-width: 1180px) {
   .construct {
     top: calc(var(--topbar-h) + env(safe-area-inset-top));
-    width: 380px;
+    width: var(--codex-w);
     padding-top: 0;
     box-shadow: none;
     background: var(--paper);
@@ -674,7 +674,7 @@
     display: none;
   }
   .construct-open .page {
-    padding-right: 380px;
+    padding-right: var(--codex-w);
   }
 }
 
@@ -715,12 +715,12 @@
 }
 
 /* Room for both: Construct keeps the edge, the entry sits beside it. */
-@media (min-width: 1800px) {
+@media (min-width: 2000px) {
   .construct-open .codex-panel {
-    right: 380px;
+    right: var(--codex-w);
   }
   .codex-open.construct-open .page {
-    padding-right: calc(380px + var(--codex-w));
+    padding-right: calc(2 * var(--codex-w));
   }
 }
 
@@ -770,7 +770,7 @@
     --right-rail: 0px;
   }
   .app-editor.construct-open {
-    --right-rail: 380px;
+    --right-rail: var(--codex-w);
   }
   .app-editor.codex-open {
     --right-rail: var(--codex-w);
@@ -782,9 +782,9 @@
     left: 50%;
   }
 }
-@media (min-width: 1800px) {
+@media (min-width: 2000px) {
   .app-editor.codex-open.construct-open {
-    --right-rail: calc(380px + var(--codex-w));
+    --right-rail: calc(2 * var(--codex-w));
   }
 }
 

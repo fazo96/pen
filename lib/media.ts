@@ -5,7 +5,7 @@
 /** Room for a Codex entry beside the manuscript. */
 export const WIDE = "(min-width: 1180px)";
 /** Room for the Codex entry and Construct at once. */
-export const ROOMY = "(min-width: 1800px)";
+export const ROOMY = "(min-width: 2000px)";
 /** A touch screen: putting the cursor in text there brings up the keyboard. */
 export const TOUCH = "(hover: none)";
 /** A mouse or trackpad: hover bars rather than toolbar buttons. */

@@ -201,7 +201,8 @@
   .topbar-tools {
     display: flex;
   }
-  .editor-menu {
+  .editor-menu,
+  .goto-phone {
     display: none;
   }
 }
@@ -251,16 +252,17 @@
   .outline {
     top: calc(var(--topbar-h) + env(safe-area-inset-top));
     width: 272px;
-    padding-top: 28px;
+    padding-top: 0;
     transform: none;
     background: transparent;
     border-right: 1px solid var(--rule);
     box-shadow: none;
     transition: opacity 0.6s ease;
   }
+  /* As tall as the Codex and Construct heads beside it: an icon button, 8px around it, the rule. */
   .outline-head {
-    min-height: 0;
-    padding: 0 20px 12px;
+    min-height: calc(40px + 2 * 8px + 1px);
+    padding: 8px 20px;
   }
   .outline-close,
   .outline-toggle,

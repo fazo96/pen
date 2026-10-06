@@ -671,8 +671,10 @@ export default function Pen({
         panelOpen={!!panelEntry}
         constructOpen={constructOpen}
         grammarOn={grammarOn}
+        codexLabel={last ? `Codex: ${last.title}` : "Codex"}
         switchLabel={switchLabel}
         on={{
+          codex: isEntry ? undefined : () => void (panelEntry ? closeEntry() : toCodex()),
           outline: () => setOutlineOpen((o) => !o),
           library: goLibrary,
           goTo: () => togglePalette("go"),

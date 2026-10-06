@@ -3,7 +3,7 @@
 import { STATUS_LABEL, type SaveStatus as Status } from "@/lib/useAutosave";
 import { useKeys } from "@/lib/useKeys";
 import EditorMenu from "./EditorMenu";
-import { IconCodex, IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconManuscript, IconOutline } from "./icons";
+import { IconCodex, IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconOutline, IconSearch } from "./icons";
 import Logo from "./Logo";
 import SaveStatus from "./SaveStatus";
 import ThemeButton from "./ThemeButton";
@@ -16,6 +16,8 @@ export type TopBarActions = {
   focus: () => void;
   grammar: () => void;
   exportMarkdown: () => void;
+  /** Open the Codex entry viewed last, or close the one open; none on an entry's own page. */
+  codex?: () => void;
   /** None when AI is off. */
   construct?: () => void;
   settings: () => void;
@@ -38,6 +40,8 @@ type Props = {
   panelOpen: boolean;
   constructOpen: boolean;
   grammarOn: boolean;
+  /** Where the Codex button goes, for its tooltip. */
+  codexLabel: string;
   /** Where Ctrl+Shift+E goes, for the Go to button's tooltip. */
   switchLabel: string;
   on: TopBarActions;
@@ -56,10 +60,24 @@ export default function EditorTopBar({
   panelOpen,
   constructOpen,
   grammarOn,
+  codexLabel,
   switchLabel,
   on,
 }: Props) {
   const keys = useKeys();
+  // Before Settings on wider screens; beside the menu on phones, where the tools fold away.
+  const goTo = (className = "") => (
+    <button
+      type="button"
+      className={`icon-btn ${className}`}
+      onClick={on.goTo}
+      aria-label="Go to…"
+      aria-haspopup="dialog"
+      title={`${keys.title("Go to…", "goTo")} · ${keys.title(switchLabel, "switch")}`}
+    >
+      <IconSearch />
+    </button>
+  );
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -88,16 +106,7 @@ export default function EditorTopBar({
         ) : (
           <SaveStatus status={status} savedAt={savedAt} reachedAt={reachedAt} />
         )}
-        <button
-          type="button"
-          className={`icon-btn ${panelOpen ? "is-on" : ""}`}
-          onClick={on.goTo}
-          aria-label="Go to…"
-          aria-haspopup="dialog"
-          title={`${keys.title("Go to…", "goTo")} · ${keys.title(switchLabel, "switch")}`}
-        >
-          {isEntry ? <IconManuscript /> : <IconCodex />}
-        </button>
+        {goTo("goto-phone")}
         {/* Inline on wider screens; folded into EditorMenu on phones (CSS picks one). */}
         <div className="topbar-tools">
           <span className="words label">
@@ -132,6 +141,19 @@ export default function EditorTopBar({
               <IconConstruct />
             </button>
           )}
+          {on.codex && (
+            <button
+              type="button"
+              className={`icon-btn ${panelOpen ? "is-on" : ""}`}
+              onClick={on.codex}
+              aria-label="Codex entry"
+              aria-pressed={panelOpen}
+              title={panelOpen ? "Close the Codex entry" : keys.title(codexLabel, "codex")}
+            >
+              <IconCodex />
+            </button>
+          )}
+          {goTo()}
           <button type="button" className="icon-btn" onClick={on.settings} aria-label="Book settings" title="Book settings">
             <IconGear />
           </button>

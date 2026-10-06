@@ -134,6 +134,25 @@ test("the Comments tab lists the comments and goes to one", async ({ page }) => 
   await expect(items).toHaveCount(3);
 });
 
+test("the top bar's Codex button opens the entry viewed last, and closes it", async ({ page }) => {
+  const id = await makeBook(page.request, uniqueId("codex-btn"), "Manuscript text here.");
+  const entry = await makeEntry(page, id, "Mara Voss");
+  await page.goto(`/d/${id}/codex/${entry}`);
+  await expect(page.locator(".ProseMirror")).toContainText("Notes about Mara Voss.");
+  await expect(page.getByRole("button", { name: "Codex entry" })).toHaveCount(0);
+
+  await openBook(page, id);
+  const button = page.getByRole("button", { name: "Codex entry" });
+  await expect(button).toHaveAttribute("title", /Codex: Mara Voss/);
+  await button.click();
+  const panel = page.getByRole("complementary", { name: "Codex entry" });
+  await expect(panel.locator(".ProseMirror")).toContainText("Notes about Mara Voss.");
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await button.click();
+  await expect(panel).toHaveCount(0);
+  await expect(button).toHaveAttribute("aria-pressed", "false");
+});
+
 test("the cursor moves between the manuscript and the Codex panel", async ({ page }) => {
   const id = await makeBook(page.request, uniqueId("switch"), "Manuscript text here.");
   const entry = await makeEntry(page, id, "Mara Voss");
