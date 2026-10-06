@@ -26,7 +26,7 @@ Active time: a save within 5 minutes of the book's previous save (manuscript or 
 
 Slots keep the ids the book and entry had then. `writingReport` (`lib/writing.ts`) maps them to the current ids, books through `.pen-renames.json`, entries through `.pen-stats/entry-renames.json` (by `<book>/<entry>`, written by `renameEntry`, kept one hop deep with `lib/renameMap.ts`), and names gone books from `titles`, flagged `gone`. Writing before a book was trashed stays in the totals; a new book later given the same id shares its history.
 
-The Codex, entries and chapters are recorded but not shown yet (`summarize` defaults to `kind: "manuscript"` and sums a book's slots).
+The Codex, entries and chapters are recorded but not shown yet (`summarize` defaults to `kind: "manuscript"` and sums a book's slots). The [Global Codex](library.md#the-global-codex)'s saves are recorded too, under the owner `_global` (kind `codex`; `writingReport` names it "Global Codex"); an entry moved between Codexes keeps its old slots where they were.
 
 ## Showing them
 

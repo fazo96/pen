@@ -1,5 +1,5 @@
 import "server-only";
-import { type DocMeta, listDocs } from "./docs";
+import { type DocMeta, GLOBAL, listDocs } from "./docs";
 import { readRenames } from "./renames";
 import { entryKey, readEntryRenames, readSlots } from "./store/stats";
 import type { Slot } from "./writingStats";
@@ -31,6 +31,8 @@ export async function writingReport(from: number, to: number, docs?: DocMeta[]):
   };
   const out: WritingReport = { slots: [], books: {}, entries: {} };
   for (const d of books) out.books[d.id] = { title: d.title, gone: false };
+  // The Global Codex's entries are recorded under GLOBAL (kind "codex"); it's always there.
+  out.books[GLOBAL] = { title: "Global Codex", gone: false };
   for (const s of slots) {
     const book = renames[s.book] ?? s.book;
     const entry = s.entry && entryOf(s.book, book, s.entry);

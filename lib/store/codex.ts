@@ -2,7 +2,7 @@ import "server-only";
 import { mkdir, readdir, readFile, rename, stat } from "node:fs/promises";
 import path from "node:path";
 import { createExclusive, writeAtomic } from "../files";
-import { GLOBAL, isOwnerId, isValidId } from "../ids";
+import { isOwnerId, isValidId } from "../ids";
 import { droppedEntry, renamedEntry } from "../spot";
 import { slugify, titleOf, wordCount } from "../text";
 import type { Doc, EntryMeta } from "../types";
@@ -12,7 +12,7 @@ import { recordEntryRename, trackSave } from "./stats";
 
 // Notes that sit beside the manuscript: <project>/codex/<entry>.md. The same
 // functions keep the Global Codex, the notes every book shares, with GLOBAL
-// as the project. Its entries have no writing stats: those belong to a book.
+// as the project. Its saves are recorded in the writing stats under GLOBAL.
 
 /** When a Codex entry was last written; 0 without any. */
 export async function lastCodexEdit(id: string): Promise<number> {
@@ -105,7 +105,7 @@ export function writeEntry(
     if (stale(current, content, baseVersion, force)) return { ok: false, current: current! };
     if (current?.content !== content) {
       await writeAtomic(entryFile(id, eid), content);
-      if (track && id !== GLOBAL) {
+      if (track) {
         const title = titleOf(content, eid);
         trackSave({ book: id, kind: "codex", entry: eid, before: current?.content ?? "", after: content, pasted: track.pasted, title });
       }
@@ -141,7 +141,7 @@ export function renameEntry(id: string, eid: string, newEid: string): Promise<bo
     try {
       await rename(from, to);
       await updateSpots(id, (s) => renamedEntry(s, eid, newEid));
-      if (id !== GLOBAL) await recordEntryRename(id, eid, newEid); // so its writing stats follow it
+      await recordEntryRename(id, eid, newEid); // so its writing stats follow it
       return true;
     } catch (err) {
       if (isMissing(err)) return false;
@@ -153,7 +153,7 @@ export function renameEntry(id: string, eid: string, newEid: string): Promise<bo
 /**
  * Move an entry to another book's Codex or the Global Codex (`to`), keeping its
  * id unless that's taken there (then -2, -3…). Its new id; null if the entry or
- * the destination is missing. Writing stats stay with the book it was written in.
+ * the destination is missing. Writing stats stay where it was written (a book, or GLOBAL).
  */
 export function moveEntry(id: string, eid: string, to: string): Promise<string | null> {
   if (!isOwnerId(id) || !isOwnerId(to) || !isValidId(eid) || id === to) return Promise.resolve(null);

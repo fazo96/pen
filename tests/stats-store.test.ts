@@ -6,6 +6,7 @@ import * as docs from "../lib/docs.ts";
 import { libraryFiles } from "../lib/library.ts";
 import { DOCS_DIR } from "../lib/paths.ts";
 import { readSlots, recordSave, SLOT_MS, statsSettled } from "../lib/store/stats.ts";
+import { summarize } from "../lib/statsView.ts";
 import { writingReport } from "../lib/writing.ts";
 
 // The writing stats on disk (lib/store/stats.ts) and as the pages get them
@@ -135,4 +136,26 @@ test("a hand-edited slot's entry and chapters are checked", async () => {
   assert.equal(month.slots[0].entry, undefined);
   assert.deepEqual(month.slots[0].chapters, ["Salt"]);
   assert.deepEqual(month.entries, { "ok/fine": "Fine" });
+});
+
+test("the Global Codex's saves are recorded under it, renames followed, but not in the totals shown", async () => {
+  const eid = (await docs.createEntry(docs.GLOBAL, "# Stats Style\n\nCommas.", "stats-style"))!.id;
+  await docs.writeEntry(docs.GLOBAL, eid, "# Stats Style\n\nCommas. Serial ones, always.", null, false, { pasted: 0 });
+  await statsSettled();
+  const slots = (await readSlots(0, Date.now() + SLOT_MS)).slots.filter((s) => s.book === docs.GLOBAL);
+  assert.deepEqual(
+    slots.map((s) => [s.kind, s.entry, s.drafted > 0]),
+    [["codex", "stats-style", true]],
+  );
+  assert.ok(await docs.renameEntry(docs.GLOBAL, eid, "style-sheet"));
+  const report = await writingReport(0, Date.now() + SLOT_MS);
+  assert.deepEqual(
+    report.slots.filter((s) => s.book === docs.GLOBAL).map((s) => s.entry),
+    ["style-sheet"],
+  );
+  assert.equal(report.entries[`${docs.GLOBAL}/style-sheet`], "Stats Style");
+  assert.deepEqual(report.books[docs.GLOBAL], { title: "Global Codex", gone: false });
+  // The pages show the manuscript only, so none of it counts there yet.
+  const shown = summarize(report.slots.filter((s) => s.book === docs.GLOBAL), "today", Date.now());
+  assert.equal(shown.totals.drafted, 0);
 });

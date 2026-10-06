@@ -1,7 +1,7 @@
 import "server-only";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { isValidId } from "../ids";
+import { isOwnerId, isValidId } from "../ids";
 import { type JsonStore, jsonStore } from "../jsonStore";
 import { DOCS_DIR } from "../paths";
 import { withRename } from "../renameMap";
@@ -36,7 +36,7 @@ const MAX_CHAPTERS = 100;
 export const entryKey = (book: string, entry: string) => `${book}/${entry}`;
 const isEntryKey = (k: string) => {
   const [book, entry, more] = k.split("/");
-  return more === undefined && isValidId(book) && isValidId(entry);
+  return more === undefined && isOwnerId(book) && isValidId(entry);
 };
 
 const num = (x: unknown) => (typeof x === "number" && Number.isFinite(x) && x >= 0 ? x : 0);
@@ -46,7 +46,8 @@ function parseMonth(raw: unknown): Month {
   const slots: Slot[] = [];
   for (const s of Array.isArray(data.slots) ? data.slots : []) {
     const o = (s ?? {}) as Record<string, unknown>;
-    if (!isValidId(o.book) || (o.kind !== "manuscript" && o.kind !== "codex") || !num(o.t)) continue;
+    // A book, or the Global Codex (its entries, kind "codex").
+    if (!isOwnerId(o.book) || (o.kind !== "manuscript" && o.kind !== "codex") || !num(o.t)) continue;
     const chapters = Array.isArray(o.chapters) ? o.chapters.filter((c): c is string => typeof c === "string").slice(0, MAX_CHAPTERS) : [];
     slots.push({
       t: num(o.t),
