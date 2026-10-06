@@ -36,7 +36,7 @@ export const GET = route<Params>(async (req, { id, job }) => {
         req.signal.addEventListener("abort", end, { once: true });
       }),
   );
-});
+}, { global: true });
 
 /** Stop a running import, or forget a finished one. */
-export const DELETE = route<Params>(async (_req, { id, job }) => (dropImport(id, job) ? noContent() : gone()));
+export const DELETE = route<Params>(async (_req, { id, job }) => (dropImport(id, job) ? noContent() : gone()), { global: true });

@@ -175,3 +175,18 @@ test("command labels say what they'll do", () => {
     assert.ok(labels.includes(l), l);
   }
 });
+
+test("in a book, the switcher lists the Global Codex's entries, but not the one shown beside the manuscript", () => {
+  const opened: string[] = [];
+  const globalEntries = [
+    { id: "style", title: "Style Sheet", words: 4, modified: 0 },
+    { id: "world", title: "World Rules", words: 4, modified: 0 },
+  ];
+  const items = places({ globalEntries, globalHere: "world", openGlobalEntry: (eid) => opened.push(eid) });
+  const shared = items.filter((i) => i.section === "Global Codex");
+  assert.deepEqual(shared.map((i) => i.label), ["Style Sheet"]);
+  shared[0].run?.();
+  assert.deepEqual(opened, ["style"]);
+  // Not on the Global Codex's own page, which gives no way to open them as such.
+  assert.equal(places({ globalEntries }).some((i) => i.section === "Global Codex"), false);
+});

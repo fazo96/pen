@@ -45,6 +45,12 @@ const TOOL_TEXT: Record<ToolName, (i: Record<string, string>, lines: string) => 
   write_codex_entry: (i) => ({ text: `Edited ${codex(i)} · ${i.id ?? ""}`, entry: i.id, global: inGlobal(i) }),
   rename_codex_entry: (i) => ({ text: `Renamed ${codex(i)} · ${i.id ?? ""} → ${i.new_id ?? ""}`, entry: i.new_id, global: inGlobal(i) }),
   delete_codex_entry: (i) => ({ text: `Deleted ${codex(i)} · ${i.id ?? ""}` }),
+  // Linked where it went: the other Codex.
+  move_codex_entry: (i) => ({
+    text: inGlobal(i) ? `Moved ${i.id ?? ""} into the book's Codex` : `Moved ${i.id ?? ""} to the Global Codex`,
+    entry: i.id,
+    global: !inGlobal(i),
+  }),
 };
 
 function describeTool(item: Extract<ChatItem, { type: "tool" }>): ToolText {

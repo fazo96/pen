@@ -1,7 +1,7 @@
 import "server-only";
-import { createEntry, GLOBAL, listCodex, renameEntry, trashEntry, writeEntry } from "../../docs";
+import { createEntry, GLOBAL, listCodex, moveEntry, renameEntry, trashEntry, writeEntry } from "../../docs";
 import { createdEntry } from "../transcript";
-import { bool, checkSize, entry, entryIdProp, str, text, ToolError, type ToolContext, tool } from "./core";
+import { bool, type CodexChange, checkSize, entry, entryIdProp, str, text, ToolError, type ToolContext, tool } from "./core";
 
 // The Codex, the writer's notes beside the manuscript: the only thing
 // Construct can write. In a book, `global` turns each tool to the Global
@@ -14,7 +14,7 @@ const global = bool("Use the Global Codex (the notes every book shares) instead 
 const ownerOf = (ctx: ToolContext, args: { global?: boolean }) => (args.global || ctx.projectId === GLOBAL ? GLOBAL : ctx.projectId);
 
 /** Tell open views, saying which Codex changed. */
-const changed = (ctx: ToolContext, owner: string, change: { entry: string; action: "created" | "edited" | "renamed" | "deleted"; to?: string }) =>
+const changed = (ctx: ToolContext, owner: string, change: Omit<CodexChange, "global">) =>
   ctx.onCodexChange({ ...change, ...(owner === GLOBAL && { global: true }) });
 
 const lines = (list: Awaited<ReturnType<typeof listCodex>>) =>
@@ -145,3 +145,26 @@ export const codexTools = [
     },
   }),
 ];
+
+/** A book's Construct only: the Global Codex's own chats have no book to move an entry into. */
+export const moveTool = tool({
+  name: "move_codex_entry",
+  description:
+    "Move an entry from this book's Codex to the Global Codex, so every book shares it; with global: true, from the Global Codex into this book's. Its id stays unless taken there; the new id is returned.",
+  properties: {
+    id: entryIdProp("Entry id, where it is now."),
+    global: bool("The entry is in the Global Codex now, and moves into this book's."),
+  },
+  required: ["id"],
+  readOnly: false,
+  run: async (args, ctx) => {
+    if (ctx.projectId === GLOBAL) throw new ToolError("There's no book here to move it into.");
+    const from = ownerOf(ctx, args);
+    const to = from === GLOBAL ? ctx.projectId : GLOBAL;
+    await entry(from, args.id);
+    const moved = await moveEntry(from, args.id, to);
+    if (!moved) throw new ToolError(`Couldn't move "${args.id}".`);
+    changed(ctx, from, { entry: args.id, action: "moved", to: moved });
+    return `Moved "${args.id}" to ${to === GLOBAL ? "the Global Codex" : "this book's Codex"}${moved === args.id ? "" : ` as "${moved}" (its id was taken there)`}.`;
+  },
+});

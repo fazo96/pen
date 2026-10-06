@@ -18,7 +18,8 @@ export type ToolName =
   | "edit_codex_entry"
   | "write_codex_entry"
   | "rename_codex_entry"
-  | "delete_codex_entry";
+  | "delete_codex_entry"
+  | "move_codex_entry";
 
 export type PromptContext = {
   /** Codex entry open in the editor; absent for the manuscript. */

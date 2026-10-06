@@ -18,11 +18,12 @@ export function imageTypeOf(data: Uint8Array): string | null {
 }
 
 /** What the book already calls things, so names in the notes come out spelled right. */
-export type Hints = { book: string; entries: string[] };
+/** `book` null: the note goes into the Global Codex, the notes all the writer's books share. */
+export type Hints = { book: string | null; entries: string[] };
 
 export function transcribePrompt(pages: number, { book, entries }: Hints): string {
   const names = entries.slice(0, 200).map((t) => `- ${t}`).join("\n");
-  return `${pages > 1 ? `These ${pages} photos are pages of one handwritten note, in order.` : "This photo is a handwritten note."} Transcribe it into markdown for the Codex (the notes kept beside a novel) of the book "${book}".
+  return `${pages > 1 ? `These ${pages} photos are pages of one handwritten note, in order.` : "This photo is a handwritten note."} Transcribe it into markdown for ${book === null ? "the Global Codex (the notes a novelist keeps for all their books)" : `the Codex (the notes kept beside a novel) of the book "${book}"`}.
 
 - Transcribe faithfully: the writer's own words, spelling and order. Don't correct, summarize, complete or tidy the writing.
 - Keep the structure: headings, lists, numbering, indentation, arrows (→), underlined or boxed words as **bold**. Lines that run on into each other are one paragraph.
@@ -32,7 +33,7 @@ export function transcribePrompt(pages: number, { book, entries }: Hints): strin
 - Mention a drawing or diagram in one line in italics, e.g. *[sketch of the harbour]*, and still transcribe any words written on it.
 - Crossed-out words are left out.
 - Use straight quotes (" and ').
-- Reply with the markdown only: no preamble, no remarks, no code fence.${names ? `\n\nThe book's Codex already has these entries; prefer their spelling for names that look alike:\n${names}` : ""}`;
+- Reply with the markdown only: no preamble, no remarks, no code fence.${names ? `\n\nThe ${book === null ? "Global " : "book's "}Codex already has these entries; prefer their spelling for names that look alike:\n${names}` : ""}`;
 }
 
 /** The agent's reply as an entry: fences and stray preamble gone, an H1 on top. */

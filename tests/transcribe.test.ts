@@ -23,6 +23,11 @@ test("the prompt asks for guesses over gaps, and gives the Codex names", () => {
   const three = transcribePrompt(3, { book: "B", entries: [] });
   assert.match(three, /These 3 photos are pages of one handwritten note, in order/);
   assert.doesNotMatch(three, /already has these entries/);
+  // Into the Global Codex: no book, its own entries for names.
+  const shared = transcribePrompt(1, { book: null, entries: ["Style Sheet"] });
+  assert.match(shared, /for the Global Codex \(the notes a novelist keeps for all their books\)/);
+  assert.doesNotMatch(shared, /the book "/);
+  assert.match(shared, /The Global Codex already has these entries[\s\S]*- Style Sheet$/);
 });
 
 test("turns the reply into an entry with a title", () => {

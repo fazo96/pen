@@ -10,4 +10,4 @@ export const GET = route<{ id: string; job: string; n: string }>(async (_req, { 
   return new Response(new Uint8Array(page.data), {
     headers: { "Content-Type": page.mimeType, "Cache-Control": "private, max-age=3600" },
   });
-});
+}, { global: true });

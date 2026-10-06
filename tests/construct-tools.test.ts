@@ -121,3 +121,22 @@ test("a book's Construct reaches the Global Codex with global: true; the Global 
   );
   for (const t of global) assert.ok(!("global" in t.inputSchema.properties), t.name);
 });
+
+test("move_codex_entry moves between a book's Codex and the Global Codex, and only in a book", async () => {
+  const { id } = await createDoc("# Moving Tools Book");
+  await createEntry(id, "# Tide Tables\n\nHigh at noon.");
+  const out = await callTool("move_codex_entry", { id: "tide-tables" }, ctx(id));
+  assert.equal(out.text, 'Moved "tide-tables" to the Global Codex.');
+  assert.deepEqual(changes.slice(-1), [{ entry: "tide-tables", action: "moved", to: "tide-tables" }]);
+  assert.equal(await readEntry(id, "tide-tables"), null);
+  assert.ok(await readEntry(GLOBAL, "tide-tables"));
+
+  // Back, into a book that has one of that id already.
+  await createEntry(id, "# Tide Tables\n\nAnother.");
+  const back = await callTool("move_codex_entry", { id: "tide-tables", global: true }, ctx(id));
+  assert.match(back.text, /^Moved "tide-tables" to this book's Codex as "tide-tables-2"/);
+  assert.deepEqual(changes.slice(-1), [{ entry: "tide-tables", action: "moved", to: "tide-tables-2", global: true }]);
+  assert.equal((await callTool("move_codex_entry", { id: "nobody" }, ctx(id))).isError, true);
+  assert.equal((await callTool("move_codex_entry", { id: "tide-tables" }, ctx(GLOBAL))).isError, true, "no book to move into");
+  assert.ok(listTools(id).some((t) => t.name === "move_codex_entry"));
+});

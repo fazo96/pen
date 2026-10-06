@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { GLOBAL } from "@/lib/ids";
 import type { DocMeta, EntryMeta } from "@/lib/types";
 import { type PaletteItem, type PaletteMode, pieces, rank } from "@/lib/palette";
 
@@ -9,9 +10,10 @@ export type { PaletteItem, PaletteMode };
 
 const LIMIT = 60;
 
-/** The Codex and the library, fetched afresh each time the palette opens. */
+/** The Codex, the Global Codex (in a book) and the library, fetched afresh each time the palette opens. */
 export function usePaletteLists(projectId: string, open: boolean) {
   const [entries, setEntries] = useState<EntryMeta[] | null>(null);
+  const [globalEntries, setGlobalEntries] = useState<EntryMeta[] | null>(null);
   const [books, setBooks] = useState<DocMeta[] | null>(null);
   useEffect(() => {
     if (!open) return;
@@ -21,12 +23,13 @@ export function usePaletteLists(projectId: string, open: boolean) {
         .then((x) => live && set(x))
         .catch(() => {});
     void get(`/api/docs/${projectId}/codex`, setEntries);
+    if (projectId !== GLOBAL) void get(`/api/docs/${GLOBAL}/codex`, setGlobalEntries);
     void get("/api/docs", setBooks);
     return () => {
       live = false;
     };
   }, [projectId, open]);
-  return { entries, books };
+  return { entries, globalEntries, books };
 }
 
 type Props = {

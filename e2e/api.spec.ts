@@ -111,7 +111,8 @@ test("the Global Codex (_global): its entries, spot and moves; no book routes", 
   const { version } = (await (await request.get(`${codex}/${entry}`)).json()) as { version: string };
   expect((await request.put(`${codex}/${entry}`, { data: { content: `# ${name}\n\nedited`, baseVersion: version } })).status()).toBe(200);
   expect((await request.put("/api/docs/_global/spot", { data: { entry } })).status()).toBe(204);
-  expect((await request.post(codex, { data: { images: ["aGk="] } })).status()).toBe(400); // notes go into a book
+  expect((await request.post(codex, { data: { images: ["aGk="] } })).status()).toBe(415); // checked like a book's: not a picture
+  expect((await request.get("/api/docs/_global/imports")).status()).toBe(200);
 
   // Into a book and back.
   const book = uniqueId("api-global-book");
@@ -132,7 +133,6 @@ test("the Global Codex (_global): its entries, spot and moves; no book routes", 
   expect((await request.put("/api/docs/_global", { data: { content: "# x" } })).status()).toBe(404);
   expect((await request.get("/api/docs/_global/versions")).status()).toBe(404);
   expect((await request.get("/api/docs/_global/export")).status()).toBe(404);
-  expect((await request.get("/api/docs/_global/imports")).status()).toBe(404);
   expect((await request.get("/api/docs/_other/codex")).status()).toBe(404);
 });
 
@@ -154,6 +154,18 @@ test("AI routes work, on the stub agent", async ({ request }) => {
   const globalQuick = await request.post("/api/docs/_global/construct/quick", { data: { text: "hi there" } });
   expect(globalQuick.status()).toBe(200);
   expect(await globalQuick.text()).toContain("Echo:");
+  // A photo of a note, transcribed into the Global Codex (a 1×1 PNG; the stub echoes).
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+  const started = await request.post("/api/docs/_global/codex", { data: { images: [png] } });
+  expect(started.status()).toBe(202);
+  const { job } = (await started.json()) as { job: string };
+  await expect
+    .poll(async () => ((await (await request.get("/api/docs/_global/imports")).json()) as { id: string; status: string }[]).find((j) => j.id === job)?.status)
+    .toBe("done");
+  const done = ((await (await request.get("/api/docs/_global/imports")).json()) as { id: string; entry?: string }[]).find((j) => j.id === job);
+  expect(done?.entry).toBeTruthy();
+  expect((await request.get(`/api/docs/_global/codex/${done?.entry}`)).status()).toBe(200);
+  await request.delete(`/api/docs/_global/codex/${done?.entry}`);
   // Construct's MCP endpoint wants its own bearer token, not the session.
   expect((await request.post(`/api/construct/mcp`, { data: {} })).status()).toBe(401);
 });

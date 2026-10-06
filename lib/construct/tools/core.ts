@@ -7,7 +7,8 @@ import type { ToolName } from "../types";
 // is shown and what its arguments are checked and typed against (readArgs),
 // and the helpers the tools share.
 
-export type CodexChange = { entry: string; action: "created" | "edited" | "renamed" | "deleted"; to?: string; global?: boolean };
+/** `moved`: to the other Codex (the Global Codex, or from it into the book), as `to`; `global` says where it was. */
+export type CodexChange = { entry: string; action: "created" | "edited" | "renamed" | "deleted" | "moved"; to?: string; global?: boolean };
 
 export type ToolContext = {
   /** The book, or GLOBAL in the Global Codex's own chats. */

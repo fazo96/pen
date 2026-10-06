@@ -40,8 +40,6 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, onMove
   /** In a book: the Global Codex's entries. */
   const [shared, setShared] = useState<EntryMeta[] | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
-  /** Photos of handwritten notes are transcribed into a book's Codex, by Construct's agent. */
-  const photos = ai && !isGlobal;
   /** Notes being transcribed, and ones that failed (until dismissed on their page). */
   const [imports, setImports] = useState<ImportMeta[]>([]);
   const [busy, setBusy] = useState(false);
@@ -55,8 +53,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, onMove
     try {
       const [entries, jobs, global] = await Promise.all([
         api<EntryMeta[]>(base),
-        // Notes are transcribed into a book's Codex only.
-        isGlobal ? null : api<ImportMeta[]>(`/api/docs/${projectId}/imports`).catch(() => null),
+        api<ImportMeta[]>(`/api/docs/${projectId}/imports`).catch(() => null),
         isGlobal ? null : api<EntryMeta[]>(`/api/docs/${GLOBAL}/codex`).catch(() => null),
       ]);
       setList(entries);
@@ -142,9 +139,8 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, onMove
       .filter(isImage)
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     const others = files.filter((f) => !isImage(f));
-    if (!photos && pictures.length) {
-      const why = isGlobal ? "photos of notes go into a book’s Codex" : "transcribing notes needs AI, which is off (see Settings)";
-      skipped.push(`${pictures.map((p) => p.name).join(", ")}: ${why}`);
+    if (!ai && pictures.length) {
+      skipped.push(`${pictures.map((p) => p.name).join(", ")}: transcribing notes needs AI, which is off (see Settings)`);
       pictures.length = 0;
     }
     for (const file of others) {
@@ -278,7 +274,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, onMove
       <input
         ref={picker}
         type="file"
-        accept={photos ? CODEX_NOTE_ACCEPT : CODEX_IMPORT_ACCEPT}
+        accept={ai ? CODEX_NOTE_ACCEPT : CODEX_IMPORT_ACCEPT}
         multiple
         hidden
         onChange={(e) => {

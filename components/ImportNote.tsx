@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { codexHome, entryHref } from "@/lib/entryRef";
+import { GLOBAL } from "@/lib/ids";
 import type { ImportEvent, ImportMeta, ImportStatus } from "@/lib/imports";
 import { readNdjson } from "@/lib/ndjson";
 import { IconBack, IconStop } from "./icons";
@@ -10,6 +12,7 @@ import Logo from "./Logo";
 import ThemeButton from "./ThemeButton";
 
 type Props = {
+  /** The book, or GLOBAL for a note going into the Global Codex. */
   projectId: string;
   book: string;
   jobId: string;
@@ -23,6 +26,8 @@ type Props = {
  * once the answer starts), the entry it made.
  */
 export default function ImportNote({ projectId, book, jobId, job }: Props) {
+  const isGlobal = projectId === GLOBAL;
+  const back = isGlobal ? "Back to the Global Codex" : "Back to the book";
   const router = useRouter();
   const [status, setStatus] = useState<ImportStatus | null>(job?.status ?? null);
   const [text, setText] = useState("");
@@ -93,7 +98,7 @@ export default function ImportNote({ projectId, book, jobId, job }: Props) {
   };
   const dismiss = async () => {
     await fetch(api, { method: "DELETE" }).catch(() => {});
-    router.push(`/d/${projectId}`);
+    router.push(codexHome(projectId));
   };
 
   const what = pages === 1 ? "a picture" : `${pages} pictures`;
@@ -101,7 +106,7 @@ export default function ImportNote({ projectId, book, jobId, job }: Props) {
     <div className="app">
       <header className="topbar">
         <div className="topbar-left">
-          <Link href={`/d/${projectId}`} className="icon-btn" aria-label="Back to the book" title="Back to the book">
+          <Link href={codexHome(projectId)} className="icon-btn" aria-label={back} title={back}>
             <IconBack />
           </Link>
           <Link href="/?library" className="wordmark" aria-label="Library" title="Library">
@@ -116,13 +121,13 @@ export default function ImportNote({ projectId, book, jobId, job }: Props) {
 
       <main className="page page-bare">
         <section className="welcome settings import-note">
-          <span className="label">pen · {book} · codex</span>
+          <span className="label">pen · {isGlobal ? "global codex" : `${book} · codex`}</span>
           <h1 className="welcome-title">Handwritten note</h1>
 
           {!job || lost ? (
             <p className="welcome-lede">
               This import is no longer here: finished ones are kept for an hour, and a restart of pen ends them. Look for
-              its entry in the <Link href={`/d/${projectId}`}>book’s Codex</Link>.
+              its entry in the <Link href={codexHome(projectId)}>{isGlobal ? "Global Codex" : "book’s Codex"}</Link>.
             </p>
           ) : (
             <>
@@ -135,7 +140,7 @@ export default function ImportNote({ projectId, book, jobId, job }: Props) {
                       : `Transcribing ${what}… waiting for the model, which can take a minute, longer if a self-hosted one has to load.`)}
                 {status === "done" && entry && (
                   <>
-                    Done. <Link href={`/d/${projectId}/codex/${entry}`}>Open the entry</Link>
+                    Done. <Link href={entryHref(projectId, entry)}>Open the entry</Link>
                   </>
                 )}
                 {status === "failed" && (error === "stopped" ? "Stopped." : `Couldn’t transcribe ${what}: ${error}`)}
@@ -177,7 +182,7 @@ export default function ImportNote({ projectId, book, jobId, job }: Props) {
                   </button>
                 )}
                 {status === "done" && entry && (
-                  <Link className="btn btn-primary" href={`/d/${projectId}/codex/${entry}`}>
+                  <Link className="btn btn-primary" href={entryHref(projectId, entry)}>
                     Open the entry
                   </Link>
                 )}

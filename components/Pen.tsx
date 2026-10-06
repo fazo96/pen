@@ -411,8 +411,10 @@ export default function Pen({
   const onCodexChange = ({ entry, action, to, global }: { entry: string; action: string; to?: string; global?: boolean }) => {
     setCodexKey((k) => k + 1);
     const owner = global ? GLOBAL : projectId;
+    // A move goes to the other Codex: the Global Codex, or from it into this book.
+    const moved = action === "moved" && to ? { owner: owner === GLOBAL ? projectId : GLOBAL, id: to } : null;
     if (owner === projectId && entry === last?.id) {
-      if (action === "deleted") setLast(null);
+      if (action === "deleted" || action === "moved") setLast(null);
       if (action === "renamed" && to) setLast({ ...last, id: to });
     }
     if (!isEntry) {
@@ -420,11 +422,13 @@ export default function Pen({
       if (action === "edited") void panel.pull();
       if (action === "renamed" && to) panel.renamed(refOf({ owner, id: to }));
       if (action === "deleted") dropEntry();
+      if (moved) panel.renamed(refOf(moved));
       return;
     }
     if (owner !== projectId || entry !== initial.id) return;
     if (action === "edited") void pull(); // skipped if we have unsaved typing: the next save then conflicts
     if (action === "renamed" && to) router.replace(entryHref(projectId, to));
+    if (moved) router.replace(entryHref(moved.owner, moved.id));
   };
   /** Move an entry between the book's Codex and the Global Codex, following it if it's the one shown. */
   const moveTo = async (from: EntryRef, to: string) => {
@@ -615,10 +619,14 @@ export default function Pen({
       ...shared,
       recent,
       entries: lists.entries,
+      globalEntries: lists.globalEntries,
+      globalHere: panelRef?.owner === GLOBAL ? panelRef.id : null,
       books: lists.books,
       headings,
       switchView,
       openEntry: (eid) => void open(entryHref(projectId, eid)),
+      // In a book; on the Global Codex's page its entries are the Codex above.
+      openGlobalEntry: isGlobal ? undefined : (eid) => void open(entryHref(GLOBAL, eid)),
       jumpTo: (h) => {
         const had = !!paletteFrom.current;
         jump(h);

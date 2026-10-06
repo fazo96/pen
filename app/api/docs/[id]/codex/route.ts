@@ -3,7 +3,7 @@ import { askOnce } from "@/lib/construct/ask";
 import { critsToMarkdown, isCritiqueCirclePage } from "@/lib/critiquecircle";
 import { createEntry, GLOBAL, listCodex, MAX_BYTES, readDoc } from "@/lib/docs";
 import { startImport } from "@/lib/imports";
-import { badRequest, fail, notFound, noStore, readJson, route } from "@/lib/route";
+import { fail, notFound, noStore, readJson, route } from "@/lib/route";
 import { titleOf } from "@/lib/text";
 import { entryFromReply, imageTypeOf, MAX_PAGE_BYTES, MAX_PAGES, transcribePrompt } from "@/lib/transcribe";
 
@@ -21,11 +21,7 @@ export const GET = route<{ id: string }>(async (_req, { id }) => {
  */
 export const POST = route<{ id: string }>(async (req, { id }) => {
   const body = ((await readJson(req)) ?? {}) as { content?: unknown; name?: unknown; html?: unknown; images?: unknown };
-  if (body.images !== undefined) {
-    // Transcribing reads the book for names; the Global Codex has none.
-    if (id === GLOBAL) return badRequest("photos of notes go into a book’s Codex");
-    return transcribe(id, body.images);
-  }
+  if (body.images !== undefined) return transcribe(id, body.images);
   let content = typeof body.content === "string" ? body.content : "";
   let name = typeof body.name === "string" ? body.name : undefined;
   if (typeof body.html === "string") {
@@ -58,9 +54,11 @@ async function transcribe(id: string, images: unknown): Promise<Response> {
     if (!mimeType) return fail(415, "pictures must be JPEG, PNG, WebP or GIF");
     pages.push({ data: bytes, mimeType });
   }
-  const [doc, entries] = await Promise.all([readDoc(id), listCodex(id)]);
-  if (!doc || !entries) return notFound();
-  const prompt = transcribePrompt(pages.length, { book: titleOf(doc.content, id), entries: entries.map((e) => e.title) });
+  // The Global Codex has no book: its own entries are the names to go by.
+  const [doc, entries] = await Promise.all([id === GLOBAL ? null : readDoc(id), listCodex(id)]);
+  if ((id !== GLOBAL && !doc) || !entries) return notFound();
+  const book = doc ? titleOf(doc.content, id) : null;
+  const prompt = transcribePrompt(pages.length, { book, entries: entries.map((e) => e.title) });
 
   const job = startImport(id, pages, async ({ onText, onThought, signal }) => {
     let reply: string;

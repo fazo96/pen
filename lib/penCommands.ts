@@ -34,10 +34,14 @@ export type PlacesContext = Shared & {
   recent: string[];
   /** The Codex and the library, once fetched (null until then). */
   entries: EntryMeta[] | null;
+  /** In a book: the Global Codex's entries, once fetched; and the one shown beside the manuscript, if any. */
+  globalEntries?: EntryMeta[] | null;
+  globalHere?: string | null;
   books: DocMeta[] | null;
   headings: Heading[];
   switchView: () => void;
   openEntry: (eid: string) => void;
+  openGlobalEntry?: (eid: string) => void;
   jumpTo: (h: Heading) => void;
   openBook: (id: string) => void;
 };
@@ -101,6 +105,13 @@ export function buildPlaces(c: PlacesContext): PaletteItem[] {
       when: shownAbove ? "search" : undefined,
       run: () => c.openEntry(e.id),
     });
+  }
+  const openGlobal = c.openGlobalEntry;
+  if (openGlobal) {
+    for (const e of c.globalEntries ?? []) {
+      if (e.id === c.globalHere) continue;
+      items.push({ key: `global:${e.id}`, section: "Global Codex", label: e.title, keywords: "global", run: () => openGlobal(e.id) });
+    }
   }
   for (const b of c.books ?? []) {
     if (b.id === c.projectId) continue;

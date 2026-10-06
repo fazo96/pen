@@ -1,6 +1,6 @@
 import "server-only";
 import { GLOBAL } from "../../ids";
-import { codexTools } from "./codex";
+import { codexTools, moveTool } from "./codex";
 import { type Tool, type ToolContext, ToolError } from "./core";
 import { manuscriptTools } from "./manuscript";
 import { versionTools } from "./versions";
@@ -14,7 +14,7 @@ import { versionTools } from "./versions";
 
 export type { CodexChange, ToolContext } from "./core";
 
-const TOOLS: Tool[] = [...manuscriptTools, ...versionTools, ...codexTools];
+const TOOLS: Tool[] = [...manuscriptTools, ...versionTools, ...codexTools, moveTool];
 
 /** The tools a chat of `projectId` gets. */
 function toolsFor(projectId: string): Tool[] {
