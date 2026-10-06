@@ -1,6 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { agentsText, agentsUpdate, describeContext, promptContextFrom, quickPrompt, quickQuestion, systemPrompt } from "../lib/construct/prompts.ts";
+import {
+  agentsText,
+  agentsUpdate,
+  bookAgents,
+  describeContext,
+  globalSystemPrompt,
+  promptContextFrom,
+  quickPrompt,
+  quickQuestion,
+  systemPrompt,
+} from "../lib/construct/prompts.ts";
 
 // What Construct is told along with a message (lib/construct/prompts.ts).
 
@@ -46,4 +56,22 @@ test("a change to AGENTS mid-chat is sent as an update", () => {
   assert.match(agentsUpdate(null), /no longer apply/);
   assert.equal(agentsText(" \n "), null);
   assert.equal(agentsText(undefined), null);
+});
+
+test("the Global Codex: its entries named in a message's context, its own prompt", () => {
+  assert.deepEqual(promptContextFrom({ entry: "style", global: true }), { entry: "style", global: true });
+  assert.deepEqual(promptContextFrom({ global: true }), {}, "no entry, nothing global about it");
+  assert.match(describeContext({ entry: "style", global: true }), /^\[The writer is looking at the Global Codex entry "style"\.\]$/);
+  assert.doesNotMatch(globalSystemPrompt(), /read_manuscript|standing instructions/);
+  assert.match(globalSystemPrompt("Be blunt."), /theirs win:\n"""\nBe blunt\.\n"""$/);
+  assert.match(quickPrompt(null), /a passage of the writer's notes/);
+});
+
+test("a book's standing instructions are the Global Codex's AGENTS, then its own", () => {
+  assert.equal(bookAgents(null, "  "), null);
+  assert.equal(bookAgents("Every book.", undefined), "Every book.");
+  assert.equal(bookAgents(" ", "This book."), "This book.");
+  const both = bookAgents("Every book.", "This book.") ?? "";
+  assert.ok(both.indexOf("Every book.") < both.indexOf("This book."), both);
+  assert.match(both, /this book's own AGENTS, which wins/);
 });

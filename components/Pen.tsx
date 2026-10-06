@@ -3,10 +3,11 @@
 import { type Editor, EditorContent } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, createEntry, saveVersion as postVersion } from "@/lib/api";
+import { api, createEntry, moveEntry, saveVersion as postVersion } from "@/lib/api";
 import { type Citation, findPassage, parseCitation } from "@/lib/cite";
 import { textWithoutComments } from "@/lib/comments";
 import type { PromptContext } from "@/lib/construct/types";
+import { entryBackupKey, entryHref, type EntryRef, entryOfHref, entryOfRef, refOf } from "@/lib/entryRef";
 import { CODEX_GRAMMAR } from "@/lib/grammar";
 import { grammar, useGrammarEnabled } from "@/lib/grammarClient";
 import { focusFromMargin } from "@/lib/marginFocus";
@@ -14,7 +15,8 @@ import { matches, ROOMY, WIDE } from "@/lib/media";
 import { showPassage } from "@/lib/passage";
 import { buildCommands, buildPlaces, type DrawerTab } from "@/lib/penCommands";
 import type { Spot } from "@/lib/spot";
-import { session } from "@/lib/storage";
+import { GLOBAL } from "@/lib/ids";
+import { local, session } from "@/lib/storage";
 import { slugify, wordCount } from "@/lib/text";
 import type { Story } from "@/lib/useAutosave";
 import { focusText, useCodexPanel } from "@/lib/useCodexPanel";
@@ -68,11 +70,12 @@ const DRAWER_TABS: Record<DrawerTab, { name: string; Icon: (p: React.SVGProps<SV
 type AskConstruct = (text: string, range: { from: number; to: number }, send: boolean, kind?: QuickKind) => void;
 
 type Props = {
+  /** The book, or GLOBAL for an entry of the Global Codex (on its own page, /codex/<entry>). */
   projectId: string;
   /** The manuscript itself, or one of its codex entries. */
   kind: "manuscript" | "entry";
   initial: Story;
-  /** Codex entry to open beside the manuscript (from `?entry=`). */
+  /** Codex entry to open beside the manuscript (from `?entry=`, a ref: see lib/entryRef.ts). */
   initialEntry?: string;
   /** A Construct citation to show once the manuscript is loaded (from `?cite=`). */
   initialCite?: string;
@@ -98,6 +101,8 @@ export default function Pen({
   recentEntries,
 }: Props) {
   const isEntry = kind === "entry";
+  /** The Global Codex's own page: an entry with no book around it. */
+  const isGlobal = projectId === GLOBAL;
   const headingNames = HEADINGS[kind];
   const router = useRouter();
   const lib = useLibrary();
@@ -120,7 +125,7 @@ export default function Pen({
     kind,
     initial,
     url: isEntry ? `/api/docs/${projectId}/codex/${initial.id}` : `/api/docs/${projectId}`,
-    backupKey: isEntry ? `pen:backup:${projectId}/codex/${initial.id}` : `pen:backup:${projectId}`,
+    backupKey: isEntry ? entryBackupKey(projectId, initial.id) : `pen:backup:${projectId}`,
     onEdit: () => setTyping(true),
     // A manuscript gets a version first, so nothing is lost.
     beforeStraightening: async () => {
@@ -149,6 +154,10 @@ export default function Pen({
   // The Codex entry open beside the manuscript, and which editor the toolbar serves.
   const panel = useCodexPanel({ projectId, enabled: !isEntry, initialEntry, editor });
   const { entry: panelEntry, editor: panelEditor, title: panelTitle, inPanel } = panel;
+  /** Whose entry is beside the manuscript: the book's, or the Global Codex's. */
+  const panelRef = panelEntry ? entryOfRef(projectId, panelEntry) : null;
+  /** The entry this page shows, on its own page or beside the manuscript. */
+  const shownEntry: EntryRef | null = isEntry ? { owner: projectId, id: initial.id } : panelRef;
 
   // Reopen where the writer left off, unless a citation brought them here.
   const spotUrl = `/api/docs/${projectId}/spot`;
@@ -246,7 +255,8 @@ export default function Pen({
   // ─── Construct citations ───────────────────────────────────
   /** Jump to a passage Construct cited. False when it can't be found any more. */
   const cite = async (c: Exclude<Citation, { kind: "codex" }>, href: string): Promise<boolean> => {
-    // Passages live on the manuscript's page.
+    // Passages live on the manuscript's page; the Global Codex has none.
+    if (isGlobal) return false;
     if (isEntry) {
       void go(`/d/${projectId}?cite=${encodeURIComponent(href)}`);
       return true;
@@ -283,7 +293,7 @@ export default function Pen({
     router.push(href);
   };
   const goLibrary = () => go("/?library");
-  const openSettings = () => go(`/d/${projectId}/settings`);
+  const openSettings = () => go(isGlobal ? "/settings" : `/d/${projectId}/settings`);
   const grammarOn = useGrammarEnabled();
   // A Codex entry's page has nothing to list unless entries are checked.
   const grammarList = !isEntry || CODEX_GRAMMAR;
@@ -302,15 +312,23 @@ export default function Pen({
   };
   // ─── Switching between the manuscript and the Codex entry viewed last ───
   const [last, setLast] = useState(lastEntry ?? null);
-  // Any entry opened counts, beside the manuscript or on its own page.
-  const visited = isEntry ? initial.id : panelEntry;
+  // Any entry opened counts, beside the manuscript or on its own page, in its
+  // own Codex's spot.json (a Global Codex entry beside a book counts there).
+  const shownOwner = shownEntry?.owner;
+  const shownId = shownEntry?.id;
   useEffect(() => {
-    if (!visited) return;
-    void api(spotUrl, { method: "PUT", json: { entry: visited } }).catch(() => {});
-  }, [spotUrl, visited]);
+    if (!shownOwner || !shownId) return;
+    void api(`/api/docs/${shownOwner}/spot`, { method: "PUT", json: { entry: shownId } }).catch(() => {});
+  }, [shownOwner, shownId]);
+  // The switch and the recent entries are this page's own Codex's.
+  const visited = shownOwner === projectId ? (shownId ?? null) : null;
   useEffect(() => {
-    if (panelEntry) setLast((l) => ({ id: panelEntry, title: panelTitle || (l?.id === panelEntry ? l.title : panelEntry) }));
-  }, [panelEntry, panelTitle]);
+    if (panelEntry && panelRef?.owner === projectId) {
+      setLast((l) => ({ id: panelEntry, title: panelTitle || (l?.id === panelEntry ? l.title : panelEntry) }));
+    }
+    // panelRef follows panelEntry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panelEntry, panelTitle, projectId]);
 
   /**
    * Manuscript ⇄ the last entry: a page of its own on phones, the side panel where there's
@@ -321,7 +339,9 @@ export default function Pen({
     return panelEntry && inPanel ? toManuscript() : toCodex();
   };
   const switchLabel = isEntry
-    ? "Back to the manuscript"
+    ? isGlobal
+      ? "Library"
+      : "Back to the manuscript"
     : panelEntry
       ? inPanel
         ? "Back to the manuscript"
@@ -333,8 +353,8 @@ export default function Pen({
   /** Codex and Construct links: entries open beside the manuscript when there's room. */
   const open = (href: string) => {
     if (isEntry) return go(href);
-    const entry = href.match(/^\/d\/[^/]+\/codex\/([^/?#]+)$/)?.[1];
-    if (entry && matches(WIDE)) return openEntry(entry);
+    const entry = entryOfHref(href);
+    if (entry && (entry.owner === projectId || entry.owner === GLOBAL) && matches(WIDE)) return openEntry(refOf(entry));
     // Codex navigates home after deleting the open entry.
     if (href === `/d/${projectId}` && panelEntry) return dropEntry();
     return go(href);
@@ -353,8 +373,8 @@ export default function Pen({
   // ─── Construct ─────────────────────────────────────────────
   /** Where the writer is in `ed`, and what they've selected there (or in `range`). */
   const contextIn = (ed: Editor | null, range?: { from: number; to: number }): PromptContext => {
-    const context: PromptContext =
-      ed && ed === panelEditor ? { entry: panelEntry! } : isEntry ? { entry: initial.id } : {};
+    const here = ed && ed === panelEditor ? panelRef : isEntry ? shownEntry : null;
+    const context: PromptContext = here ? { entry: here.id, ...(here.owner === GLOBAL && { global: true as const }) } : {};
     const sel = range ?? (ed && !ed.state.selection.empty ? ed.state.selection : null);
     if (ed && sel) {
       const text = ed.state.doc.textBetween(sel.from, sel.to, "\n").trim();
@@ -388,22 +408,35 @@ export default function Pen({
   const beforeConstruct = async () => {
     await Promise.all([leave(), panel.leave()]);
   };
-  const onCodexChange = ({ entry, action, to }: { entry: string; action: string; to?: string }) => {
+  const onCodexChange = ({ entry, action, to, global }: { entry: string; action: string; to?: string; global?: boolean }) => {
     setCodexKey((k) => k + 1);
-    if (entry === last?.id) {
+    const owner = global ? GLOBAL : projectId;
+    if (owner === projectId && entry === last?.id) {
       if (action === "deleted") setLast(null);
       if (action === "renamed" && to) setLast({ ...last, id: to });
     }
     if (!isEntry) {
-      if (entry !== panelEntry) return;
+      if (panelRef?.owner !== owner || panelRef.id !== entry) return;
       if (action === "edited") void panel.pull();
-      if (action === "renamed" && to) panel.renamed(to);
+      if (action === "renamed" && to) panel.renamed(refOf({ owner, id: to }));
       if (action === "deleted") dropEntry();
       return;
     }
-    if (entry !== initial.id) return;
+    if (owner !== projectId || entry !== initial.id) return;
     if (action === "edited") void pull(); // skipped if we have unsaved typing: the next save then conflicts
-    if (action === "renamed" && to) router.replace(`/d/${projectId}/codex/${to}`);
+    if (action === "renamed" && to) router.replace(entryHref(projectId, to));
+  };
+  /** Move an entry between the book's Codex and the Global Codex, following it if it's the one shown. */
+  const moveTo = async (from: EntryRef, to: string) => {
+    const shown = shownEntry?.owner === from.owner && shownEntry.id === from.id;
+    if (shown) await (isEntry ? leave() : panel.leave()); // what's typed goes with it
+    const id = await moveEntry(from.owner, from.id, to);
+    local.set(entryBackupKey(from.owner, from.id), null);
+    setCodexKey((k) => k + 1);
+    if (from.owner === projectId && from.id === last?.id) setLast(null);
+    if (!shown) return;
+    if (isEntry) return go(entryHref(to, id));
+    panel.renamed(refOf({ owner: to, id }));
   };
   const { importFile: importDoc } = lib;
   const importFile = useCallback(
@@ -487,6 +520,7 @@ export default function Pen({
 
   const toManuscript = () => {
     setOutlineOpen(false);
+    if (isGlobal) return goLibrary(); // no manuscript here
     if (isEntry) {
       const beside = matches(WIDE);
       return goAndFocus(beside ? `/d/${projectId}?entry=${encodeURIComponent(initial.id)}` : `/d/${projectId}`);
@@ -506,7 +540,7 @@ export default function Pen({
       return panel.focus();
     }
     if (!last) return showTab("codex");
-    if (!beside) return goAndFocus(`/d/${projectId}/codex/${last.id}`);
+    if (!beside) return goAndFocus(entryHref(projectId, last.id));
     panel.focus();
     return openEntry(last.id);
   };
@@ -560,7 +594,7 @@ export default function Pen({
     try {
       const eid = await createEntry(projectId);
       setCodexKey((k) => k + 1);
-      void open(`/d/${projectId}/codex/${eid}`);
+      void open(entryHref(projectId, eid));
     } catch {
       setNotice("Couldn’t create the entry.");
     }
@@ -584,7 +618,7 @@ export default function Pen({
       books: lists.books,
       headings,
       switchView,
-      openEntry: (eid) => void open(`/d/${projectId}/codex/${eid}`),
+      openEntry: (eid) => void open(entryHref(projectId, eid)),
       jumpTo: (h) => {
         const had = !!paletteFrom.current;
         jump(h);
@@ -641,7 +675,7 @@ export default function Pen({
         saveVersion: (label) => void saveVersion(label),
         newEntry: () => void newEntry(),
         closeEntry: () => void closeEntry(),
-        expandEntry: () => void go(`/d/${projectId}/codex/${panelEntry}`),
+        expandEntry: () => panelRef && void go(entryHref(panelRef.owner, panelRef.id)),
         toggleFocus,
         toggleSteady: () => setSteady(!steady),
         cycleTheme,
@@ -662,6 +696,7 @@ export default function Pen({
       <EditorTopBar
         title={title}
         isEntry={isEntry}
+        isGlobal={isGlobal}
         docId={initial.id}
         status={status}
         savedAt={savedAt}
@@ -694,7 +729,7 @@ export default function Pen({
         onClose={() => setOutlineOpen(false)}
         label="Outline"
         head={
-          isEntry ? (
+          isEntry && !isGlobal ? (
             <button type="button" className="drawer-back" onClick={() => go(`/d/${projectId}`)}>
               <IconBack /> Manuscript
             </button>
@@ -749,6 +784,7 @@ export default function Pen({
             activeId={isEntry ? initial.id : panelEntry}
             activeTitle={isEntry ? h1 || undefined : panelTitle}
             onOpen={open}
+            onMove={isGlobal ? undefined : moveTo}
             refreshKey={codexKey}
             ai={ai}
           />
@@ -785,14 +821,15 @@ export default function Pen({
         </div>
       </main>
 
-      {panelEntry && (
+      {panelEntry && panelRef && (
         <CodexPanel
           key={panelEntry}
-          projectId={projectId}
-          entryId={panelEntry}
+          owner={panelRef.owner}
+          entryId={panelRef.id}
+          titleKey={panelEntry}
           {...panel.props}
           onClose={closeEntry}
-          onExpand={() => go(`/d/${projectId}/codex/${panelEntry}`)}
+          onExpand={() => panelRef && go(entryHref(panelRef.owner, panelRef.id))}
           onMissing={dropEntry}
           onChange={onPanelTyping}
         >

@@ -20,7 +20,7 @@ const FILES_MAX_AGE = 30 * 24 * 60 * 60 * 1000;
 /** The page's cache key; null for pages not kept. Same as pageKey in lib/offline.ts. */
 function pageKey(url) {
   if (url.pathname === "/") return url.searchParams.has("library") ? "/?library" : "/";
-  if (/^\/d\/[^/]+(\/codex\/[^/]+)?$/.test(url.pathname)) return url.pathname;
+  if (/^\/d\/[^/]+(\/codex\/[^/]+)?$/.test(url.pathname) || /^\/codex\/[^/]+$/.test(url.pathname)) return url.pathname;
   return null;
 }
 

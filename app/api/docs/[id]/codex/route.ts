@@ -1,9 +1,9 @@
 import { aiEnabled, aiOffResponse } from "@/lib/construct/agents";
 import { askOnce } from "@/lib/construct/ask";
 import { critsToMarkdown, isCritiqueCirclePage } from "@/lib/critiquecircle";
-import { createEntry, listCodex, MAX_BYTES, readDoc } from "@/lib/docs";
+import { createEntry, GLOBAL, listCodex, MAX_BYTES, readDoc } from "@/lib/docs";
 import { startImport } from "@/lib/imports";
-import { fail, notFound, noStore, readJson, route } from "@/lib/route";
+import { badRequest, fail, notFound, noStore, readJson, route } from "@/lib/route";
 import { titleOf } from "@/lib/text";
 import { entryFromReply, imageTypeOf, MAX_PAGE_BYTES, MAX_PAGES, transcribePrompt } from "@/lib/transcribe";
 
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export const GET = route<{ id: string }>(async (_req, { id }) => {
   const list = await listCodex(id);
   return list ? noStore(list) : notFound();
-});
+}, { global: true });
 
 /**
  * Create an entry from markdown `content`, from a saved Critique Circle page's
@@ -21,7 +21,11 @@ export const GET = route<{ id: string }>(async (_req, { id }) => {
  */
 export const POST = route<{ id: string }>(async (req, { id }) => {
   const body = ((await readJson(req)) ?? {}) as { content?: unknown; name?: unknown; html?: unknown; images?: unknown };
-  if (body.images !== undefined) return transcribe(id, body.images);
+  if (body.images !== undefined) {
+    // Transcribing reads the book for names; the Global Codex has none.
+    if (id === GLOBAL) return badRequest("photos of notes go into a book’s Codex");
+    return transcribe(id, body.images);
+  }
   let content = typeof body.content === "string" ? body.content : "";
   let name = typeof body.name === "string" ? body.name : undefined;
   if (typeof body.html === "string") {
@@ -32,7 +36,7 @@ export const POST = route<{ id: string }>(async (req, { id }) => {
   if (Buffer.byteLength(content) > MAX_BYTES) return fail(413, "entry too large (max 5 MB)");
   const entry = await createEntry(id, content, name);
   return entry ? Response.json(entry, { status: 201 }) : notFound();
-});
+}, { global: true });
 
 /**
  * The note in the photos as a new entry. Checks answer at once; the reading

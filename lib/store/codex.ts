@@ -2,7 +2,7 @@ import "server-only";
 import { mkdir, readdir, readFile, rename, stat } from "node:fs/promises";
 import path from "node:path";
 import { createExclusive, writeAtomic } from "../files";
-import { isValidId } from "../ids";
+import { GLOBAL, isOwnerId, isValidId } from "../ids";
 import { droppedEntry, renamedEntry } from "../spot";
 import { slugify, titleOf, wordCount } from "../text";
 import type { Doc, EntryMeta } from "../types";
@@ -10,7 +10,9 @@ import { codexDir, entryFile, isMissing, projectExists, ready, serialize, stale,
 import { updateSpots } from "./spots";
 import { recordEntryRename, trackSave } from "./stats";
 
-// Notes that sit beside the manuscript: <project>/codex/<entry>.md.
+// Notes that sit beside the manuscript: <project>/codex/<entry>.md. The same
+// functions keep the Global Codex, the notes every book shares, with GLOBAL
+// as the project. Its entries have no writing stats: those belong to a book.
 
 /** When a Codex entry was last written; 0 without any. */
 export async function lastCodexEdit(id: string): Promise<number> {
@@ -36,7 +38,7 @@ export async function lastCodexEdit(id: string): Promise<number> {
 
 /** Entries in alphabetical order of title; null if the project doesn't exist. */
 export async function listCodex(id: string): Promise<EntryMeta[] | null> {
-  if (!isValidId(id) || !(await projectExists(id))) return null;
+  if (!isOwnerId(id) || !(await projectExists(id))) return null;
   let names: string[];
   try {
     names = await readdir(codexDir(id));
@@ -65,7 +67,7 @@ export async function listCodex(id: string): Promise<EntryMeta[] | null> {
 }
 
 export async function readEntry(id: string, eid: string): Promise<Doc | null> {
-  if (!isValidId(id) || !isValidId(eid)) return null;
+  if (!isOwnerId(id) || !isValidId(eid)) return null;
   await ready();
   try {
     const content = await readFile(entryFile(id, eid), "utf8");
@@ -103,7 +105,7 @@ export function writeEntry(
     if (stale(current, content, baseVersion, force)) return { ok: false, current: current! };
     if (current?.content !== content) {
       await writeAtomic(entryFile(id, eid), content);
-      if (track) {
+      if (track && id !== GLOBAL) {
         const title = titleOf(content, eid);
         trackSave({ book: id, kind: "codex", entry: eid, before: current?.content ?? "", after: content, pasted: track.pasted, title });
       }
@@ -139,11 +141,43 @@ export function renameEntry(id: string, eid: string, newEid: string): Promise<bo
     try {
       await rename(from, to);
       await updateSpots(id, (s) => renamedEntry(s, eid, newEid));
-      await recordEntryRename(id, eid, newEid); // so its writing stats follow it
+      if (id !== GLOBAL) await recordEntryRename(id, eid, newEid); // so its writing stats follow it
       return true;
     } catch (err) {
       if (isMissing(err)) return false;
       throw err;
+    }
+  });
+}
+
+/**
+ * Move an entry to another book's Codex or the Global Codex (`to`), keeping its
+ * id unless that's taken there (then -2, -3…). Its new id; null if the entry or
+ * the destination is missing. Writing stats stay with the book it was written in.
+ */
+export function moveEntry(id: string, eid: string, to: string): Promise<string | null> {
+  if (!isOwnerId(id) || !isOwnerId(to) || !isValidId(eid) || id === to) return Promise.resolve(null);
+  return serialize(async () => {
+    if (!(await projectExists(to))) return null;
+    const from = entryFile(id, eid);
+    try {
+      await stat(from);
+    } catch (err) {
+      if (isMissing(err)) return null;
+      throw err;
+    }
+    await mkdir(codexDir(to), { recursive: true });
+    for (let i = 1; ; i++) {
+      const target = i === 1 ? eid : `${eid.slice(0, 72)}-${i}`;
+      try {
+        await stat(entryFile(to, target));
+        continue; // taken
+      } catch (err) {
+        if (!isMissing(err)) throw err;
+      }
+      await rename(from, entryFile(to, target));
+      await updateSpots(id, (s) => droppedEntry(s, eid));
+      return target;
     }
   });
 }

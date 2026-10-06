@@ -12,7 +12,7 @@ import type {
   SessionNotification,
 } from "@agentclientprotocol/sdk";
 import { anchorCitations } from "../cite";
-import { agentHome, readChats, readDoc, readEntry, readVersion, trashChat, writeChat } from "../docs";
+import { agentHome, GLOBAL, readChats, readDoc, readEntry, readVersion, trashChat, writeChat } from "../docs";
 import { type AgentLaunch, type AgentProcess, initialize, modelOption, optionValues, spawnAgent, startupInfoOf } from "../acp";
 import { titleOf } from "../text";
 import { type CodexChange, listTools, type ToolContext } from "./tools";
@@ -20,7 +20,7 @@ import { DEFAULT_AGENT } from "./agentInfo";
 import { type AgentId, type AgentPreset, AGENTS, fallbackAgent, isAgentId, launchFor, MCP_NAME, penToolName, toolNameOf } from "./agents";
 import { type ChatNames, chatTitle, cleanChatName, isStoredChat, metaOf, newChatId, type StoredChat } from "./chats";
 import { modelFor } from "./ask";
-import { AGENTS_ENTRY, agentsText, agentsUpdate, describeContext, systemPrompt } from "./prompts";
+import { AGENTS_ENTRY, agentsText, agentsUpdate, bookAgents, describeContext, globalSystemPrompt, systemPrompt } from "./prompts";
 import { type Change, settled, Transcript, visibleConfig } from "./transcript";
 import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, PromptContext } from "./types";
 
@@ -309,8 +309,11 @@ class ConstructSession {
       const mcpUrl = `${this.baseUrl}/api/construct/mcp`;
       const launch = await launchFor(agent, {
         cwd: path.join(os.tmpdir(), "pen-construct", await agentHome(this.projectId)),
-        systemPrompt: systemPrompt(doc ? titleOf(doc.content, this.projectId) : this.projectId, agents),
-        mcp: { url: mcpUrl, token: this.token, tools: listTools().map((t) => t.name) },
+        systemPrompt:
+          this.projectId === GLOBAL
+            ? globalSystemPrompt(agents)
+            : systemPrompt(doc ? titleOf(doc.content, this.projectId) : this.projectId, agents),
+        mcp: { url: mcpUrl, token: this.token, tools: listTools(this.projectId).map((t) => t.name) },
       });
       this.launched = { ...launch, mcpUrl };
       const p = (proc = await spawnAgent(launch, this.client(), 40));
@@ -466,8 +469,11 @@ class ConstructSession {
     return [{ type: "text", text: agentsUpdate(agents) }];
   }
 
+  /** The standing instructions: a book's are the Global Codex's AGENTS and its own. */
   private async readAgents() {
-    return agentsText((await readEntry(this.projectId, AGENTS_ENTRY))?.content);
+    const global = (await readEntry(GLOBAL, AGENTS_ENTRY))?.content;
+    if (this.projectId === GLOBAL) return agentsText(global);
+    return bookAgents(global, (await readEntry(this.projectId, AGENTS_ENTRY))?.content);
   }
 
   /** One turn: start the agent if needed, send `prompt`, wait for the end; failures become notices. */

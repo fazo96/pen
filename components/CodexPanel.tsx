@@ -5,6 +5,8 @@ import { useEffect, useImperativeHandle, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { textWithoutComments } from "@/lib/comments";
 import type { Story } from "@/lib/useAutosave";
+import { entryApi, entryBackupKey } from "@/lib/entryRef";
+import { GLOBAL } from "@/lib/ids";
 import { focusFromMargin } from "@/lib/marginFocus";
 import { useDocScan, useEditorDoc } from "@/lib/useEditorDoc";
 import ConflictBanner from "./ConflictBanner";
@@ -19,8 +21,11 @@ export type CodexPanelHandle = {
 };
 
 type Props = {
-  projectId: string;
+  /** Whose entry: the book, or GLOBAL for one of the Global Codex. */
+  owner: string;
   entryId: string;
+  /** What its title is reported under (onTitle): the ref it was opened by, see lib/entryRef.ts. */
+  titleKey: string;
   handle: React.Ref<CodexPanelHandle>;
   onClose: () => void;
   /** Open the entry on its own page. */
@@ -29,7 +34,7 @@ type Props = {
   onMissing: () => void;
   onEditor: (editor: Editor | null) => void;
   /** The entry's live title ("" without an H1), once its editor has it. */
-  onTitle: (entryId: string, title: string) => void;
+  onTitle: (titleKey: string, title: string) => void;
   onChange: () => void;
   /** Over the entry, under the head: the find bar. */
   children?: React.ReactNode;
@@ -37,7 +42,7 @@ type Props = {
 
 /** A codex entry beside the manuscript, on screens wide enough for both. */
 export default function CodexPanel(props: Props) {
-  const { projectId, entryId, onClose, onMissing } = props;
+  const { owner, entryId, onClose, onMissing } = props;
   const [entry, setEntry] = useState<Story | null>(null);
   const [error, setError] = useState(false);
 
@@ -45,7 +50,7 @@ export default function CodexPanel(props: Props) {
     let live = true;
     (async () => {
       try {
-        const story = await api<Story>(`/api/docs/${projectId}/codex/${entryId}`);
+        const story = await api<Story>(entryApi(owner, entryId));
         if (live) setEntry(story);
       } catch (err) {
         if (!live) return;
@@ -57,7 +62,7 @@ export default function CodexPanel(props: Props) {
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, entryId]);
+  }, [owner, entryId]);
 
   if (!entry) {
     return (
@@ -82,13 +87,14 @@ export default function CodexPanel(props: Props) {
 }
 
 function EntryEditor({
-  projectId,
+  owner,
   entry,
   handle,
   onClose,
   onExpand,
   onEditor,
   onTitle,
+  titleKey,
   onChange,
   children,
 }: Props & { entry: Story }) {
@@ -96,8 +102,8 @@ function EntryEditor({
   const { editor, status, savedAt, reachedAt, conflict, leave, pull, resolveConflict } = useEditorDoc({
     kind: "entry",
     initial: entry,
-    url: `/api/docs/${projectId}/codex/${entry.id}`,
-    backupKey: `pen:backup:${projectId}/codex/${entry.id}`,
+    url: entryApi(owner, entry.id),
+    backupKey: entryBackupKey(owner, entry.id),
     onEdit: onChange,
   });
 
@@ -119,14 +125,14 @@ function EntryEditor({
   });
 
   useEffect(() => {
-    if (title !== null) onTitle(entry.id, title);
-  }, [entry.id, title, onTitle]);
+    if (title !== null) onTitle(titleKey, title);
+  }, [titleKey, title, onTitle]);
 
   return (
     <aside className="codex-panel" aria-label="Codex entry">
       <div className="codex-panel-head">
         <span className="codex-panel-title label" title={title || "Untitled"}>
-          Codex · {title || "Untitled"}
+          {owner === GLOBAL ? "Global Codex" : "Codex"} · {title || "Untitled"}
         </span>
         <div className="construct-head-actions">
           <SaveStatus status={status} savedAt={savedAt} reachedAt={reachedAt} dotOnly />

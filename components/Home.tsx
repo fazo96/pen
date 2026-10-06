@@ -8,7 +8,7 @@ import type { WritingReport } from "@/lib/writing";
 import { IMPORT_ACCEPT, useLibrary } from "@/lib/useLibrary";
 import DropImport from "./DropImport";
 import LastEdited from "./LastEdited";
-import { IconGithub, IconImport, IconPlus, IconSettings } from "./icons";
+import { IconGithub, IconGlobe, IconImport, IconPlus, IconSettings } from "./icons";
 import Logo from "./Logo";
 import Shelves from "./Shelves";
 import ThemeButton from "./ThemeButton";
@@ -83,6 +83,9 @@ export default function Home({ docs, shelves, writing }: { docs: DocMeta[]; shel
             >
               <IconPlus /> New manuscript
             </button>
+            <Link href="/codex" className="btn" title="Notes every book shares">
+              <IconGlobe /> Global Codex
+            </Link>
             <Link href="/settings" className="btn">
               <IconSettings /> Settings
             </Link>

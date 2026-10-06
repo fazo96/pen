@@ -6,6 +6,7 @@ import { straightQuotes } from "./text.ts";
 //   pen:L120 or pen:L120-140          lines of the manuscript
 //   pen:v/<version id>/L40            lines of a saved version
 //   pen:codex/<entry id>              a Codex entry
+//   pen:global/<entry id>             an entry of the Global Codex
 // Line numbers go stale as the writer edits, so when a turn ends the server
 // adds the start of each cited line (?q=, and ?qe= for a range's last line);
 // the panel finds the passage by that text first and by line number second.
@@ -14,12 +15,12 @@ export type LineCitation = { from: number; to: number; q?: string; qe?: string }
 export type Citation =
   | ({ kind: "manuscript" } & LineCitation)
   | ({ kind: "version"; version: string } & LineCitation)
-  | { kind: "codex"; entry: string };
+  | { kind: "codex"; entry: string; global?: true };
 
 const LINES = String.raw`L(\d+)(?:-L?(\d+))?`;
 const MANUSCRIPT_RE = new RegExp(`^${LINES}$`);
 const VERSION_RE = new RegExp(`^v/([\\w-]+)/${LINES}$`);
-const CODEX_RE = new RegExp(`^codex/(${ID_PATTERN})$`);
+const CODEX_RE = new RegExp(`^(codex|global)/(${ID_PATTERN})$`);
 
 export function parseCitation(href: string): Citation | null {
   if (!href.startsWith("pen:")) return null;
@@ -31,7 +32,7 @@ export function parseCitation(href: string): Citation | null {
     return f >= 1 ? { from: f, to: t, q: params.get("q") || undefined, qe: params.get("qe") || undefined } : null;
   };
   let m = CODEX_RE.exec(path);
-  if (m) return { kind: "codex", entry: m[1] };
+  if (m) return m[1] === "global" ? { kind: "codex", entry: m[2], global: true } : { kind: "codex", entry: m[2] };
   m = VERSION_RE.exec(path);
   if (m) {
     const l = lines(m[2], m[3]);

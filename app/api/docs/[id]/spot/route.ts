@@ -17,7 +17,7 @@ const save = route<{ id: string }>(async (req, { id }) => {
   if (entry != null && !isValidId(entry)) return notFound();
   if (!spot && entry == null) return badRequest("bad spot");
   return (await writeSpot(id, entry ?? null, spot)) ? noContent() : notFound();
-});
+}, { global: true });
 
 export const PUT = save;
 // navigator.sendBeacon can only POST; used when the page is hidden or closed.

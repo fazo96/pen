@@ -7,9 +7,10 @@ import type { ToolName } from "../types";
 // is shown and what its arguments are checked and typed against (readArgs),
 // and the helpers the tools share.
 
-export type CodexChange = { entry: string; action: "created" | "edited" | "renamed" | "deleted"; to?: string };
+export type CodexChange = { entry: string; action: "created" | "edited" | "renamed" | "deleted"; to?: string; global?: boolean };
 
 export type ToolContext = {
+  /** The book, or GLOBAL in the Global Codex's own chats. */
   projectId: string;
   /** Called after every change to the Codex, so open views can refresh. */
   onCodexChange: (change: CodexChange) => void;

@@ -1,7 +1,7 @@
 import "server-only";
 import { readFile, stat } from "node:fs/promises";
 import { writeAtomic } from "../files";
-import { isValidId } from "../ids";
+import { isOwnerId, isValidId } from "../ids";
 import { noSpots, sanitizeSpots, type Spot, type Spots, withLast, withSpot } from "../spot";
 import { entryFile, isMissing, projectExists, serialize, spotFile } from "./core";
 
@@ -9,7 +9,7 @@ import { entryFile, isMissing, projectExists, serialize, spotFile } from "./core
 // entry viewed last (lib/spot.ts): <project>/spot.json.
 
 export async function readSpots(id: string): Promise<Spots> {
-  if (!isValidId(id)) return noSpots();
+  if (!isOwnerId(id)) return noSpots();
   try {
     return sanitizeSpots(JSON.parse(await readFile(spotFile(id), "utf8")));
   } catch {
@@ -40,7 +40,7 @@ async function entryExists(id: string, eid: string) {
  * doesn't exist (unlike writeDoc, this never creates one).
  */
 export function writeSpot(id: string, entry: string | null, spot: Spot | null): Promise<boolean> {
-  if (!isValidId(id) || (entry !== null && !isValidId(entry))) return Promise.resolve(false);
+  if (!isOwnerId(id) || (entry !== null && !isValidId(entry))) return Promise.resolve(false);
   return serialize(async () => {
     if (!(await projectExists(id))) return false;
     if (entry !== null && !(await entryExists(id, entry))) return false;

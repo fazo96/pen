@@ -111,6 +111,41 @@ test("Codex entries: created by title, renamed and trashed, and the spots follow
   assert.ok((await readdir(path.join(DOCS_DIR, ".trash"))).some((n) => /^codex-book--\d{4}-/.test(n)));
 });
 
+test("the Global Codex: entries no book owns, moved to and from a book's Codex", async () => {
+  const style = await docs.createEntry(docs.GLOBAL, "# Style\n\nSerial commas.");
+  assert.equal(style?.id, "style");
+  assert.equal((await docs.readEntry(docs.GLOBAL, "style"))?.content, "# Style\n\nSerial commas.");
+  assert.ok((await readdir(path.join(DOCS_DIR, ".pen-global", "codex"))).includes("style.md"));
+  // It's no book: not on the shelves, no manuscript, nothing that writes one takes it.
+  assert.ok(!(await docs.listDocs()).some((d) => d.id === docs.GLOBAL || d.id.includes("global")));
+  assert.equal(await docs.readDoc(docs.GLOBAL), null);
+  await assert.rejects(docs.writeDoc(docs.GLOBAL, "# Nope", null));
+
+  const book = await docs.createDoc("# Shared World");
+  await docs.createEntry(book.id, "# Harbour\n\nFog.");
+  await docs.createEntry(docs.GLOBAL, "# Harbour\n\nAnother harbour.");
+  const place = { block: 1, q: "Fog", off: 0 };
+  assert.ok(await docs.writeSpot(book.id, "harbour", { anchor: place, head: place, top: place }));
+
+  // Into the Global Codex: "harbour" is taken there, so it becomes harbour-2, and the book's spot forgets it.
+  assert.equal(await docs.moveEntry(book.id, "harbour", docs.GLOBAL), "harbour-2");
+  assert.equal(await docs.readEntry(book.id, "harbour"), null);
+  assert.equal((await docs.readEntry(docs.GLOBAL, "harbour-2"))?.content, "# Harbour\n\nFog.");
+  assert.equal((await docs.readSpots(book.id)).last, undefined);
+  // And back into the book, keeping its id there.
+  assert.equal(await docs.moveEntry(docs.GLOBAL, "style", book.id), "style");
+  assert.deepEqual((await docs.listCodex(book.id))?.map((e) => e.id), ["style"]);
+  assert.deepEqual((await docs.listCodex(docs.GLOBAL))?.map((e) => e.id).sort(), ["harbour", "harbour-2"]); // same title
+  // Nothing to move, nowhere to move it, or already there.
+  assert.equal(await docs.moveEntry(book.id, "nobody", docs.GLOBAL), null);
+  assert.equal(await docs.moveEntry(book.id, "style", "no-such-book"), null);
+  assert.equal(await docs.moveEntry(book.id, "style", book.id), null);
+
+  const names: string[] = [];
+  for await (const f of libraryFiles()) names.push(f.name);
+  assert.ok(names.includes(".pen-global/codex/harbour-2.md"), names.join());
+});
+
 test("the library export leaves out the password and anything else not on its list", async () => {
   await docs.createDoc("# Exported");
   await writeFile(path.join(DOCS_DIR, ".pen-auth.json"), '{"hash":"secret"}');

@@ -9,7 +9,7 @@ type Params = { id: string; eid: string };
 export const GET = route<Params>(async (_req, { id, eid }) => {
   const entry = await readEntry(id, eid);
   return entry ? noStore(entry) : notFound();
-});
+}, { global: true });
 
 const save = route<Params>(async (req, { id, eid }) => {
   const body = await readSaveBody(req);
@@ -17,9 +17,9 @@ const save = route<Params>(async (req, { id, eid }) => {
   const result = await writeEntry(id, eid, body.content, body.baseVersion, body.force, trackOf(body));
   if (!result.ok) return Response.json(result.current, { status: 409 });
   return Response.json({ version: result.version });
-});
+}, { global: true });
 
 export const PUT = save;
 export const POST = save; // sendBeacon
 
-export const DELETE = route<Params>(async (_req, { id, eid }) => ((await trashEntry(id, eid)) ? noContent() : notFound()));
+export const DELETE = route<Params>(async (_req, { id, eid }) => ((await trashEntry(id, eid)) ? noContent() : notFound()), { global: true });

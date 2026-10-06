@@ -17,6 +17,8 @@ type Props = {
   /** None when AI is off. */
   onConstruct?: () => void;
   onSettings: () => void;
+  /** "Book settings", or "Settings" where there's no book (the Global Codex). */
+  settingsLabel?: string;
   onFind: () => void;
 };
 
@@ -45,7 +47,7 @@ export default function EditorMenu(props: Props) {
 }
 
 // Mounted only while open, so the theme label is read fresh each time.
-function Items({ status, words, constructOpen, grammarOn, onFocus, onGrammar, onExport, onConstruct, onSettings, onFind, close }: Props & { close: () => void }) {
+function Items({ status, words, constructOpen, grammarOn, onFocus, onGrammar, onExport, onConstruct, onSettings, settingsLabel = "Book settings", onFind, close }: Props & { close: () => void }) {
   const theme = useTheme();
   const pick = (fn: () => void) => () => {
     close();
@@ -78,7 +80,7 @@ function Items({ status, words, constructOpen, grammarOn, onFocus, onGrammar, on
         </button>
       )}
       <button type="button" role="menuitem" onClick={pick(onSettings)}>
-        <IconGear /> Book settings
+        <IconGear /> {settingsLabel}
       </button>
     </div>
   );

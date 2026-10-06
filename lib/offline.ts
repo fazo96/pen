@@ -16,12 +16,13 @@ type Copy<T> = { at: number; data: T };
 /** The page's key in the service worker's cache; null for pages it doesn't keep. Same as pageKey in public/sw.js. */
 export function pageKey(url: URL): string | null {
   if (url.pathname === "/") return url.searchParams.has("library") ? "/?library" : "/";
-  if (/^\/d\/[^/]+(\/codex\/[^/]+)?$/.test(url.pathname)) return url.pathname;
+  if (/^\/d\/[^/]+(\/codex\/[^/]+)?$/.test(url.pathname) || /^\/codex\/[^/]+$/.test(url.pathname)) return url.pathname;
   return null;
 }
 
-/** API reads worth a copy: the books, a manuscript, a book's Codex, an entry. */
-export const keepsCopy = (path: string) => /^\/api\/docs(\/[a-z0-9-]+(\/codex(\/[a-z0-9-]+)?)?)?$/.test(path);
+/** API reads worth a copy: the books, a manuscript, a book's Codex (or the Global Codex, _global), an entry. */
+export const keepsCopy = (path: string) =>
+  /^\/api\/docs(\/[a-z0-9-]+(\/codex(\/[a-z0-9-]+)?)?)?$/.test(path) || /^\/api\/docs\/_global\/codex(\/[a-z0-9-]+)?$/.test(path);
 
 async function open(name: string): Promise<Cache | null> {
   try {

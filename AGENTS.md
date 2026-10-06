@@ -25,7 +25,7 @@ A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Ti
 | --- | --- |
 | [docs/development.md](docs/development.md) | The writer's data, the running server, stopping servers you started, Node, fonts, Docker |
 | [docs/testing.md](docs/testing.md) | Unit tests (and loading server modules in them), the Playwright browser suite |
-| [docs/library.md](docs/library.md) | The library on disk (`lib/docs.ts`, `lib/store/`): layout, writing files safely, versions, renames, stats and export, the cache |
+| [docs/library.md](docs/library.md) | The library on disk (`lib/docs.ts`, `lib/store/`): layout, the Global Codex, writing files safely, versions, renames, stats and export, the cache |
 | [docs/api.md](docs/api.md) | `app/api/`: saves and conflicts, `route()` and its helpers |
 | [docs/pages.md](docs/pages.md) | The pages, the library's shelves, the optional lock |
 | [docs/editor.md](docs/editor.md) | The editor page: saving and its hooks, the writer's spot and the switch, headings, comments, quotes, quick switcher, find and replace, Look up |

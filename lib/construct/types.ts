@@ -23,6 +23,8 @@ export type ToolName =
 export type PromptContext = {
   /** Codex entry open in the editor; absent for the manuscript. */
   entry?: string;
+  /** The entry is in the Global Codex, not the book's. */
+  global?: true;
   /** Text the writer had selected, if any. */
   selection?: string;
   /** The paragraph the selection sits in, when it's part of one. */
@@ -78,7 +80,8 @@ export type ConstructEvent =
   | { t: "item"; item: ChatItem }
   | { t: "append"; id: string; text: string }
   | { t: "state"; state: ConstructState }
-  | { t: "codex"; change: { entry: string; action: string; to?: string } };
+  /** `global`: the entry is in the Global Codex (always, in the Global Codex's own chats). */
+  | { t: "codex"; change: { entry: string; action: string; to?: string; global?: boolean } };
 
 /** What the panel asks of the session (POST /api/docs/<id>/construct); replies come over the event stream. */
 export type ConstructAction =

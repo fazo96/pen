@@ -1,5 +1,5 @@
 import "server-only";
-import { isValidId } from "./ids";
+import { isOwnerId, isValidId } from "./ids";
 import { hasSession, lockedResponse } from "./session";
 import { isValidVersionId } from "./versions";
 
@@ -12,13 +12,18 @@ type Params = Record<string, string>;
 // handler runs. Others (an import's job, a page number) are checked where used.
 const CHECKS: Record<string, (value: string) => boolean> = { id: isValidId, eid: isValidId, vid: isValidVersionId };
 
-/** A route handler behind the session check, with its params awaited and the ids among them checked. */
-export function route<P extends Params = Params>(fn: (req: Request, params: P) => Promise<Response>) {
+/**
+ * A route handler behind the session check, with its params awaited and the
+ * ids among them checked. With `global`, the id may also be GLOBAL (the routes
+ * the Global Codex shares with a book's: its entries, spot and Construct).
+ */
+export function route<P extends Params = Params>(fn: (req: Request, params: P) => Promise<Response>, opts: { global?: boolean } = {}) {
+  const checks = opts.global ? { ...CHECKS, id: isOwnerId } : CHECKS;
   return async (req: Request, ctx?: { params: Promise<P> }): Promise<Response> => {
     if (!(await hasSession())) return lockedResponse();
     const params = ctx?.params ? await ctx.params : ({} as P);
     for (const [key, value] of Object.entries(params)) {
-      if (CHECKS[key] && !CHECKS[key](value)) return notFound();
+      if (checks[key] && !checks[key](value)) return notFound();
     }
     return fn(req, params);
   };

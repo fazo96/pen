@@ -2,7 +2,7 @@ import "server-only";
 import type { Dirent } from "node:fs";
 import { lstat, readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { isValidId, listCodex, listDocs, listVersions } from "./docs";
+import { GLOBAL, isValidId, listCodex, listDocs, listVersions } from "./docs";
 import { DOCS_DIR } from "./paths";
 import { getShelves } from "./shelves";
 import type { ZipSource } from "./zip";
@@ -11,6 +11,7 @@ import type { ZipSource } from "./zip";
 
 const TRASH_DIR = path.join(DOCS_DIR, ".trash");
 const STATS_DIR = path.join(DOCS_DIR, ".pen-stats"); // lib/store/stats.ts
+const GLOBAL_DIR = path.join(DOCS_DIR, ".pen-global"); // the Global Codex, lib/store/core.ts
 // What a library export holds besides the book folders and the trash. Anything
 // else in the data folder (the password hash, Construct's sign-in state under
 // .claude in Docker) stays out.
@@ -75,19 +76,22 @@ export async function bookStats(id: string, words: number): Promise<Stats> {
 
 export async function libraryStats(): Promise<LibraryStats> {
   const docs = await listDocs();
-  const [books, shelves, totalBytes, trashBytes] = await Promise.all([
+  const [books, shelves, totalBytes, trashBytes, global] = await Promise.all([
     Promise.all(docs.map((d) => bookStats(d.id, d.words))),
     getShelves(docs.map((d) => d.id)),
     sizeOf(DOCS_DIR),
     sizeOf(TRASH_DIR),
+    listCodex(GLOBAL),
   ]);
+  const shared = global ?? [];
   const sum = (k: keyof Stats) => books.reduce((n, b) => n + b[k], 0);
   return {
     books: docs.length,
     shelves: shelves.shelves.length,
     words: sum("words"),
-    codexEntries: sum("codexEntries"),
-    codexWords: sum("codexWords"),
+    // The Global Codex's entries count too: they're no book's.
+    codexEntries: sum("codexEntries") + shared.length,
+    codexWords: sum("codexWords") + shared.reduce((n, e) => n + e.words, 0),
     namedVersions: sum("namedVersions"),
     autoVersions: sum("autoVersions"),
     bytes: sum("bytes"),
@@ -129,13 +133,14 @@ export async function* bookFiles(id: string): AsyncGenerator<ZipSource> {
   }
 }
 
-/** The whole library: every book folder, the trash, the writing stats, and the shelves and renames. Unzipped, it’s a data folder. */
+/** The whole library: every book folder, the Global Codex, the trash, the writing stats, and the shelves and renames. Unzipped, it’s a data folder. */
 export async function* libraryFiles(): AsyncGenerator<ZipSource> {
   const names = (await list(DOCS_DIR)).sort();
   for (const n of names) {
     const full = path.join(DOCS_DIR, n);
     if (isValidId(n) && (await lstat(full)).isDirectory()) yield* filesUnder(full, n);
   }
+  yield* filesUnder(GLOBAL_DIR, ".pen-global");
   yield* filesUnder(TRASH_DIR, ".trash");
   yield* filesUnder(STATS_DIR, ".pen-stats");
   for (const n of LIBRARY_FILES) {

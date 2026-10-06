@@ -25,7 +25,7 @@ async function handle(msg: RpcMessage, ctx: ToolContext) {
     case "ping":
       return ok(id, {});
     case "tools/list":
-      return ok(id, { tools: listTools() });
+      return ok(id, { tools: listTools(ctx.projectId) });
     case "tools/call": {
       if (typeof params.name !== "string") return fail(id, -32602, "missing tool name");
       const { text, isError } = await callTool(params.name, params.arguments, ctx);

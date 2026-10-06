@@ -2,6 +2,8 @@
 
 import { useEffect, useEffectEvent, useImperativeHandle, useLayoutEffect, useRef, useState } from "react";
 import { type Citation, parseCitation } from "@/lib/cite";
+import { entryHref } from "@/lib/entryRef";
+import { GLOBAL } from "@/lib/ids";
 import { matches, TOUCH } from "@/lib/media";
 import { agentName, DEFAULT_AGENT } from "@/lib/construct/agentInfo";
 import type { ConstructEvent, PromptContext } from "@/lib/construct/types";
@@ -170,7 +172,7 @@ export default function Construct({
     const chip = (e.target as HTMLElement).closest<HTMLElement>("[data-cite]");
     const cite = chip && parseCitation(chip.dataset.cite ?? "");
     if (!chip || !cite) return;
-    if (cite.kind === "codex") return onOpen(`/d/${projectId}/codex/${cite.entry}`);
+    if (cite.kind === "codex") return onOpen(entryHref(cite.global ? GLOBAL : projectId, cite.entry));
     const found = await onCite(cite, chip.dataset.cite!);
     chip.classList.toggle("is-missing", !found);
     if (!found) chip.title = "Couldn’t find this passage any more";
@@ -316,7 +318,7 @@ export default function Construct({
             </div>
           )}
           {c.items.map((item) => (
-            <ConstructItem key={item.id} item={item} onOpenEntry={(entry) => onOpen(`/d/${projectId}/codex/${entry}`)} />
+            <ConstructItem key={item.id} item={item} onOpenEntry={(entry, global) => onOpen(entryHref(global ? GLOBAL : projectId, entry))} />
           ))}
           {status === "busy" && <div className="construct-working" role="img" aria-label="Working" />}
         </div>

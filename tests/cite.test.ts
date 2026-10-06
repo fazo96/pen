@@ -25,10 +25,11 @@ test("parseCitation reads manuscript, version and Codex links", () => {
     qe: undefined,
   });
   assert.deepEqual(parseCitation("pen:codex/mara-voss"), { kind: "codex", entry: "mara-voss" });
+  assert.deepEqual(parseCitation("pen:global/style"), { kind: "codex", entry: "style", global: true });
 });
 
 test("parseCitation rejects what isn't a citation", () => {
-  for (const href of ["https://x.org", "pen:", "pen:L0", "pen:codex/../etc", "pen:codex/Mara", "pen:chapter/3"]) {
+  for (const href of ["https://x.org", "pen:", "pen:L0", "pen:codex/../etc", "pen:codex/Mara", "pen:global/../x", "pen:chapter/3"]) {
     assert.equal(parseCitation(href), null, href);
   }
   // A backwards range is read as the single line.

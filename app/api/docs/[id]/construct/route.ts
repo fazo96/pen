@@ -2,7 +2,7 @@ import { aiEnabled, aiOffResponse, isAgentId } from "@/lib/construct/agents";
 import { getSession } from "@/lib/construct/session";
 import { promptContextFrom } from "@/lib/construct/prompts";
 import type { ConstructAction, ConstructEvent } from "@/lib/construct/types";
-import { isValidId, readDoc } from "@/lib/docs";
+import { isValidId, projectExists } from "@/lib/docs";
 import { badRequest, fail, noContent, notFound, readJson, route } from "@/lib/route";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ function internalUrl(req: Request) {
 /** Server-sent events: a snapshot of the conversation, then every change. */
 export const GET = route<{ id: string }>(async (req, { id }) => {
   if (!aiEnabled()) return aiOffResponse();
-  if (!(await readDoc(id))) return notFound();
+  if (!(await projectExists(id))) return notFound();
   const session = await getSession(id, internalUrl(req));
 
   const enc = new TextEncoder();
@@ -45,13 +45,13 @@ export const GET = route<{ id: string }>(async (req, { id }) => {
       "X-Accel-Buffering": "no",
     },
   });
-});
+}, { global: true });
 
 
 /** Drive the conversation. Replies come back over the event stream. */
 export const POST = route<{ id: string }>(async (req, { id }) => {
   if (!aiEnabled()) return aiOffResponse();
-  if (!(await readDoc(id))) return notFound();
+  if (!(await projectExists(id))) return notFound();
   const body = (await readJson(req)) as ConstructAction | undefined;
   if (!body || typeof body !== "object") return badRequest("invalid json");
   const session = await getSession(id, internalUrl(req));
@@ -106,4 +106,4 @@ export const POST = route<{ id: string }>(async (req, { id }) => {
     return fail(409, (err as Error).message);
   }
   return noContent();
-});
+}, { global: true });

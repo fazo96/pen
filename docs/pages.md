@@ -2,7 +2,7 @@
 
 ## Pages
 
-Pages: `/` is the library (with exactly one book it redirects to it, unless `?library` is set); `/stats` the [writing stats](stats.md); `/settings` holds pen's settings (library stats and export, editor, grammar, Construct, keyboard, lock); `/d/[id]` is the editor, `/d/[id]/settings` a book's settings.
+Pages: `/` is the library (with exactly one book it redirects to it, unless `?library` is set); `/stats` the [writing stats](stats.md); `/settings` holds pen's settings (library stats and export, editor, grammar, Construct, keyboard, lock); `/d/[id]` is the editor, `/d/[id]/settings` a book's settings; `/codex/[eid]` an entry of the [Global Codex](library.md#the-global-codex) in the same editor, its list as the drawer (the left rail on wide screens) and Construct on the right, and `/codex` opens the entry viewed there last (else the first, else `components/GlobalCodex.tsx`, which starts one). The library's Global Codex button goes to `/codex`.
 
 ## The library's shelves
 

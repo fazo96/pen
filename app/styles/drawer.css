@@ -483,3 +483,26 @@
   text-decoration: none;
 }
 
+
+/* In a book's Codex tab: the Global Codex, the notes every book shares, under the book's own. */
+.codex-global {
+  margin-top: 18px;
+  padding-top: 6px;
+  border-top: 1px solid var(--rule);
+}
+.codex-global-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 20px;
+}
+.codex-global-head .label {
+  color: var(--ink-soft);
+}
+.codex-global-head .history-new {
+  margin: 10px 0 4px;
+}
+/* Move sits beside Delete: one gap after the pair. */
+.library-move {
+  margin-right: 0;
+}

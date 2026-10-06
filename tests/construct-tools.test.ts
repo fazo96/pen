@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createDoc, createEntry, readEntry } from "../lib/docs.ts";
+import { createDoc, createEntry, GLOBAL, readEntry } from "../lib/docs.ts";
 import { handleMcp } from "../lib/construct/mcp.ts";
-import { callTool, type CodexChange } from "../lib/construct/tools/index.ts";
+import { callTool, type CodexChange, listTools } from "../lib/construct/tools/index.ts";
 
 // Construct's tools (lib/construct/tools/) and the MCP endpoint that serves
 // them (lib/construct/mcp.ts), on the scratch library.
@@ -89,4 +89,35 @@ test("arguments are checked against each tool's schema", async () => {
     text: '"replace_all" must be true or false.',
     isError: true,
   });
+});
+
+test("a book's Construct reaches the Global Codex with global: true; the Global Codex's own has its tools alone", async () => {
+  const { id } = await createDoc("# Shared Tools Book");
+  await createEntry(id, "# Mara\n\nA sailor.");
+  const made = await callTool("create_codex_entry", { content: "# Tools Style\n\nSerial commas.", global: true }, ctx(id));
+  assert.equal(made.isError, false);
+  assert.deepEqual(changes.slice(-1), [{ entry: "tools-style", action: "created", global: true }]);
+  assert.equal((await readEntry(GLOBAL, "tools-style"))?.content, "# Tools Style\n\nSerial commas.");
+  assert.equal(await readEntry(id, "tools-style"), null);
+  const listed = (await callTool("list_codex", {}, ctx(id))).text;
+  assert.match(listed, /^This book's Codex:\nmara {2}"Mara"/);
+  assert.match(listed, /Global Codex \(pass global: true to reach these\):[\s\S]*tools-style {2}"Tools Style"/);
+  assert.equal((await callTool("read_codex_entry", { id: "tools-style" }, ctx(id))).isError, true, "not without global");
+
+  // In the Global Codex's own chats: no manuscript, and every Codex tool works there.
+  assert.equal((await callTool("read_manuscript", {}, ctx(GLOBAL))).isError, true);
+  assert.equal((await callTool("read_codex_entry", { id: "tools-style" }, ctx(GLOBAL))).text, "# Tools Style\n\nSerial commas.");
+  assert.doesNotMatch((await callTool("list_codex", {}, ctx(GLOBAL))).text, /mara/);
+  await callTool("edit_codex_entry", { id: "tools-style", old_text: "Serial", new_text: "Oxford" }, ctx(GLOBAL));
+  assert.deepEqual(changes.slice(-1), [{ entry: "tools-style", action: "edited", global: true }]);
+
+  const book = listTools(id);
+  const global = listTools(GLOBAL);
+  assert.ok(book.some((t) => t.name === "read_manuscript"));
+  assert.ok("global" in (book.find((t) => t.name === "read_codex_entry")?.inputSchema.properties ?? {}));
+  assert.deepEqual(
+    global.map((t) => t.name),
+    ["list_codex", "read_codex_entry", "create_codex_entry", "edit_codex_entry", "write_codex_entry", "rename_codex_entry", "delete_codex_entry"],
+  );
+  for (const t of global) assert.ok(!("global" in t.inputSchema.properties), t.name);
 });

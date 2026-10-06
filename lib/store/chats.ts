@@ -2,7 +2,7 @@ import "server-only";
 import { readdir, readFile, rename } from "node:fs/promises";
 import path from "node:path";
 import { writeAtomic } from "../files";
-import { isValidId } from "../ids";
+import { GLOBAL, isOwnerId, isValidId } from "../ids";
 import { chatsDir, isMissing, projectExists, ready, serialize, trashPath } from "./core";
 
 // Conversations with Construct: <project>/construct/<chat>.json, written by
@@ -15,7 +15,7 @@ function chatFile(id: string, cid: string) {
 
 /** Every stored chat of a project, parsed; unreadable files are skipped. */
 export async function readChats(id: string): Promise<unknown[]> {
-  if (!isValidId(id)) return [];
+  if (!isOwnerId(id)) return [];
   await ready();
   let names: string[];
   try {
@@ -54,8 +54,9 @@ export async function pinAgentHome(id: string): Promise<string> {
   return id;
 }
 
-/** The name of Construct's working folder for this project. */
+/** The name of Construct's working folder for this project (the Global Codex's is never renamed). */
 export function agentHome(id: string): Promise<string> {
+  if (id === GLOBAL) return Promise.resolve(GLOBAL);
   return serialize(async () => ((await projectExists(id)) ? pinAgentHome(id) : id));
 }
 

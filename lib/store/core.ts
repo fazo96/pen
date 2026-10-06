@@ -2,7 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { mkdir, readdir, readFile, rename } from "node:fs/promises";
 import path from "node:path";
-import { isValidId } from "../ids";
+import { GLOBAL, isValidId } from "../ids";
 import { DOCS_DIR } from "../paths";
 import { queue } from "../queue";
 import type { Doc } from "../types";
@@ -11,17 +11,24 @@ import type { Doc } from "../types";
 // master copy), versions/, codex/, construct/, spot.json and a cover. This
 // module knows the layout and keeps the one queue every change goes through;
 // its siblings in lib/store/ each look after one part (lib/docs.ts gathers them).
+// The Global Codex (owner GLOBAL) has a folder laid out the same way, minus
+// the manuscript: .pen-global/ holds its codex/, construct/ and spot.json.
 
 const MANUSCRIPT = "manuscript.md";
 const TRASH_DIR = path.join(DOCS_DIR, ".trash");
+export const GLOBAL_DIR = path.join(DOCS_DIR, ".pen-global");
 
 export const MAX_BYTES = 5 * 1024 * 1024;
 
 export function dirOf(id: string) {
+  if (id === GLOBAL) return GLOBAL_DIR;
   if (!isValidId(id)) throw new Error(`invalid id: ${id}`);
   return path.join(DOCS_DIR, id);
 }
-export const fileOf = (id: string) => path.join(dirOf(id), MANUSCRIPT);
+export function fileOf(id: string) {
+  if (!isValidId(id)) throw new Error(`invalid id: ${id}`); // the Global Codex has no manuscript
+  return path.join(dirOf(id), MANUSCRIPT);
+}
 
 export const codexDir = (id: string) => path.join(dirOf(id), "codex");
 export function entryFile(id: string, eid: string) {
@@ -94,8 +101,9 @@ export async function readDoc(id: string): Promise<Doc | null> {
   }
 }
 
+/** A book with a manuscript, or the Global Codex, which is always there. */
 export async function projectExists(id: string) {
-  return (await readDoc(id)) !== null;
+  return id === GLOBAL || (await readDoc(id)) !== null;
 }
 
 /**

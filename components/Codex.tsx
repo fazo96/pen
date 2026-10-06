@@ -3,30 +3,45 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, apiDelete, createEntry } from "@/lib/api";
 import { isImage, prepareNote } from "@/lib/cover";
+import { codexHome, entryBackupKey, entryHref, type EntryRef, entryOfRef } from "@/lib/entryRef";
+import { GLOBAL } from "@/lib/ids";
 import type { EntryMeta } from "@/lib/types";
 import type { ImportMeta } from "@/lib/imports";
 import { useDropZone } from "@/lib/useDropZone";
 import { local } from "@/lib/storage";
 import { CODEX_IMPORT_ACCEPT, CODEX_NOTE_ACCEPT, HTML_EXT, IMPORT_EXT, importProblem, importText } from "@/lib/useLibrary";
 import ConfirmRow from "./ConfirmRow";
-import { IconTrash } from "./icons";
+import { IconMove, IconTrash } from "./icons";
 
 type Props = {
+  /** The book, or GLOBAL on the Global Codex's own page. */
   projectId: string;
-  /** The entry open in the editor, if any, and its live title. */
+  /** The entry open in the editor, if any (a ref, see lib/entryRef.ts), and its live title. */
   activeId: string | null;
   activeTitle?: string;
   /** Navigate (saving the current file first). */
   onOpen: (href: string) => void | Promise<void>;
+  /** Move an entry between the book's Codex and the Global Codex (`to`); offered in a book. */
+  onMove?: (from: EntryRef, to: string) => Promise<void>;
   /** Bump to reload the list (e.g. after Construct changed it). */
   refreshKey?: number;
   /** Whether pen's AI features are on here: photos of notes need them. */
   ai?: boolean;
 };
 
-/** Plot outlines, character notes and the like: one markdown file each. */
-export default function Codex({ projectId, activeId, activeTitle, onOpen, refreshKey = 0, ai = false }: Props) {
+/**
+ * Plot outlines, character notes and the like: one markdown file each. In a
+ * book, the Global Codex's entries (the notes every book shares) follow.
+ */
+export default function Codex({ projectId, activeId, activeTitle, onOpen, onMove, refreshKey = 0, ai = false }: Props) {
+  const isGlobal = projectId === GLOBAL;
+  const active = activeId ? entryOfRef(projectId, activeId) : null;
   const [list, setList] = useState<EntryMeta[] | null>(null);
+  /** In a book: the Global Codex's entries. */
+  const [shared, setShared] = useState<EntryMeta[] | null>(null);
+  const [moving, setMoving] = useState<string | null>(null);
+  /** Photos of handwritten notes are transcribed into a book's Codex, by Construct's agent. */
+  const photos = ai && !isGlobal;
   /** Notes being transcribed, and ones that failed (until dismissed on their page). */
   const [imports, setImports] = useState<ImportMeta[]>([]);
   const [busy, setBusy] = useState(false);
@@ -38,16 +53,19 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
 
   const load = useCallback(async () => {
     try {
-      const [entries, jobs] = await Promise.all([
+      const [entries, jobs, global] = await Promise.all([
         api<EntryMeta[]>(base),
-        api<ImportMeta[]>(`/api/docs/${projectId}/imports`).catch(() => null),
+        // Notes are transcribed into a book's Codex only.
+        isGlobal ? null : api<ImportMeta[]>(`/api/docs/${projectId}/imports`).catch(() => null),
+        isGlobal ? null : api<EntryMeta[]>(`/api/docs/${GLOBAL}/codex`).catch(() => null),
       ]);
       setList(entries);
       if (jobs) setImports(jobs.filter((j) => j.status !== "done"));
+      if (global) setShared(global);
     } catch {
       setError("Couldn’t load the codex.");
     }
-  }, [base, projectId]);
+  }, [base, projectId, isGlobal]);
 
   // Reloaded when the open entry changes too: the one left behind was just saved.
   useEffect(() => {
@@ -64,22 +82,40 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
 
   // Keep the open entry's live title, so a rename shows after switching away
   // without waiting for the reload.
+  const activeOwner = active?.owner;
+  const activeEid = active?.id;
   useEffect(() => {
-    if (!activeId || !activeTitle) return;
-    setList((l) => (l ? l.map((e) => (e.id === activeId && e.title !== activeTitle ? { ...e, title: activeTitle } : e)) : l));
-  }, [activeId, activeTitle]);
+    if (!activeEid || !activeTitle) return;
+    const retitle = (l: EntryMeta[] | null) =>
+      l ? l.map((e) => (e.id === activeEid && e.title !== activeTitle ? { ...e, title: activeTitle } : e)) : l;
+    if (activeOwner === projectId) setList(retitle);
+    else setShared(retitle);
+  }, [activeOwner, activeEid, activeTitle, projectId]);
 
-  const create = async () => {
+  const create = async (owner = projectId) => {
     setBusy(true);
     setError(null);
     try {
       // Wide screens open it beside the manuscript, keeping this list on screen.
-      await onOpen(`/d/${projectId}/codex/${await createEntry(projectId)}`);
+      await onOpen(entryHref(owner, await createEntry(owner)));
       await load();
     } catch {
       setError("Couldn’t create the entry.");
     }
     setBusy(false);
+  };
+
+  const move = async (from: EntryRef) => {
+    if (!onMove) return;
+    setMoving(`${from.owner}/${from.id}`);
+    setError(null);
+    try {
+      await onMove(from, from.owner === GLOBAL ? projectId : GLOBAL);
+    } catch {
+      setError("Couldn’t move the entry.");
+    }
+    await load();
+    setMoving(null);
   };
 
   /** POST an entry; its id, or throws with the server's reason. */
@@ -106,8 +142,9 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
       .filter(isImage)
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     const others = files.filter((f) => !isImage(f));
-    if (!ai && pictures.length) {
-      skipped.push(`${pictures.map((p) => p.name).join(", ")}: transcribing notes needs AI, which is off (see Settings)`);
+    if (!photos && pictures.length) {
+      const why = isGlobal ? "photos of notes go into a book’s Codex" : "transcribing notes needs AI, which is off (see Settings)";
+      skipped.push(`${pictures.map((p) => p.name).join(", ")}: ${why}`);
       pictures.length = 0;
     }
     for (const file of others) {
@@ -145,7 +182,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
       return onOpen(`/d/${projectId}/import/${job}`);
     }
     const opening = others.length === 1 && imported.length === 1;
-    if (opening) await onOpen(`/d/${projectId}/codex/${imported[0]}`);
+    if (opening) await onOpen(entryHref(projectId, imported[0]));
     await load();
     setBusy(false);
     if (imported.length && !opening) setNotice(`Imported ${imported.length} ${imported.length === 1 ? "entry" : "entries"}.`);
@@ -155,30 +192,83 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
     if (!busy) void importFiles(files);
   });
 
-  const remove = async (eid: string) => {
+  const remove = async (target: EntryRef) => {
     setConfirming(null);
     setError(null);
     try {
-      await apiDelete(`${base}/${eid}`);
+      await apiDelete(`/api/docs/${target.owner}/codex/${target.id}`);
     } catch {
       setError("Couldn’t delete the entry.");
       await load();
       return;
     }
-    local.set(`pen:backup:${projectId}/codex/${eid}`, null);
-    if (eid === activeId) onOpen(`/d/${projectId}`);
+    local.set(entryBackupKey(target.owner, target.id), null);
+    // The open one: back to where its list lives (in a book, that closes the panel).
+    if (target.owner === active?.owner && target.id === active.id) onOpen(codexHome(projectId));
     else await load();
   };
+
+  /** One Codex's entries: the book's (or the Global Codex's on its own page), or the Global Codex's in a book. */
+  const rows = (owner: string, entries: EntryMeta[]) => (
+    <ul className="outline-list">
+      {entries.map((e) => {
+        const key = `${owner}/${e.id}`;
+        const isActive = active?.owner === owner && active.id === e.id;
+        const where = owner === GLOBAL ? "this book" : "the Global Codex";
+        return (
+          <li key={key} className="library-row">
+            {confirming === key ? (
+              <ConfirmRow onKeep={() => setConfirming(null)} onConfirm={() => remove({ owner, id: e.id })}>
+                Delete <em>{e.title}</em>?
+              </ConfirmRow>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={`library-item version-item ${isActive ? "is-active" : ""}`}
+                  onClick={() => !isActive && onOpen(entryHref(owner, e.id))}
+                >
+                  <span className="library-title">{(isActive && activeTitle) || e.title}</span>
+                  <span className="library-meta">{e.words.toLocaleString()} w</span>
+                </button>
+                {onMove && !isGlobal && (
+                  <button
+                    type="button"
+                    className="icon-btn library-delete library-move"
+                    aria-label={`Move ${e.title} to ${where}`}
+                    title={`Move to ${where}`}
+                    disabled={moving !== null}
+                    onClick={() => void move({ owner, id: e.id })}
+                  >
+                    <IconMove />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="icon-btn library-delete"
+                  aria-label={`Delete ${e.title}`}
+                  title="Delete entry"
+                  onClick={() => setConfirming(key)}
+                >
+                  <IconTrash />
+                </button>
+              </>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
 
   return (
     <div className={`codex drop-panel ${drop.dropping ? "is-drop" : ""}`} {...drop.props}>
       {drop.dropping && (
         <p className="drop-hint" aria-hidden>
-          Drop to add to the Codex
+          Drop to add to the {isGlobal ? "Global " : ""}Codex
         </p>
       )}
       <div className="panel-actions">
-        <button type="button" className="history-new" onClick={create} disabled={busy}>
+        <button type="button" className="history-new" onClick={() => void create()} disabled={busy}>
           + New entry
         </button>
         <button type="button" className="history-new" onClick={() => picker.current?.click()} disabled={busy}>
@@ -188,7 +278,7 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
       <input
         ref={picker}
         type="file"
-        accept={ai ? CODEX_NOTE_ACCEPT : CODEX_IMPORT_ACCEPT}
+        accept={photos ? CODEX_NOTE_ACCEPT : CODEX_IMPORT_ACCEPT}
         multiple
         hidden
         onChange={(e) => {
@@ -233,42 +323,28 @@ export default function Codex({ projectId, activeId, activeTitle, onOpen, refres
 
       {list && list.length === 0 && imports.length === 0 && (
         <p className="outline-empty">
-          Nothing here yet. Keep plot outlines, character notes, places and rules of the world beside the manuscript.
+          {isGlobal
+            ? "Nothing here yet. Keep what every book shares: a style sheet, a world several books live in, research, ideas waiting for a book."
+            : "Nothing here yet. Keep plot outlines, character notes, places and rules of the world beside the manuscript."}
         </p>
       )}
 
-      {list && list.length > 0 && (
-        <ul className="outline-list">
-          {list.map((e) => (
-            <li key={e.id} className="library-row">
-              {confirming === e.id ? (
-                <ConfirmRow onKeep={() => setConfirming(null)} onConfirm={() => remove(e.id)}>
-                  Delete <em>{e.title}</em>?
-                </ConfirmRow>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    className={`library-item version-item ${e.id === activeId ? "is-active" : ""}`}
-                    onClick={() => e.id !== activeId && onOpen(`/d/${projectId}/codex/${e.id}`)}
-                  >
-                    <span className="library-title">{(e.id === activeId && activeTitle) || e.title}</span>
-                    <span className="library-meta">{e.words.toLocaleString()} w</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="icon-btn library-delete"
-                    aria-label={`Delete ${e.title}`}
-                    title="Delete entry"
-                    onClick={() => setConfirming(e.id)}
-                  >
-                    <IconTrash />
-                  </button>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
+      {list && list.length > 0 && rows(projectId, list)}
+
+      {shared && (
+        <section className="codex-global" aria-label="Global Codex">
+          <div className="codex-global-head">
+            <span className="label">Global Codex</span>
+            <button type="button" className="history-new" onClick={() => void create(GLOBAL)} disabled={busy}>
+              + New
+            </button>
+          </div>
+          {shared.length > 0 ? (
+            rows(GLOBAL, shared)
+          ) : (
+            <p className="outline-empty">Notes every book shares. Move an entry here to reach it from every book.</p>
+          )}
+        </section>
       )}
     </div>
   );

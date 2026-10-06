@@ -290,3 +290,18 @@ export const IconComment = (p: P) => (
     <path d="M7 8h6M7 10.5h4" />
   </svg>
 );
+
+/** Move: an arrow each way, for an entry going between a book's Codex and the Global Codex. */
+export const IconMove = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M4 7h11.5M12.5 4l3 3-3 3M16 13H4.5M7.5 10l-3 3 3 3" />
+  </svg>
+);
+
+/** The Global Codex: a globe. */
+export const IconGlobe = (p: P) => (
+  <svg {...base} {...p}>
+    <circle cx="10" cy="10" r="7" />
+    <path d="M3 10h14M10 3c2 2 2.8 4.4 2.8 7S12 15 10 17c-2-2-2.8-4.4-2.8-7S8 5 10 3Z" />
+  </svg>
+);

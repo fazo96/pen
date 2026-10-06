@@ -18,7 +18,11 @@ function versionName(id: string | undefined) {
 }
 
 /** What a tool call did, in the writer's terms. */
-type ToolText = { text: string; entry?: string };
+type ToolText = { text: string; entry?: string; global?: boolean };
+
+/** Which Codex a tool call was about, as named in the log (the Global Codex's own chats never say). */
+const codex = (i: Record<string, string>) => (i.global === "true" ? "Global Codex" : "Codex");
+const inGlobal = (i: Record<string, string>) => i.global === "true";
 
 /** What each of pen's tools did, from the bits of its input the session keeps (`brief`). */
 const TOOL_TEXT: Record<ToolName, (i: Record<string, string>, lines: string) => ToolText> = {
@@ -35,12 +39,12 @@ const TOOL_TEXT: Record<ToolName, (i: Record<string, string>, lines: string) => 
     text: `Compared ${versionName(i.from)} with ${i.to ? versionName(i.to) : "the current draft"}${i.heading ? ` · ${i.heading}` : ""}`,
   }),
   list_codex: () => ({ text: "Looked through the Codex" }),
-  read_codex_entry: (i) => ({ text: `Read Codex · ${i.id ?? ""}`, entry: i.id }),
-  create_codex_entry: (i) => ({ text: i.id ? `Created Codex · ${i.id}` : "Created a Codex entry", entry: i.id }),
-  edit_codex_entry: (i) => ({ text: `Edited Codex · ${i.id ?? ""}`, entry: i.id }),
-  write_codex_entry: (i) => ({ text: `Edited Codex · ${i.id ?? ""}`, entry: i.id }),
-  rename_codex_entry: (i) => ({ text: `Renamed Codex · ${i.id ?? ""} → ${i.new_id ?? ""}`, entry: i.new_id }),
-  delete_codex_entry: (i) => ({ text: `Deleted Codex · ${i.id ?? ""}` }),
+  read_codex_entry: (i) => ({ text: `Read ${codex(i)} · ${i.id ?? ""}`, entry: i.id, global: inGlobal(i) }),
+  create_codex_entry: (i) => ({ text: i.id ? `Created ${codex(i)} · ${i.id}` : `Created a ${codex(i)} entry`, entry: i.id, global: inGlobal(i) }),
+  edit_codex_entry: (i) => ({ text: `Edited ${codex(i)} · ${i.id ?? ""}`, entry: i.id, global: inGlobal(i) }),
+  write_codex_entry: (i) => ({ text: `Edited ${codex(i)} · ${i.id ?? ""}`, entry: i.id, global: inGlobal(i) }),
+  rename_codex_entry: (i) => ({ text: `Renamed ${codex(i)} · ${i.id ?? ""} → ${i.new_id ?? ""}`, entry: i.new_id, global: inGlobal(i) }),
+  delete_codex_entry: (i) => ({ text: `Deleted ${codex(i)} · ${i.id ?? ""}` }),
 };
 
 function describeTool(item: Extract<ChatItem, { type: "tool" }>): ToolText {
@@ -50,7 +54,7 @@ function describeTool(item: Extract<ChatItem, { type: "tool" }>): ToolText {
   return describe ? describe(i, lines) : { text: item.title };
 }
 
-export default function ConstructItem({ item, onOpenEntry }: { item: ChatItem; onOpenEntry: (entry: string) => void }) {
+export default function ConstructItem({ item, onOpenEntry }: { item: ChatItem; onOpenEntry: (entry: string, global: boolean) => void }) {
   switch (item.type) {
     case "user":
       return (
@@ -73,13 +77,13 @@ export default function ConstructItem({ item, onOpenEntry }: { item: ChatItem; o
         </details>
       );
     case "tool": {
-      const { text, entry } = describeTool(item);
+      const { text, entry, global = false } = describeTool(item);
       const done = item.status === "completed";
       return (
         <div className={`construct-tool is-${item.status}`}>
           <span className="construct-tool-dot" aria-hidden />
           {entry && done && !item.name?.startsWith("delete") ? (
-            <button type="button" onClick={() => onOpenEntry(entry)}>
+            <button type="button" onClick={() => onOpenEntry(entry, global)}>
               {text}
             </button>
           ) : (

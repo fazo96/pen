@@ -101,6 +101,41 @@ test("codex, spot, cover, export, imports", async ({ request }) => {
   expect((await request.get(`/api/docs/${id}/imports/no-job/0`)).status()).toBe(404);
 });
 
+test("the Global Codex (_global): its entries, spot and moves; no book routes", async ({ request }) => {
+  const codex = "/api/docs/_global/codex";
+  const name = uniqueId("api-global");
+  const created = await request.post(codex, { data: { content: `# ${name}\n\nshared` } });
+  expect(created.status()).toBe(201);
+  const { id: entry } = (await created.json()) as { id: string };
+  expect(((await (await request.get(codex)).json()) as { id: string }[]).some((e) => e.id === entry)).toBe(true);
+  const { version } = (await (await request.get(`${codex}/${entry}`)).json()) as { version: string };
+  expect((await request.put(`${codex}/${entry}`, { data: { content: `# ${name}\n\nedited`, baseVersion: version } })).status()).toBe(200);
+  expect((await request.put("/api/docs/_global/spot", { data: { entry } })).status()).toBe(204);
+  expect((await request.post(codex, { data: { images: ["aGk="] } })).status()).toBe(400); // notes go into a book
+
+  // Into a book and back.
+  const book = uniqueId("api-global-book");
+  expect((await request.post("/api/docs", { data: { content: `# ${book}\n\nText.`, name: book } })).status()).toBe(201);
+  const toBook = await request.post(`${codex}/${entry}/move`, { data: { to: book } });
+  expect(toBook.status()).toBe(200);
+  expect(((await toBook.json()) as { id: string }).id).toBe(entry);
+  expect((await request.get(`${codex}/${entry}`)).status()).toBe(404);
+  expect((await request.get(`/api/docs/${book}/codex/${entry}`)).status()).toBe(200);
+  expect((await request.post(`/api/docs/${book}/codex/${entry}/move`, { data: { to: "_global" } })).status()).toBe(200);
+  expect((await request.post(`${codex}/${entry}/move`, { data: { to: "_global" } })).status()).toBe(400);
+  expect((await request.post(`${codex}/${entry}/move`, { data: { to: "no-such-book" } })).status()).toBe(404);
+  expect((await request.post(`${codex}/${entry}/move`, { data: { to: "../x" } })).status()).toBe(400);
+  expect((await request.delete(`${codex}/${entry}`)).status()).toBe(204);
+
+  // It's no book.
+  expect((await request.get("/api/docs/_global")).status()).toBe(404);
+  expect((await request.put("/api/docs/_global", { data: { content: "# x" } })).status()).toBe(404);
+  expect((await request.get("/api/docs/_global/versions")).status()).toBe(404);
+  expect((await request.get("/api/docs/_global/export")).status()).toBe(404);
+  expect((await request.get("/api/docs/_global/imports")).status()).toBe(404);
+  expect((await request.get("/api/docs/_other/codex")).status()).toBe(404);
+});
+
 test("AI routes work, on the stub agent", async ({ request }) => {
   const id = uniqueId("api-ai");
   await request.post("/api/docs", { data: { content: "# A", name: id } });
@@ -114,6 +149,11 @@ test("AI routes work, on the stub agent", async ({ request }) => {
   expect((await request.post(`/api/docs/${id}/construct`, { data: { action: "start" } })).status()).toBe(204);
   expect((await request.post(`/api/docs/${id}/construct`, { data: { action: "nope" } })).status()).toBe(400);
   expect((await request.post(`/api/docs/${id}/codex`, { data: { images: ["aGk="] } })).status()).toBe(415); // not a picture
+  // The Global Codex has a Construct of its own, and quick answers.
+  expect((await request.post("/api/docs/_global/construct", { data: { action: "start" } })).status()).toBe(204);
+  const globalQuick = await request.post("/api/docs/_global/construct/quick", { data: { text: "hi there" } });
+  expect(globalQuick.status()).toBe(200);
+  expect(await globalQuick.text()).toContain("Echo:");
   // Construct's MCP endpoint wants its own bearer token, not the session.
   expect((await request.post(`/api/construct/mcp`, { data: {} })).status()).toBe(401);
 });

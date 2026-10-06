@@ -16,6 +16,8 @@ const URLS = [
   "/d/rain",
   "/d/rain?entry=storm&cite=x",
   "/d/rain/codex/storm",
+  "/codex/style",
+  "/codex",
   "/d/rain/settings",
   "/d/rain/import/job",
   "/settings",
@@ -29,6 +31,8 @@ test("keeps the library, books and entries, by path (the library's ?library apar
   assert.equal(key("/?library"), "/?library");
   assert.equal(key("/d/rain?entry=storm&cite=x"), "/d/rain");
   assert.equal(key("/d/rain/codex/storm"), "/d/rain/codex/storm");
+  assert.equal(key("/codex/style"), "/codex/style");
+  assert.equal(key("/codex"), null, "a redirect to an entry");
   for (const u of ["/d/rain/settings", "/d/rain/import/job", "/settings", "/unlock", "/api/docs/rain"]) {
     assert.equal(key(u), null, u);
   }
@@ -42,10 +46,10 @@ test("the service worker's pageKey agrees", () => {
 });
 
 test("copies the reads offline pages need, nothing else", () => {
-  for (const p of ["/api/docs", "/api/docs/rain", "/api/docs/rain/codex", "/api/docs/rain/codex/storm"]) {
+  for (const p of ["/api/docs", "/api/docs/rain", "/api/docs/rain/codex", "/api/docs/rain/codex/storm", "/api/docs/_global/codex", "/api/docs/_global/codex/style"]) {
     assert.ok(keepsCopy(p), p);
   }
-  for (const p of ["/api/docs/rain/versions", "/api/docs/rain/spot", "/api/docs/rain/imports", "/api/shelves", "/api/docs?x"]) {
+  for (const p of ["/api/docs/rain/versions", "/api/docs/rain/spot", "/api/docs/rain/imports", "/api/shelves", "/api/docs?x", "/api/docs/_global", "/api/docs/_global/spot"]) {
     assert.equal(keepsCopy(p), false, p);
   }
 });

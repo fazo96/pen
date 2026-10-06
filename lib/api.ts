@@ -67,3 +67,7 @@ export const createEntry = async (projectId: string) =>
       json: { content: "# Untitled entry\n\n", name: "entry" },
     })
   ).id;
+
+/** Move an entry to another Codex: a book's, or the Global Codex (GLOBAL); its id there. */
+export const moveEntry = async (owner: string, eid: string, to: string) =>
+  (await api<{ id: string }>(`/api/docs/${owner}/codex/${eid}/move`, { method: "POST", json: { to } })).id;

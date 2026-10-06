@@ -28,6 +28,8 @@ type Props = {
   /** The manuscript's, or the entry's on its own page. */
   title: string;
   isEntry: boolean;
+  /** An entry of the Global Codex, which has no book. */
+  isGlobal?: boolean;
   /** For the unlock link's way back. */
   docId: string;
   status: Status;
@@ -51,6 +53,7 @@ type Props = {
 export default function EditorTopBar({
   title,
   isEntry,
+  isGlobal = false,
   docId,
   status,
   savedAt,
@@ -65,6 +68,7 @@ export default function EditorTopBar({
   on,
 }: Props) {
   const keys = useKeys();
+  const settingsLabel = isGlobal ? "Settings" : "Book settings";
   // Before Settings on wider screens; beside the menu on phones, where the tools fold away.
   const goTo = (className = "") => (
     <button
@@ -88,7 +92,7 @@ export default function EditorTopBar({
           <Logo />
         </button>
         <span className="topbar-title" title={title}>
-          {isEntry ? `Codex · ${title}` : title}
+          {isEntry ? `${isGlobal ? "Global Codex" : "Codex"} · ${title}` : title}
         </span>
       </div>
       <div className="topbar-right">
@@ -96,7 +100,7 @@ export default function EditorTopBar({
           // biome-ignore lint/a11y/noInteractiveElementToNoninteractiveRole: the save status, a link to unlock while locked; it still announces as a status
           <a
             className="status status-locked"
-            href={`/unlock?next=${encodeURIComponent(`/d/${docId}`)}`}
+            href={`/unlock?next=${encodeURIComponent(isGlobal ? `/codex/${docId}` : `/d/${docId}`)}`}
             role="status"
             title="Signed out. Unlock to keep saving; your text is kept on this device."
           >
@@ -154,7 +158,7 @@ export default function EditorTopBar({
             </button>
           )}
           {goTo()}
-          <button type="button" className="icon-btn" onClick={on.settings} aria-label="Book settings" title="Book settings">
+          <button type="button" className="icon-btn" onClick={on.settings} aria-label={settingsLabel} title={settingsLabel}>
             <IconGear />
           </button>
         </div>
@@ -168,6 +172,7 @@ export default function EditorTopBar({
           onExport={on.exportMarkdown}
           onConstruct={on.construct}
           onSettings={on.settings}
+          settingsLabel={settingsLabel}
           onFind={on.find}
         />
       </div>
