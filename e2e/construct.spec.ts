@@ -118,6 +118,26 @@ test("Synonyms on a selected word answers in a popover, and continues in the cha
   await expect(replies(page).last()).toContainText("rain", { timeout: 30_000 });
 });
 
+test("the quick answer closes on a click elsewhere in the text, or its close button", async ({ page, request }) => {
+  const id = await makeBook(request, uniqueId("quick-close"), "The rain fell at last.");
+  await openBook(page, id);
+  const answer = page.getByRole("dialog", { name: "Construct’s answer" });
+  const synonyms = page.getByRole("toolbar", { name: "Selected words" }).getByRole("button", { name: "Synonyms" });
+
+  await selectWord(page, "rain");
+  await synonyms.click();
+  await expect(answer).toBeVisible();
+  // Inside the editor, so not an outside press: the selection leaving the word closes it.
+  await page.locator("main .ProseMirror p").first().click({ position: { x: 2, y: 2 } });
+  await expect(answer).toBeHidden();
+
+  await selectWord(page, "rain");
+  await synonyms.click();
+  await answer.getByRole("button", { name: "Close" }).click();
+  await expect(answer).toBeHidden();
+  await expect(page.locator("main .ProseMirror")).toContainText("The rain fell at last.");
+});
+
 test("the palette's Ask… leaves a question in Construct's input", async ({ page, request }) => {
   const id = await makeBook(request, uniqueId("ask"), "The harbour was empty.");
   await openBook(page, id);

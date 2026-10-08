@@ -9,7 +9,7 @@ import { readNdjson } from "@/lib/ndjson";
 import { useAnchored, useCloseOnEdit } from "@/lib/useAnchored";
 import { alternativesIn, matchCase, type QuickKind } from "@/lib/wordTools";
 import { Markdown } from "./ConstructMarkdown";
-import { IconConstruct } from "./icons";
+import { IconClose, IconConstruct } from "./icons";
 
 export type Quick = {
   /** A new one each time. */
@@ -93,7 +93,7 @@ export default function QuickAnswer({
     };
   }, [projectId, quick]);
 
-  useCloseOnEdit(editor, onClose);
+  useCloseOnEdit(editor, onClose, range);
 
   const replace = (word: string) => {
     const { state } = editor;
@@ -118,6 +118,9 @@ export default function QuickAnswer({
       style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" }}
       onMouseDown={(e) => e.preventDefault()}
     >
+      <button type="button" className="icon-btn lookup-close" onClick={onClose} aria-label="Close">
+        <IconClose />
+      </button>
       <div className="lookup-body">
         {offered.length > 0 && (
           <div className="lookup-row quick-chips">

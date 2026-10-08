@@ -64,17 +64,31 @@ export function useAnchored(
   return range ? pos : null;
 }
 
-/** A popover over the text closes when the document changes (typing elsewhere, the words moved) or on Escape. */
-export function useCloseOnEdit(editor: Editor, close: () => void) {
+/**
+ * A popover over the text closes when the document changes (typing elsewhere,
+ * the words moved) or on Escape; given the `range` it's about, also when the
+ * selection stops covering it.
+ */
+export function useCloseOnEdit(editor: Editor, close: () => void, range?: Range) {
   const onClose = useEffectEvent(close);
+  const from = range?.from;
+  const to = range?.to;
   useEffect(() => {
     const onTx = ({ transaction }: { transaction: { docChanged: boolean } }) => transaction.docChanged && onClose();
+    // A press in the text is no outside press for `useAnchored`: moving the
+    // selection off the words (a click elsewhere, the arrow keys) closes it.
+    const onSelection = () => {
+      const sel = editor.state.selection;
+      if (from !== undefined && to !== undefined && (sel.from > from || sel.to < to)) onClose();
+    };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     editor.on("transaction", onTx);
+    editor.on("selectionUpdate", onSelection);
     window.addEventListener("keydown", onKey);
     return () => {
       editor.off("transaction", onTx);
+      editor.off("selectionUpdate", onSelection);
       window.removeEventListener("keydown", onKey);
     };
-  }, [editor]);
+  }, [editor, from, to]);
 }

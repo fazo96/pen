@@ -296,6 +296,24 @@
   overscroll-behavior: contain;
   padding: 10px 14px 6px;
 }
+/* Over the body's top right corner; the first line keeps clear of it. */
+.lookup > .lookup-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 1;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+  background: var(--paper-raised);
+}
+.lookup > .lookup-close:hover {
+  background: var(--accent-wash);
+}
+.lookup-body > :first-child {
+  padding-right: 28px;
+}
 .lookup-note {
   margin: 4px 0 8px;
   color: var(--ink-faint);

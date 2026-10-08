@@ -11,7 +11,7 @@ import { useAnchored, useCloseOnEdit } from "@/lib/useAnchored";
 import { useKeys } from "@/lib/useKeys";
 import { askDraft, constructPrompt, onLookUpRequest, pickedWords, type AskKind, type Picked, type QuickKind } from "@/lib/wordTools";
 import { inflectLike, type Pos } from "@/lib/wordforms";
-import { IconBook, IconConstruct } from "./icons";
+import { IconBook, IconClose, IconConstruct } from "./icons";
 
 /** A question about the selection: `send` ones are answered right away (in a popover), the others left to finish. */
 export type Ask = (text: string, range: { from: number; to: number }, send: boolean, kind?: QuickKind) => void;
@@ -188,7 +188,7 @@ function LookUp({
     };
   }, [picked.text]);
 
-  useCloseOnEdit(editor, onClose);
+  useCloseOnEdit(editor, onClose, picked);
 
   const replace = (word: string, entry: Entry, sense: Sense) => {
     const { state } = editor;
@@ -225,6 +225,9 @@ function LookUp({
       style={pos ? { left: pos.left, top: pos.top } : { visibility: "hidden" }}
       onMouseDown={(e) => e.preventDefault()}
     >
+      <button type="button" className="icon-btn lookup-close" onClick={onClose} aria-label="Close">
+        <IconClose />
+      </button>
       <div className="lookup-body">
         {!result && (
           <p className="lookup-note">
