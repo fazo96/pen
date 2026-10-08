@@ -10,6 +10,12 @@ import WritingChart, { bucketName, WritingLegend } from "./WritingChart";
 const n = (x: number) => x.toLocaleString();
 const signed = (x: number) => (x > 0 ? `+${n(x)}` : x < 0 ? `−${n(-x)}` : "0");
 
+/** "120 pasted and 400 moved words aren’t counted." */
+function notCounted({ pasted, moved }: Totals) {
+  const parts = [pasted > 0 && `${n(pasted)} pasted`, moved > 0 && `${n(moved)} moved`].filter(Boolean);
+  return `${parts.join(" and ")} words aren’t counted.`;
+}
+
 const RANGE_KEY = "pen:stats-range";
 const BOOK_KEY = "pen:stats-book";
 
@@ -151,8 +157,8 @@ export default function WritingStats({ report }: { report: WritingReport }) {
           />
           <WritingLegend removed={summary.totals.removed > 0} />
 
-          {summary.totals.pasted > 0 && (
-            <p className="settings-hint">{n(summary.totals.pasted)} pasted words aren’t counted.</p>
+          {(summary.totals.pasted > 0 || summary.totals.moved > 0) && (
+            <p className="settings-hint">{notCounted(summary.totals)}</p>
           )}
 
           {!book && summary.books.length > 1 && (

@@ -1,5 +1,6 @@
 "use client";
 
+import type { Fragment } from "@tiptap/pm/model";
 import { useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Typography from "@tiptap/extension-typography";
@@ -21,12 +22,23 @@ export const HEADINGS = {
   entry: ["Title", "Heading", "Subheading", "Minor heading"],
 } as const;
 
-/** A Tiptap editor set up for the manuscript or a codex entry. `onPaste` hears how many words were pasted. */
+const textOf = (fragment: Fragment) => fragment.textBetween(0, fragment.size, "\n\n", " ");
+/** A text's words, to tell a paste of what was cut from any other. */
+const wordsOf = (text: string) => text.toLowerCase().match(/[\p{L}\p{N}]+/gu)?.join(" ") ?? "";
+
+// The last text cut in any of this page's editors (the manuscript, the Codex
+// panel), until it's pasted: pasting it back is moving it, not adding to it.
+let lastCut: string | null = null;
+
+/**
+ * A Tiptap editor set up for the manuscript or a codex entry. `onPaste` hears
+ * how many words were pasted, and whether they were cut here (`moved`).
+ */
 export function usePenEditor(
   kind: "manuscript" | "entry",
   content: string,
   onChange: () => void,
-  onPaste?: (words: number) => void,
+  onPaste?: (words: number, moved: boolean) => void,
 ) {
   const isEntry = kind === "entry";
   const headingNames = HEADINGS[kind];
@@ -92,8 +104,21 @@ export function usePenEditor(
       },
       // Counted for the writing stats, where pasted words aren't writing; the paste itself goes ahead.
       handlePaste: (_view, _event, slice) => {
-        pasted.current?.(wordCount(slice.content.textBetween(0, slice.content.size, "\n\n", " ")));
+        const text = textOf(slice.content);
+        const moved = lastCut !== null && wordsOf(text) === lastCut;
+        if (moved) lastCut = null; // pasting it again copies it
+        pasted.current?.(wordCount(text), moved);
         return false;
+      },
+      handleDOMEvents: {
+        cut: (view) => {
+          // Right after the selection changes the editor may not have caught up
+          // (it then leaves the cut to the browser): the page's selection is.
+          const { selection } = view.state;
+          const text = selection.empty ? (view.dom.ownerDocument.getSelection()?.toString() ?? "") : textOf(selection.content().content);
+          lastCut = wordsOf(text) || null;
+          return false;
+        },
       },
     },
     onUpdate: ({ transaction }) => {

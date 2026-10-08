@@ -79,3 +79,43 @@ test("writing in a book shows on the library's card and the stats page; pasted t
   await page.locator(".wcard").getByRole("link", { name: "All stats →" }).click();
   await expect(page).toHaveURL(/\/stats$/);
 });
+
+test("cutting text and pasting it back, a save later, moves it: nothing removed or written", async ({ page, request, context }) => {
+  const id = await makeBook(request, uniqueId("moves"), "First line.\n\nThese five words get moved.");
+  await openBook(page, id);
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.evaluate(() => (document.querySelector(".ProseMirror") as EditorElement).editor.commands.focus("end"));
+  const cut = response(page, "PUT", new RegExp(`^/api/docs/${id}$`));
+  await page.keyboard.press("Shift+Home");
+  await page.keyboard.press("Control+x");
+  expect((await cut).status()).toBe(200);
+
+  // Back in, before the first line.
+  await page.evaluate(() => {
+    const { editor } = document.querySelector(".ProseMirror") as EditorElement;
+    let at = 0;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.isTextblock && node.textContent === "First line.") at = pos + 1;
+    });
+    editor.commands.focus(at);
+  });
+  const moved = page.waitForRequest(
+    (r) => r.method() === "PUT" && new URL(r.url()).pathname === `/api/docs/${id}` && /"moved":5/.test(r.postData() ?? ""),
+  );
+  await page.keyboard.press("Control+v");
+  await page.keyboard.press("Enter");
+  await moved;
+
+  await expect(async () => {
+    const report = (await (await request.get("/api/stats")).json()) as {
+      slots: { book: string; drafted: number; editAdded: number; removed: number; moved: number }[];
+    };
+    const mine = report.slots.filter((s) => s.book === id);
+    expect(mine.map((s) => [s.drafted, s.editAdded, s.removed, s.moved])).toEqual([[0, 0, 0, 5]]);
+  }).toPass();
+  await page.goto("/stats");
+  await page.getByRole("radio", { name: "Today" }).click();
+  const book = page.locator(".wstats-book select");
+  if (await book.isVisible()) await book.selectOption(id);
+  await expect(page.getByText("5 moved words aren’t counted.")).toBeVisible();
+});

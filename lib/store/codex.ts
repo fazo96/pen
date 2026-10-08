@@ -8,6 +8,7 @@ import { slugify, titleOf, wordCount } from "../text";
 import type { Doc, EntryMeta } from "../types";
 import { codexDir, entryFile, isMissing, projectExists, ready, serialize, stale, trashPath, versionOf, type WriteResult } from "./core";
 import { updateSpots } from "./spots";
+import type { Pastes } from "../writingStats";
 import { recordEntryRename, trackSave } from "./stats";
 
 // Notes that sit beside the manuscript: <project>/codex/<entry>.md. The same
@@ -98,7 +99,7 @@ export function writeEntry(
   content: string,
   baseVersion: string | null,
   force = false,
-  track?: { pasted: number },
+  track?: Pastes,
 ): Promise<WriteResult> {
   return serialize(async () => {
     const current = await readEntry(id, eid);
@@ -107,7 +108,7 @@ export function writeEntry(
       await writeAtomic(entryFile(id, eid), content);
       if (track) {
         const title = titleOf(content, eid);
-        trackSave({ book: id, kind: "codex", entry: eid, before: current?.content ?? "", after: content, pasted: track.pasted, title });
+        trackSave({ book: id, kind: "codex", entry: eid, before: current?.content ?? "", after: content, ...track, title });
       }
     }
     return { ok: true, version: versionOf(content) };

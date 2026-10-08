@@ -17,9 +17,18 @@ export type Delta = {
   removed: number;
   /** Words the editor reported pasting, taken out of the two above. */
   pasted: number;
+  /**
+   * Words pasted back after the writer cut them in an earlier save, taken out of
+   * drafted and added like pasted ones. That save counted them as removed, which
+   * the store takes back (lib/store/stats.ts).
+   */
+  moved: number;
 };
 
-export const NO_CHANGE: Delta = { drafted: 0, editAdded: 0, removed: 0, pasted: 0 };
+export const NO_CHANGE: Delta = { drafted: 0, editAdded: 0, removed: 0, pasted: 0, moved: 0 };
+
+/** Words the editor saw pasted since the last save: `pasted` from elsewhere, `moved` cut in pen and pasted back. */
+export type Pastes = { pasted: number; moved?: number };
 
 /** Retyping this many words at the end of a paragraph (a typo, a word cut off by the save) is still drafting. */
 const TYPO_WORDS = 3;
@@ -56,7 +65,7 @@ function bag(texts: string[]) {
 }
 
 /** Words found both among the removed and the added: text moved (a paragraph split or joined), not written. */
-function moved(removed: string[], added: string[]) {
+function movedWords(removed: string[], added: string[]) {
   const a = bag(added);
   let n = 0;
   for (const [w, k] of bag(removed)) n += Math.min(k, a.get(w) ?? 0);
@@ -67,13 +76,13 @@ function moved(removed: string[], added: string[]) {
 export type Measured = { delta: Delta; chapters: string[] };
 
 /**
- * What changed between two saves of a document. `pasted`: words the editor saw
+ * What changed between two saves of a document. `pastes`: words the editor saw
  * pasted since the last save, which count as neither drafting nor editing.
  */
-export const measureEdit = (before: string, after: string, pasted = 0): Delta => measureSave(before, after, pasted).delta;
+export const measureEdit = (before: string, after: string, pastes?: Pastes): Delta => measureSave(before, after, pastes).delta;
 
 /** `measureEdit`, and the chapters whose text changed: added or edited text's chapter in the new text, removed text's in the old. */
-export function measureSave(before: string, after: string, pasted = 0): Measured {
+export function measureSave(before: string, after: string, { pasted, moved = 0 }: Pastes = { pasted: 0 }): Measured {
   const { blocks: a, chapters: inA } = blocksOf(before);
   const { blocks: b, chapters: inB } = blocksOf(after);
   const touched = new Set<string>();
@@ -140,20 +149,25 @@ export function measureSave(before: string, after: string, pasted = 0): Measured
   let editAdded = wordCount(editAddedText.join(" "));
   let removed = wordCount(removedText.join(" "));
   // Moved words cancel out, taken from editing first.
-  let same = Math.min(moved(removedText, [...editAddedText, ...draftedText]), removed);
+  const same = Math.min(movedWords(removedText, [...editAddedText, ...draftedText]), removed);
   removed -= same;
   const fromEdit = Math.min(same, editAdded);
   editAdded -= fromEdit;
-  same -= fromEdit;
-  drafted = Math.max(0, drafted - same);
+  drafted = Math.max(0, drafted - (same - fromEdit));
 
-  // Pasted words: taken from drafting first (most pastes land as new paragraphs).
-  const paste = Math.max(0, Math.min(Math.floor(pasted), drafted + editAdded));
-  const fromDraft = Math.min(paste, drafted);
-  return {
-    delta: { drafted: drafted - fromDraft, editAdded: editAdded - (paste - fromDraft), removed, pasted: paste },
-    chapters: [...touched],
+  // Pasted words aren't writing: taken from drafting first (most pastes land as
+  // new paragraphs). Text cut and pasted back within this save cancelled out
+  // above, so only the rest of a move was cut in an earlier save.
+  const take = (words: number) => {
+    const n = Math.max(0, Math.min(Math.floor(words), drafted + editAdded));
+    const fromDraft = Math.min(n, drafted);
+    drafted -= fromDraft;
+    editAdded -= n - fromDraft;
+    return n;
   };
+  const move = take(moved - same);
+  const paste = take(pasted);
+  return { delta: { drafted, editAdded, removed, pasted: paste, moved: move }, chapters: [...touched] };
 }
 
 /** Counts for a span of time, summed from slots. */
@@ -166,11 +180,12 @@ export function addTotals(into: Totals, from: Delta & { activeMs?: number }): To
   into.editAdded += from.editAdded;
   into.removed += from.removed;
   into.pasted += from.pasted;
+  into.moved += from.moved;
   into.activeMs += from.activeMs ?? 0;
   return into;
 }
 
-/** New words, typed (pasted ones don't count). */
+/** New words, typed (pasted or moved ones don't count). */
 export const written = (t: Delta) => t.drafted + t.editAdded;
 
 /** Editing: words inserted into existing text plus words removed. */

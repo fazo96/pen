@@ -5,7 +5,7 @@ import { isOwnerId, isValidId } from "../ids";
 import { type JsonStore, jsonStore } from "../jsonStore";
 import { DOCS_DIR } from "../paths";
 import { withRename } from "../renameMap";
-import { measureSave, type Slot, type StatsKind } from "../writingStats";
+import { measureSave, type Pastes, type Slot, type StatsKind } from "../writingStats";
 
 export type { Slot, StatsKind } from "../writingStats";
 
@@ -23,6 +23,8 @@ export const STATS_DIR = path.join(DOCS_DIR, ".pen-stats");
 export const SLOT_MS = 15 * 60_000;
 /** A save within this long of the book's last one counts the time between as writing. */
 const ACTIVE_GAP_MS = 5 * 60_000;
+/** How far back a paste looks for the removal its cut left. */
+const MOVE_REACH_MS = 60 * 60_000;
 
 /** `entries`: each Codex entry's last title, by "<book>/<entry>". */
 type Month = { slots: Slot[]; titles: Record<string, string>; entries: Record<string, string> };
@@ -59,6 +61,7 @@ function parseMonth(raw: unknown): Month {
       editAdded: num(o.editAdded),
       removed: num(o.removed),
       pasted: num(o.pasted),
+      moved: num(o.moved),
       saves: num(o.saves),
       activeMs: num(o.activeMs),
     });
@@ -96,16 +99,19 @@ export type SaveRecord = {
   entry?: string;
   before: string;
   after: string;
-  /** Words the editor reported pasting since its last save. */
-  pasted: number;
   /** The manuscript's title (or the entry's), remembered for when it's gone. */
   title?: string;
   now?: number;
-};
+} & Pastes;
 
-/** Add one save to its slot. */
-export async function recordSave({ book, kind, entry, before, after, pasted, title, now = Date.now() }: SaveRecord): Promise<void> {
-  const { delta, chapters } = measureSave(before, after, pasted);
+/**
+ * Add one save to its slot. Words it moved (cut in an earlier save, pasted back
+ * in this one) come back out of the removed words of the book's slots in the
+ * last hour, newest first: whichever of its documents the cut was in, the
+ * manuscript or the Codex.
+ */
+export async function recordSave({ book, kind, entry, before, after, pasted, moved, title, now = Date.now() }: SaveRecord): Promise<void> {
+  const { delta, chapters } = measureSave(before, after, { pasted, moved });
   const last = lastSave.get(book);
   lastSave.set(book, now);
   const activeMs = last !== undefined && now - last >= 0 && now - last <= ACTIVE_GAP_MS ? now - last : 0;
@@ -115,7 +121,7 @@ export async function recordSave({ book, kind, entry, before, after, pasted, tit
     const i = slots.findIndex((s) => s.t === t && s.book === book && s.kind === kind && s.entry === entry);
     const s: Slot =
       i < 0
-        ? { t, book, kind, ...(entry ? { entry } : {}), drafted: 0, editAdded: 0, removed: 0, pasted: 0, saves: 0, activeMs: 0 }
+        ? { t, book, kind, ...(entry ? { entry } : {}), drafted: 0, editAdded: 0, removed: 0, pasted: 0, moved: 0, saves: 0, activeMs: 0 }
         : slots[i];
     const touched = kind === "manuscript" ? [...new Set([...(s.chapters ?? []), ...chapters])].slice(0, MAX_CHAPTERS) : [];
     const next: Slot = {
@@ -125,11 +131,23 @@ export async function recordSave({ book, kind, entry, before, after, pasted, tit
       editAdded: s.editAdded + delta.editAdded,
       removed: s.removed + delta.removed,
       pasted: s.pasted + delta.pasted,
+      moved: s.moved + delta.moved,
       saves: s.saves + 1,
       activeMs: s.activeMs + activeMs,
     };
     if (i < 0) slots.push(next);
     else slots[i] = next;
+    let unmoved = delta.moved;
+    const recent = slots
+      .map((x, j) => [x, j] as const)
+      .filter(([x]) => x.book === book && x.t <= t && x.t > now - MOVE_REACH_MS && x.removed > 0)
+      .sort(([x], [y]) => y.t - x.t);
+    for (const [x, j] of recent) {
+      if (!unmoved) break;
+      const back = Math.min(unmoved, x.removed);
+      slots[j] = { ...x, removed: x.removed - back };
+      unmoved -= back;
+    }
     let { titles, entries } = m;
     if (title && kind === "manuscript" && titles[book] !== title) titles = { ...titles, [book]: title };
     if (title && entry && entries[entryKey(book, entry)] !== title) entries = { ...entries, [entryKey(book, entry)]: title };

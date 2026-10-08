@@ -12,6 +12,7 @@ import { pinAgentHome } from "./chats";
 import { lastCodexEdit } from "./codex";
 import { chatsDir, dirOf, fileOf, isMissing, projectExists, readDoc, ready, serialize, stale, trashPath, versionOf, type WriteResult } from "./core";
 import { findCover } from "./cover";
+import type { Pastes } from "../writingStats";
 import { trackSave } from "./stats";
 
 // Projects as a whole: listing, creating, saving the manuscript, trashing and renaming.
@@ -87,7 +88,7 @@ export function writeDoc(
   content: string,
   baseVersion: string | null,
   force = false,
-  track?: { pasted: number },
+  track?: Pastes,
 ): Promise<WriteResult> {
   return serialize(async () => {
     const current = await readDoc(id);
@@ -102,7 +103,7 @@ export function writeDoc(
       await writeAtomic(fileOf(id), content);
       if (track) {
         const title = titleOf(content, id);
-        trackSave({ book: id, kind: "manuscript", before: current?.content ?? "", after: content, pasted: track.pasted, title });
+        trackSave({ book: id, kind: "manuscript", before: current?.content ?? "", after: content, ...track, title });
       }
     }
     return { ok: true, version: versionOf(content) };

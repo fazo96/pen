@@ -33,7 +33,7 @@ export function useEditorDoc({ kind, initial, url, backupKey, onEdit, beforeStra
   useEffect(() => {
     edited.current = onEdit;
   });
-  const notePaste = useRef<(words: number) => void>(() => {});
+  const notePaste = useRef<(words: number, moved: boolean) => void>(() => {});
   const editor = usePenEditor(
     kind,
     initial.content,
@@ -41,7 +41,7 @@ export function useEditorDoc({ kind, initial, url, backupKey, onEdit, beforeStra
       touch.current();
       edited.current?.();
     },
-    (words) => notePaste.current(words),
+    (words, moved) => notePaste.current(words, moved),
   );
   const getContent = useCallback(() => (editor ? editor.getMarkdown() : null), [editor]);
   const setContent = useCallback(

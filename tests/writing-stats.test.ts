@@ -12,17 +12,19 @@ test("a new paragraph is drafting", () => {
     editAdded: 0,
     removed: 0,
     pasted: 0,
+    moved: 0,
   });
 });
 
 test("typing into the empty paragraph Enter made (saved as &nbsp;) is drafting", () => {
   const empty = book("One.", "&nbsp;");
-  assert.deepEqual(measureEdit(book("One."), empty), { drafted: 0, editAdded: 0, removed: 0, pasted: 0 });
+  assert.deepEqual(measureEdit(book("One."), empty), { drafted: 0, editAdded: 0, removed: 0, pasted: 0, moved: 0 });
   assert.deepEqual(measureEdit(empty, book("One.", "Five new words typed here.")), {
     drafted: 5,
     editAdded: 0,
     removed: 0,
     pasted: 0,
+    moved: 0,
   });
   assert.equal(measureEdit(book("One.", "Fiv"), book("One.", "Five new words typed here.")).drafted, 4);
 });
@@ -33,6 +35,7 @@ test("writing on at the end of a paragraph is drafting, a word cut off by the sa
     editAdded: 0,
     removed: 0,
     pasted: 0,
+    moved: 0,
   });
   // Started in the last save with a single word.
   assert.equal(measureEdit(book("Th"), book("The cat sat.")).drafted, 2);
@@ -44,14 +47,15 @@ test("fixing a typo while writing on is still drafting, counted net", () => {
     editAdded: 0,
     removed: 0,
     pasted: 0,
+    moved: 0,
   });
 });
 
 test("words inserted inside a paragraph, or replaced, are editing", () => {
   const d = measureEdit(book("She ran to the market."), book("She ran quickly to the old market."));
-  assert.deepEqual(d, { drafted: 0, editAdded: 2, removed: 0, pasted: 0 });
+  assert.deepEqual(d, { drafted: 0, editAdded: 2, removed: 0, pasted: 0, moved: 0 });
   const r = measureEdit(book("He walked to the store in the morning."), book("He ran to the store in the morning."));
-  assert.deepEqual(r, { drafted: 0, editAdded: 1, removed: 1, pasted: 0 });
+  assert.deepEqual(r, { drafted: 0, editAdded: 1, removed: 1, pasted: 0, moved: 0 });
   assert.equal(workOf(r), "editing");
 });
 
@@ -67,32 +71,51 @@ test("cutting a paragraph or the end of one is removing", () => {
     editAdded: 0,
     removed: 4,
     pasted: 0,
+    moved: 0,
   });
   assert.deepEqual(measureEdit(book("He left. Nobody saw him go."), book("He left.")), {
     drafted: 0,
     editAdded: 0,
     removed: 4,
     pasted: 0,
+    moved: 0,
   });
 });
 
 test("splitting or joining paragraphs moves words, it doesn't write them", () => {
   const joined = book("The rain fell all night. In the morning the harbour was gone.");
   const split = book("The rain fell all night.", "In the morning the harbour was gone.");
-  assert.deepEqual(measureEdit(joined, split), { drafted: 0, editAdded: 0, removed: 0, pasted: 0 });
-  assert.deepEqual(measureEdit(split, joined), { drafted: 0, editAdded: 0, removed: 0, pasted: 0 });
+  assert.deepEqual(measureEdit(joined, split), { drafted: 0, editAdded: 0, removed: 0, pasted: 0, moved: 0 });
+  assert.deepEqual(measureEdit(split, joined), { drafted: 0, editAdded: 0, removed: 0, pasted: 0, moved: 0 });
 });
 
 test("pasted words count as neither drafting nor editing", () => {
   const big = "Pasted words from elsewhere arrive all at once here.";
-  assert.deepEqual(measureEdit(book("One."), book("One.", big), 9), { drafted: 0, editAdded: 0, removed: 0, pasted: 9 });
+  assert.deepEqual(measureEdit(book("One."), book("One.", big), { pasted: 9 }), { drafted: 0, editAdded: 0, removed: 0, pasted: 9, moved: 0 });
   // Never more than what was added (a paste undone before the save).
-  assert.deepEqual(measureEdit(book("One."), book("One.", "Two words."), 50), {
+  assert.deepEqual(measureEdit(book("One."), book("One.", "Two words."), { pasted: 50 }), {
     drafted: 0,
     editAdded: 0,
     removed: 0,
     pasted: 2,
+    moved: 0,
   });
+});
+
+test("text cut in an earlier save and pasted back is moved, not drafted", () => {
+  const para = "A paragraph of eight words moved somewhere else.";
+  assert.deepEqual(measureEdit(book("One."), book("One.", para), { pasted: 0, moved: 8 }), {
+    drafted: 0,
+    editAdded: 0,
+    removed: 0,
+    pasted: 0,
+    moved: 8,
+  });
+  // Cut and pasted back within one save, it cancels out on its own: words typed beside it still count.
+  assert.deepEqual(
+    measureEdit(book("One.", para, "Two."), book("One.", "Two.", para, "Five new typed words here."), { pasted: 0, moved: 8 }),
+    { drafted: 5, editAdded: 0, removed: 0, pasted: 0, moved: 0 },
+  );
 });
 
 test("straightening quotes, and comments, are not writing", () => {
@@ -101,12 +124,14 @@ test("straightening quotes, and comments, are not writing", () => {
     editAdded: 0,
     removed: 0,
     pasted: 0,
+    moved: 0,
   });
   assert.deepEqual(measureEdit(book("One."), book("One.", "%% a note to self about the plot %%")), {
     drafted: 0,
     editAdded: 0,
     removed: 0,
     pasted: 0,
+    moved: 0,
   });
 });
 
@@ -115,9 +140,9 @@ test("a new document is all drafting", () => {
 });
 
 test("workOf: drafting when new words outweigh editing", () => {
-  assert.equal(workOf({ drafted: 0, editAdded: 0, removed: 0, pasted: 30 }), null);
-  assert.equal(workOf({ drafted: 500, editAdded: 40, removed: 60, pasted: 0 }), "drafting");
-  assert.equal(workOf({ drafted: 100, editAdded: 80, removed: 60, pasted: 0 }), "editing");
+  assert.equal(workOf({ drafted: 0, editAdded: 0, removed: 0, pasted: 30, moved: 0 }), null);
+  assert.equal(workOf({ drafted: 500, editAdded: 40, removed: 60, pasted: 0, moved: 0 }), "drafting");
+  assert.equal(workOf({ drafted: 100, editAdded: 80, removed: 60, pasted: 0, moved: 0 }), "editing");
 });
 
 const novel = (...lines: string[]) =>

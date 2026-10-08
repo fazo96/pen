@@ -1,11 +1,14 @@
 import "server-only";
 import { MAX_BYTES } from "./docs";
+import type { Pastes } from "./writingStats";
 
-export type SaveBody = { content: string; baseVersion: string | null; force: boolean; pasted: number };
+export type SaveBody = { content: string; baseVersion: string | null; force: boolean; pasted: number; moved: number };
+
+const words = (x: unknown) => (typeof x === "number" && x > 0 ? x : 0);
 
 /** Parse an autosave request (PUT, or POST from sendBeacon); a Response on bad input. */
 export async function readSaveBody(req: Request): Promise<SaveBody | Response> {
-  let body: { content?: unknown; baseVersion?: unknown; force?: unknown; pasted?: unknown };
+  let body: { content?: unknown; baseVersion?: unknown; force?: unknown; pasted?: unknown; moved?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -21,14 +24,15 @@ export async function readSaveBody(req: Request): Promise<SaveBody | Response> {
     content: body.content,
     baseVersion: typeof body.baseVersion === "string" ? body.baseVersion : null,
     force: body.force === true,
-    // Words pasted since the last save, for the writing stats.
-    pasted: typeof body.pasted === "number" && body.pasted > 0 ? body.pasted : 0,
+    // Words pasted since the last save, and words cut in pen and pasted back, for the writing stats.
+    pasted: words(body.pasted),
+    moved: words(body.moved),
   };
 }
 
 /**
- * The writing stats' part of a save: its pasted words. A forced save ("keep
- * mine" after a conflict) isn't counted: it's measured against the other
+ * The writing stats' part of a save: its pasted and moved words. A forced save
+ * ("keep mine" after a conflict) isn't counted: it's measured against the other
  * device's text, so its numbers would mean nothing.
  */
-export const trackOf = (body: SaveBody) => (body.force ? undefined : { pasted: body.pasted });
+export const trackOf = (body: SaveBody): Pastes | undefined => (body.force ? undefined : { pasted: body.pasted, moved: body.moved });

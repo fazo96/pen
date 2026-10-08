@@ -13,6 +13,7 @@ const slot = (t: number, o: Partial<Slot> = {}): Slot => ({
   editAdded: 0,
   removed: 0,
   pasted: 0,
+  moved: 0,
   saves: 1,
   activeMs: 60_000,
   ...o,

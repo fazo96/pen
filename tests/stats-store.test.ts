@@ -39,6 +39,30 @@ test("saves add up in their 15-minute slot, by book and kind, a month to a file"
   assert.ok(JSON.parse(await readFile(statsFile("2025-02"), "utf8")).slots.length === 1);
 });
 
+test("a move takes its words back out of the removal its cut left, in the same book within the hour", async () => {
+  const t = Date.UTC(2025, 2, 10, 9, 0);
+  const para = "Six words that are moving along.";
+  const both = `# Moves\n\n${para}\n\nStays here.`;
+  const cut = "# Moves\n\nStays here.";
+  // Cut at 9:14, pasted at 9:16: a slot apart. Another book's removal isn't touched.
+  await recordSave({ book: "other", kind: "manuscript", before: "Gone words here.", after: "", pasted: 0, now: t + 14 * 60_000 });
+  await recordSave({ book: "moves", kind: "manuscript", before: both, after: cut, pasted: 0, now: t + 14 * 60_000 });
+  await recordSave({ book: "moves", kind: "manuscript", before: cut, after: `${cut}\n\n${para}`, pasted: 0, moved: 6, now: t + 16 * 60_000 });
+  // A paste of it into the Codex an hour later finds nothing left to take back.
+  await recordSave({ book: "moves", kind: "codex", entry: "notes", before: "", after: para, pasted: 0, moved: 6, now: t + 80 * 60_000 });
+
+  const { slots } = await readSlots(t, t + 2 * 60 * 60_000);
+  assert.deepEqual(
+    slots.map((s) => [s.book, s.kind, (s.t - t) / 60_000, s.drafted, s.removed, s.moved]),
+    [
+      ["other", "manuscript", 0, 0, 3, 0],
+      ["moves", "manuscript", 0, 0, 0, 0],
+      ["moves", "manuscript", 15, 0, 0, 6],
+      ["moves", "codex", 75, 0, 0, 6],
+    ],
+  );
+});
+
 test("only saves marked as the writer's are tracked, and only when the text changed", async () => {
   const doc = await docs.createDoc("# Tracked\n\nOne.");
   const before = (await readSlots(0, Date.now() + SLOT_MS)).slots.filter((s) => s.book === doc.id);
