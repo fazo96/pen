@@ -14,8 +14,9 @@ A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Ti
 
 ## Before you change anything
 
-- **Never write to `data/`**: it holds the writer's real books. Test against a scratch library ([development](docs/development.md)).
-- **Don't run `next build` in this checkout** and leave the server on port 3000 running: it's the writer's pen. Build in a scratch worktree ([development](docs/development.md)).
+- **Never touch the writer's library** (`/mnt/Data/Server/pen` on the server) or the running service: it's the writer's pen. Test against a scratch library and port ([development](docs/development.md)).
+- The writer's pen is a NixOS service built from `main` on GitHub (`nix/`, used by the dotfiles repo), not this checkout: building here is fine. When a change needs a redeploy, say so; the user deploys it.
+- Construct's agents are pinned twice: in `lib/construct/agents.ts` and in `nix/` (version and hashes). Change both together ([development](docs/development.md#nix)).
 - Node comes from `nix develop`. Check your work with `npm test`, `npm run typecheck`, `npm run lint` and the browser suite ([testing](docs/testing.md)).
 - Keep these docs true: when you change how something works, update its page below.
 
@@ -23,7 +24,7 @@ A mobile-first WYSIWYG markdown editor for fiction. Next.js 16 (App Router) + Ti
 
 | Page | What's in it |
 | --- | --- |
-| [docs/development.md](docs/development.md) | The writer's data, the running server, stopping servers you started, Node, fonts, Docker |
+| [docs/development.md](docs/development.md) | The writer's data, the running service and redeploying, Nix (the package, the module, pinned agents), stopping servers you started, Node, fonts, Docker |
 | [docs/testing.md](docs/testing.md) | Unit tests (and loading server modules in them), the Playwright browser suite |
 | [docs/library.md](docs/library.md) | The library on disk (`lib/docs.ts`, `lib/store/`): layout, the Global Codex, writing files safely, versions, renames, stats and export, the cache |
 | [docs/api.md](docs/api.md) | `app/api/`: saves and conflicts, `route()` and its helpers |

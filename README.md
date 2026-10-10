@@ -83,6 +83,7 @@ Books are stored in `./data`. Point `PEN_DIR` elsewhere to keep them somewhere e
 | `PEN_SESSION_GAP_MS` | 30 minutes | Quiet time after which the next save snapshots a new version |
 | `PEN_CONSTRUCT_CLAUDE` | `npx -y @agentclientprotocol/claude-agent-acp@0.84.0` | Command that launches Construct's agent |
 | `PEN_INTERNAL_URL` | `http://127.0.0.1:<port>` | Where the agent reaches pen's tool endpoint |
+| `PEN_CONSTRUCT_PI` | `npx -y pi-acp@0.0.34` | Command that launches Construct's pi agent |
 | `PEN_CLAUDE` | `claude` | Claude Code's command, looked for to turn AI features on |
 | `PEN_PI` | `pi` | pi's command, looked for to turn AI features on |
 | `PEN_AI` | | `off` keeps AI features off even with an agent installed |
@@ -90,6 +91,34 @@ Books are stored in `./data`. Point `PEN_DIR` elsewhere to keep them somewhere e
 AI features (Construct, the Synonyms / Meaning / Ask buttons, transcribing photos of handwritten notes) are off unless pen finds an agent on the machine it runs on when it starts: [Claude Code](https://claude.com/claude-code) (the `claude` command, or a login it can use: `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, or credentials in `~/.claude`), or [pi](https://github.com/badlogic/pi-mono) (the `pi` command). Sign in once with `claude`, or set up your models in pi, and restart pen. Without either, everything else works and the AI buttons stay hidden; Settings explains what to install. Construct is built using ACP, so other agents can be added with relative ease as long as they support it.
 
 ## Self-hosting
+
+### NixOS
+
+The flake has a package and a NixOS module, with Construct's agents (Claude Code and pi, through ACP) built in:
+
+```nix
+# flake.nix
+inputs.pen = {
+  url = "github:fazo96/pen";
+  inputs.nixpkgs.follows = "nixpkgs";
+};
+
+# in nixosSystem's modules: pen.nixosModules.default, then
+services.pen = {
+  enable = true;
+  port = 3000; # listens on 127.0.0.1; put a reverse proxy in front
+  dataDir = "/var/lib/pen"; # the library
+  # Construct's agents use this user's Claude Code login and pi settings.
+  # Without one, the default `pen` user can take a token from environmentFile
+  # (CLAUDE_CODE_OAUTH_TOKEN=…).
+  user = "you";
+  group = "users";
+};
+```
+
+Claude Code is unfree: allow it (`nixpkgs.config.allowUnfree`, or a predicate for `claude-code`). Upgrade with `nix flake update pen` and a rebuild.
+
+### Docker
 
 The repository includes a `Dockerfile` that builds a self-contained image. Everything pen keeps (books, covers, history, the lock, Construct's chats and the agent's own state) lives in a single volume at `/data`, so backing up means copying one folder. What pen can make again (the dictionary, downloaded on the first look-up, and grammar results) goes in `/cache`: give it a volume too, or it's made again after each upgrade.
 
