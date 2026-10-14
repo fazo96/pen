@@ -26,6 +26,8 @@ export const SHORTCUTS = {
   lookUp: { keys: "Mod+Shift+D", what: "Look up the selected words", group: "Write" },
   undo: { keys: "Mod+Z", what: "Undo", group: "Write" },
   redo: { keys: "Mod+Shift+Z", what: "Redo", group: "Write" },
+  sectionUp: { keys: "Alt+↑", what: "Move a section up or down (in Contents)", group: "Write" },
+  sectionDown: { keys: "Alt+↓", what: "Move a section up or down (in Contents)", group: "Write" },
   h1: { keys: "Mod+Alt+1", what: "Heading 1 (the title)", group: "Format" },
   h2: { keys: "Mod+Alt+2", what: "Heading 2 (a part)", group: "Format" },
   h3: { keys: "Mod+Alt+3", what: "Heading 3 (a chapter)", group: "Format" },

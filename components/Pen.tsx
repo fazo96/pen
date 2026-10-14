@@ -17,6 +17,7 @@ import { buildCommands, buildPlaces, type DrawerTab } from "@/lib/penCommands";
 import type { Spot } from "@/lib/spot";
 import { GLOBAL } from "@/lib/ids";
 import { local, session } from "@/lib/storage";
+import { moveSection, sectionWords } from "@/lib/sections";
 import { slugify, wordCount } from "@/lib/text";
 import type { Story } from "@/lib/useAutosave";
 import { focusText, useCodexPanel } from "@/lib/useCodexPanel";
@@ -169,16 +170,24 @@ export default function Pen({
     paused: !!preview,
   });
 
-  // Derive outline + word count from the document, lightly debounced.
+  // Derive outline + word counts from the document, lightly debounced.
   useDocScan(editor, (doc) => {
-    const hs: Heading[] = [];
+    const hs: Omit<Heading, "words">[] = [];
+    /** Words from each heading to the next; those before the first heading belong to none. */
+    const own: number[] = [];
+    let total = 0;
     doc.forEach((node, offset) => {
+      const text = textWithoutComments(node);
+      const n = wordCount(text);
+      total += n;
       if (node.type.name === "heading") {
-        hs.push({ pos: offset, level: node.attrs.level as number, text: textWithoutComments(node).trim() });
-      }
+        hs.push({ pos: offset, level: node.attrs.level as number, text: text.trim() });
+        own.push(n);
+      } else if (own.length) own[own.length - 1] += n;
     });
-    setHeadings(hs);
-    setWords(wordCount(textWithoutComments(doc)));
+    const counts = sectionWords(hs.map((h) => h.level), own);
+    setHeadings(hs.map((h, i) => ({ ...h, words: counts[i] })));
+    setWords(total);
   });
 
   // Track the heading in view and overall reading progress.
@@ -279,12 +288,18 @@ export default function Pen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
 
-  const jump = (h: Heading) => {
+  const jump = (h: { pos: number }) => {
     if (!editor) return;
     const el = editor.view.nodeDOM(h.pos) as HTMLElement | null;
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
     editor.commands.setTextSelection(h.pos + 1);
     setOutlineOpen(false);
+  };
+  /** The Contents tab moved heading i's section before heading j (or to the end). */
+  const moveSectionTo = (i: number, j: number) => {
+    if (!editor) return;
+    const tr = moveSection(editor.state, headings.map((h) => h.level), i, j);
+    if (tr) editor.view.dispatch(tr);
   };
 
   // Save before leaving this document, whichever way we leave.
@@ -778,7 +793,13 @@ export default function Pen({
           {DRAWER_TABS[drawerTab].name}
         </p>
         {drawerTab === "contents" && (
-          <Outline headings={headings} active={active} onJump={jump} plain={isEntry} />
+          <Outline
+            headings={headings}
+            active={active}
+            onJump={jump}
+            onMove={preview ? undefined : moveSectionTo}
+            plain={isEntry}
+          />
         )}
         {drawerTab === "grammar" && (
           <GrammarPane editor={editor} headings={headings} onShown={() => setOutlineOpen(false)} />

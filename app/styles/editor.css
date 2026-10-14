@@ -545,7 +545,7 @@
   position: relative;
   width: 100%;
   display: grid;
-  grid-template-columns: 2.2em 1fr;
+  grid-template-columns: 2.2em 1fr auto;
   align-items: baseline;
   gap: 4px;
   padding: 9px 20px;
@@ -554,7 +554,9 @@
   font-family: var(--font-body);
   font-size: 15px;
   line-height: 1.35;
-  transition: color 0.2s, background-color 0.2s;
+  transition: color 0.2s, background-color 0.2s, opacity 0.2s;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 .outline-item:hover {
   color: var(--ink);
@@ -564,8 +566,8 @@
   color: var(--ink);
 }
 .outline-item.is-part {
-  grid-template-columns: 1fr;
-  gap: 2px;
+  grid-template-columns: 1fr auto;
+  gap: 2px 4px;
   margin-top: 10px;
   color: var(--ink);
 }
@@ -577,8 +579,17 @@
 .outline-item.is-part .outline-text {
   font-style: italic;
 }
+.outline-item.is-part .outline-num,
+.outline-item.is-part .outline-text {
+  grid-column: 1;
+}
+.outline-item.is-part .outline-words {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+}
 .outline-item.is-scene {
-  grid-template-columns: 2.2em 2.6em 1fr;
+  grid-template-columns: 2.2em 2.6em 1fr auto;
   padding-top: 5px;
   padding-bottom: 5px;
   font-size: 14px;
@@ -618,6 +629,35 @@
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+/* A section's words, down to the next heading of its rank. */
+.outline-words {
+  padding-left: 8px;
+  font-family: var(--font-ui);
+  font-size: var(--text-label);
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+  text-align: right;
+}
+
+/* Moving a section: what's picked up, and the gap it would drop into. */
+.outline-list.is-dragging .outline-item:hover {
+  background: none;
+}
+.outline-list.is-dragging .outline-item {
+  cursor: grabbing;
+}
+.outline-item.is-lifted {
+  opacity: 0.45;
+  background: var(--accent-wash);
+}
+.outline-item.drop-before {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+.outline-item.drop-after {
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .outline-empty {

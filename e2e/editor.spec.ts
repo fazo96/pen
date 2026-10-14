@@ -390,3 +390,47 @@ test("a click below a short Codex entry in the side panel focuses it", async ({ 
   await page.mouse.click(box.x + box.width / 2, box.y + box.height + 150);
   await expect.poll(() => cursor(page)).toEqual({ where: "panel", block: "Notes about Harbour." });
 });
+
+test("the Contents tab counts each section's words and moves sections", async ({ page }) => {
+  const id = await makeBook(
+    page.request,
+    uniqueId("sections"),
+    "### One\n\nAlpha beta.\n\n#### Scene\n\nGamma.\n\n### Two\n\nDelta epsilon zeta.\n\n### Three\n\nEta.",
+  );
+  await openBook(page, id);
+  const rows = page.locator(".outline-item");
+  const text = page.locator(".outline-item .outline-text");
+  // A chapter counts its scenes; the title counts everything.
+  await expect(page.locator(".outline-item .outline-words")).toHaveText(["12", "5", "2", "4", "2"]);
+
+  // Drag chapter One (with its scene) below chapter Two.
+  const from = await rows.nth(1).boundingBox();
+  const to = await rows.nth(4).boundingBox();
+  await page.mouse.move(from!.x + 40, from!.y + from!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(from!.x + 40, from!.y + from!.height / 2 + 10);
+  await page.mouse.move(to!.x + 40, to!.y + 2, { steps: 5 });
+  await expect(rows.nth(4)).toHaveClass(/drop-before/);
+  await page.mouse.up();
+  await expect(text).toHaveText([/sections/, "Two", "One", "Scene", "Three"]);
+  const markdown = () => page.evaluate(() => (document.querySelector(".ProseMirror") as EditorElement).editor.getMarkdown());
+  expect(await markdown()).toMatch(/### Two\s+Delta epsilon zeta\.\s+### One\s+Alpha beta\.\s+#### Scene\s+Gamma\.\s+### Three/);
+  // A drag doesn't also jump.
+  await expect(page.locator(".outline")).toBeVisible();
+
+  // Alt+↓ moves the focused chapter past its neighbour; the focus follows it.
+  await rows.nth(1).focus();
+  await page.keyboard.press("Alt+ArrowDown");
+  await expect(text.nth(3)).toHaveText("Two");
+  await expect(rows.nth(3)).toBeFocused();
+
+  // One step to undo.
+  await page.locator(".ProseMirror").focus();
+  await page.keyboard.press("Control+z");
+  await expect(text.nth(1)).toHaveText("Two");
+
+  // The move is saved.
+  await expect
+    .poll(async () => ((await (await page.request.get(`/api/docs/${id}`)).json()) as { content: string }).content)
+    .toMatch(/### Two[\s\S]*### One[\s\S]*#### Scene[\s\S]*### Three/);
+});

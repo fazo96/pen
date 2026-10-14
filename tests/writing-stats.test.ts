@@ -176,3 +176,9 @@ test("no chapter when unsure: before the first, under a part heading, under a he
   // A save with no words changed (a heading level, say) touches nothing it can name.
   assert.deepEqual(measureSave(base, base).chapters, []);
 });
+
+test("a chapter moved from the Contents tab isn't writing", () => {
+  const before = "# B\n\n### One\n\nAlpha beta gamma.\n\nMore words.\n\n### Two\n\nDelta epsilon.\n\n### Three\n\nZeta.\n";
+  const after = "# B\n\n### Two\n\nDelta epsilon.\n\n### One\n\nAlpha beta gamma.\n\nMore words.\n\n### Three\n\nZeta.\n";
+  assert.deepEqual(measureSave(before, after).delta, { drafted: 0, editAdded: 0, removed: 0, pasted: 0, moved: 0 });
+});
