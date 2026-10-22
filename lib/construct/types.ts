@@ -14,6 +14,7 @@ export type ToolName =
   | "diff_versions"
   | "list_codex"
   | "read_codex_entry"
+  | "outline_codex_entry"
   | "create_codex_entry"
   | "edit_codex_entry"
   | "write_codex_entry"

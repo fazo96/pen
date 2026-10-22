@@ -73,9 +73,12 @@ test("arguments are checked against each tool's schema", async () => {
   });
   assert.equal((await call("search", { query: "line four", scope: "manuscript" })).text, "manuscript:6 [Part I]  Line four.");
   // Integers may come as strings; anything else is refused.
-  assert.equal((await call("read_manuscript", { from_line: "5", to_line: 5 })).text, "Lines 5–5 of 6:\n5\tLine three.");
-  assert.deepEqual(await call("read_manuscript", { from_line: 0 }), { text: '"from_line" must be a positive integer.', isError: true });
-  assert.deepEqual(await call("read_manuscript", { to_line: 1.5 }), { text: '"to_line" must be a positive integer.', isError: true });
+  assert.equal(
+    (await call("read_manuscript", { offset: "5", limit: 1 })).text,
+    "Lines 5–5 of 6:\n5\tLine three.\n(1 more line: continue with offset 6.)",
+  );
+  assert.deepEqual(await call("read_manuscript", { offset: 0 }), { text: '"offset" must be a positive integer.', isError: true });
+  assert.deepEqual(await call("read_manuscript", { limit: 1.5 }), { text: '"limit" must be a positive integer.', isError: true });
   assert.match((await call("grammar_check", { entry: "Not An Id" })).text, /not a valid entry id/);
   // Arguments the schema doesn't name are ignored.
   assert.equal((await call("list_versions", { anything: true })).isError, false);
@@ -89,6 +92,53 @@ test("arguments are checked against each tool's schema", async () => {
     text: '"replace_all" must be true or false.',
     isError: true,
   });
+});
+
+test("reads come in pages: at most 2000 lines or about 50,000 characters, and say where to go on", async () => {
+  const body = Array.from({ length: 4999 }, (_, i) => `Line ${i + 2}.`);
+  const { id } = await createDoc(["# Long Book", ...body].join("\n"));
+  const read = async (args: Record<string, unknown>) => (await callTool("read_manuscript", args, ctx(id))).text;
+
+  const first = (await read({})).split("\n");
+  assert.equal(first[0], "Lines 1–2000 of 5000:");
+  assert.equal(first[1], "   1\t# Long Book");
+  assert.equal(first.at(-1), "(3,000 more lines: continue with offset 2001.)");
+  assert.equal(first.length, 2002);
+  assert.match(await read({ offset: 4001 }), /^Lines 4001–5000 of 5000:\n4001\tLine 4001\.[\s\S]*\n5000\tLine 5000\.$/);
+  assert.match(await read({ offset: 10, limit: 5000 }), /^Lines 10–2009 of 5000:/);
+  assert.equal(await read({ offset: 6000 }), "(no lines: the document has 5000)");
+
+  // Long lines stop a read sooner, at a whole line; one too long for any read is cut.
+  const long = await createDoc(["# Wide Book", "a".repeat(30_000), "b".repeat(30_000), "c".repeat(60_000)].join("\n"));
+  const wide = async (args: Record<string, unknown>) => (await callTool("read_manuscript", args, ctx(long.id))).text;
+  assert.match(await wide({}), /^Lines 1–2 of 4:\n1\t# Wide Book\n2\ta{30000}\n\(2 more lines: continue with offset 3\.\)$/);
+  assert.match(await wide({ offset: 4 }), /^Lines 4–4 of 4:\n4\tc+… \(line 4 cut: it's over 50,000 characters\)$/);
+});
+
+test("Codex entries read by section and in pages, and show their headings", async () => {
+  const { id } = await createDoc("# Entry Pages Book");
+  await createEntry(id, "# Mara\n\nA sailor.\n\n## Early life\n\nBorn at sea.\nRaised in port.\n\n## Ships\n\nThe Gull.");
+  const call = (name: string, args: Record<string, unknown>) => callTool(name, { id: "mara", ...args }, ctx(id));
+
+  assert.equal((await call("read_codex_entry", { heading: "early" })).text, "Lines 5–9 of 12:\n5\t## Early life\n6\t\n7\tBorn at sea.\n8\tRaised in port.\n9\t");
+  assert.equal(
+    (await call("read_codex_entry", { heading: "Early life", offset: 7, limit: 1 })).text,
+    "Lines 7–7 of 12:\n7\tBorn at sea.\n(2 more lines in this section: continue with offset 8.)",
+  );
+  assert.equal((await call("read_codex_entry", { heading: "Early life", offset: 11 })).text, "(no lines: the section ends at line 9)");
+  assert.match((await call("read_codex_entry", { heading: "Ports" })).text, /No heading matches "Ports"/);
+  assert.equal(
+    (await call("outline_codex_entry", {})).text,
+    [
+      'Entry: mara "Mara"',
+      "Words: 14 · 12 lines",
+      "",
+      "Mara  (lines 1–12, 14 words)",
+      "  Early life  (lines 5–9, 8 words)",
+      "  Ships  (lines 10–12, 3 words)",
+    ].join("\n"),
+  );
+  assert.equal((await call("outline_codex_entry", { id: "nobody" })).isError, true);
 });
 
 test("a book's Construct reaches the Global Codex with global: true; the Global Codex's own has its tools alone", async () => {
@@ -106,7 +156,11 @@ test("a book's Construct reaches the Global Codex with global: true; the Global 
 
   // In the Global Codex's own chats: no manuscript, and every Codex tool works there.
   assert.equal((await callTool("read_manuscript", {}, ctx(GLOBAL))).isError, true);
-  assert.equal((await callTool("read_codex_entry", { id: "tools-style" }, ctx(GLOBAL))).text, "# Tools Style\n\nSerial commas.");
+  assert.equal(
+    (await callTool("read_codex_entry", { id: "tools-style" }, ctx(GLOBAL))).text,
+    "Lines 1–3 of 3:\n1\t# Tools Style\n2\t\n3\tSerial commas.",
+  );
+  assert.match((await callTool("outline_codex_entry", { id: "tools-style" }, ctx(GLOBAL))).text, /^Entry: tools-style "Tools Style"/);
   assert.doesNotMatch((await callTool("list_codex", {}, ctx(GLOBAL))).text, /mara/);
   await callTool("edit_codex_entry", { id: "tools-style", old_text: "Serial", new_text: "Oxford" }, ctx(GLOBAL));
   assert.deepEqual(changes.slice(-1), [{ entry: "tools-style", action: "edited", global: true }]);
@@ -117,7 +171,7 @@ test("a book's Construct reaches the Global Codex with global: true; the Global 
   assert.ok("global" in (book.find((t) => t.name === "read_codex_entry")?.inputSchema.properties ?? {}));
   assert.deepEqual(
     global.map((t) => t.name),
-    ["list_codex", "read_codex_entry", "create_codex_entry", "edit_codex_entry", "write_codex_entry", "rename_codex_entry", "delete_codex_entry"],
+    ["list_codex", "read_codex_entry", "outline_codex_entry", "create_codex_entry", "edit_codex_entry", "write_codex_entry", "rename_codex_entry", "delete_codex_entry"],
   );
   for (const t of global) assert.ok(!("global" in t.inputSchema.properties), t.name);
 });

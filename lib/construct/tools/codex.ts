@@ -1,7 +1,23 @@
 import "server-only";
 import { createEntry, GLOBAL, listCodex, moveEntry, renameEntry, trashEntry, writeEntry } from "../../docs";
+import { sectionsOf } from "../../outline";
+import { titleOf, wordCount } from "../../text";
 import { createdEntry } from "../transcript";
-import { bool, type CodexChange, checkSize, entry, entryIdProp, str, text, ToolError, type ToolContext, tool } from "./core";
+import {
+  bool,
+  type CodexChange,
+  checkSize,
+  entry,
+  entryIdProp,
+  excerpt,
+  outlineRows,
+  rangeProps,
+  str,
+  text,
+  ToolError,
+  type ToolContext,
+  tool,
+} from "./core";
 
 // The Codex, the writer's notes beside the manuscript: the only thing
 // Construct can write. In a book, `global` turns each tool to the Global
@@ -39,11 +55,28 @@ export const codexTools = [
   }),
   tool({
     name: "read_codex_entry",
-    description: "Read a Codex entry's markdown, exactly as stored.",
+    description:
+      "Read a Codex entry's markdown, with line numbers (a number and a tab before each line: they aren't part of the text, so leave them out of edit_codex_entry's old_text). Give a heading to read one section, and/or offset and limit for a run of lines. One read returns at most 2000 lines (fewer if they're long) and says the offset to continue from; outline_codex_entry shows a long entry's headings.",
+    properties: { id: entryIdProp("Entry id from list_codex."), ...rangeProps, global },
+    required: ["id"],
+    readOnly: true,
+    run: async (args, ctx) => excerpt((await entry(ownerOf(ctx, args), args.id)).content, args),
+  }),
+  tool({
+    name: "outline_codex_entry",
+    description: "A Codex entry's headings, with their line ranges and word counts, plus its totals: to find your way around a long entry before reading part of it.",
     properties: { id: entryIdProp("Entry id from list_codex."), global },
     required: ["id"],
     readOnly: true,
-    run: async (args, ctx) => (await entry(ownerOf(ctx, args), args.id)).content,
+    run: async (args, ctx) => {
+      const { content } = await entry(ownerOf(ctx, args), args.id);
+      const rows = outlineRows(sectionsOf(content), false);
+      const head = [
+        `Entry: ${args.id} "${titleOf(content, args.id)}"`,
+        `Words: ${wordCount(content).toLocaleString("en")} · ${content.split("\n").length} lines`,
+      ];
+      return [...head, "", ...(rows.length ? rows : ["(no headings)"])].join("\n");
+    },
   }),
   tool({
     name: "create_codex_entry",

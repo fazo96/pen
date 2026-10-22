@@ -39,7 +39,12 @@ const TOOL_TEXT: Record<ToolName, (i: Record<string, string>, lines: string) => 
     text: `Compared ${versionName(i.from)} with ${i.to ? versionName(i.to) : "the current draft"}${i.heading ? ` · ${i.heading}` : ""}`,
   }),
   list_codex: () => ({ text: "Looked through the Codex" }),
-  read_codex_entry: (i) => ({ text: `Read ${codex(i)} · ${i.id ?? ""}`, entry: i.id, global: inGlobal(i) }),
+  read_codex_entry: (i, lines) => ({
+    text: `Read ${codex(i)} · ${i.id ?? ""}${i.heading ? `: ${i.heading}` : ""}${lines}`,
+    entry: i.id,
+    global: inGlobal(i),
+  }),
+  outline_codex_entry: (i) => ({ text: `Read the outline of ${codex(i)} · ${i.id ?? ""}`, entry: i.id, global: inGlobal(i) }),
   create_codex_entry: (i) => ({ text: i.id ? `Created ${codex(i)} · ${i.id}` : `Created a ${codex(i)} entry`, entry: i.id, global: inGlobal(i) }),
   edit_codex_entry: (i) => ({ text: `Edited ${codex(i)} · ${i.id ?? ""}`, entry: i.id, global: inGlobal(i) }),
   write_codex_entry: (i) => ({ text: `Edited ${codex(i)} · ${i.id ?? ""}`, entry: i.id, global: inGlobal(i) }),
@@ -53,9 +58,16 @@ const TOOL_TEXT: Record<ToolName, (i: Record<string, string>, lines: string) => 
   }),
 };
 
+/** " (lines 40–80)": the lines a call asked for, as a range (grammar_check, older reads) or an offset and limit. */
+function linesOf(i: Record<string, string>) {
+  if (i.from_line || i.to_line) return ` (lines ${i.from_line ?? "1"}–${i.to_line ?? "end"})`;
+  if (!i.offset) return i.limit ? ` (first ${i.limit} lines)` : "";
+  return i.limit ? ` (lines ${i.offset}–${Number(i.offset) + Number(i.limit) - 1})` : ` (from line ${i.offset})`;
+}
+
 function describeTool(item: Extract<ChatItem, { type: "tool" }>): ToolText {
   const i = item.input ?? {};
-  const lines = i.from_line || i.to_line ? ` (lines ${i.from_line ?? "1"}–${i.to_line ?? "end"})` : "";
+  const lines = linesOf(i);
   const describe = item.name && Object.hasOwn(TOOL_TEXT, item.name) ? TOOL_TEXT[item.name as ToolName] : null;
   return describe ? describe(i, lines) : { text: item.title };
 }

@@ -1,6 +1,6 @@
 import "server-only";
 import { isValidId, MAX_BYTES, readDoc, readEntry } from "../../docs";
-import { sectionsOf } from "../../outline";
+import { type Section, sectionsOf } from "../../outline";
 import type { ToolName } from "../types";
 
 // What every tool is made of: its JSON schema, which is both what the agent
@@ -131,29 +131,62 @@ export function findSection(markdown: string, query: string) {
   return match;
 }
 
+/** The most one read returns; past it, the agent reads on with `offset`. */
+const READ_LINES = 2000;
+const READ_CHARS = 50_000;
+
 /** The arguments of the tools that read part of a text. */
 export const rangeProps = {
   heading: str("Section to read: a label like \"Chapter 3\" or \"Part II\", or text from the heading."),
-  from_line: int("First line (1-based)."),
-  to_line: int("Last line, inclusive."),
+  offset: int("Line to start at (1-based, as numbered in the output; within the section when a heading is given)."),
+  limit: int(`How many lines to read (at most ${READ_LINES}).`),
 };
 
-/** Lines of a document, numbered, optionally limited to a section or a range. */
-export function excerpt(markdown: string, range: { heading?: string; from_line?: number; to_line?: number }) {
+/**
+ * Lines of a document, numbered, optionally limited to a section, from
+ * `offset` for `limit` lines. A read stops at READ_LINES lines or about
+ * READ_CHARS characters, at a whole line, and says where to go on from, so
+ * any document can be read whole a page at a time.
+ */
+export function excerpt(markdown: string, range: { heading?: string; offset?: number; limit?: number }) {
   const lines = markdown.split("\n");
-  let from = range.from_line ?? 1;
-  let to = range.to_line ?? lines.length;
+  let from = range.offset ?? 1;
+  let end = lines.length;
   if (range.heading) {
     const s = findSection(markdown, range.heading);
     from = Math.max(from, s.line);
-    to = Math.min(to, s.end);
+    end = s.end;
   }
-  to = Math.min(to, lines.length);
-  if (from > to) return `(no lines: the document has ${lines.length})`;
-  const width = String(to).length;
-  const body = lines
-    .slice(from - 1, to)
-    .map((l, i) => `${String(from + i).padStart(width)}\t${l}`)
-    .join("\n");
-  return `Lines ${from}–${to} of ${lines.length}:\n${body}`;
+  if (from > end) {
+    return range.heading ? `(no lines: the section ends at line ${end})` : `(no lines: the document has ${lines.length})`;
+  }
+  const last = Math.min(end, from + Math.min(range.limit ?? READ_LINES, READ_LINES) - 1);
+  const width = String(last).length;
+  const out: string[] = [];
+  let size = 0;
+  let to = from - 1;
+  for (let n = from; n <= last; n++) {
+    let line = `${String(n).padStart(width)}\t${lines[n - 1]}`;
+    if (size + line.length > READ_CHARS) {
+      if (out.length) break;
+      // A line longer than a whole read: only its start fits.
+      line = `${line.slice(0, READ_CHARS)}… (line ${n} cut: it's over ${READ_CHARS.toLocaleString("en")} characters)`;
+    }
+    out.push(line);
+    size += line.length + 1;
+    to = n;
+  }
+  const body = `Lines ${from}–${to} of ${lines.length}:\n${out.join("\n")}`;
+  if (to === end) return body;
+  const more = end - to;
+  return `${body}\n(${more.toLocaleString("en")} more line${more > 1 ? "s" : ""}${range.heading ? " in this section" : ""}: continue with offset ${to + 1}.)`;
+}
+
+/** An outline's rows: each heading indented by its level, with its lines and words; `labels` adds the manuscript's numbering. */
+export function outlineRows(sections: Section[], labels: boolean) {
+  return sections.map((s) => {
+    const indent = "  ".repeat(Math.max(0, s.level - 1));
+    const name = labels && s.label ? `${s.label}: ${s.text}` : s.text;
+    return `${indent}${name}  (lines ${s.line}–${s.end}, ${s.words.toLocaleString("en")} words)`;
+  });
 }

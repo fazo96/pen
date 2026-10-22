@@ -156,7 +156,7 @@ export const versionTools = [
   tool({
     name: "read_version",
     description:
-      "Read a saved version of the manuscript, with line numbers. Like read_manuscript: give a heading and/or a line range, or neither for the whole text. Line numbers are the version's own (see outline with version).",
+      "Read a saved version of the manuscript, with line numbers. Like read_manuscript: give a heading and/or offset and limit; a long text comes in pages. Line numbers are the version's own (see outline with version).",
     properties: { id: str("Version id from list_versions."), ...rangeProps },
     required: ["id"],
     readOnly: true,

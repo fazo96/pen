@@ -4,7 +4,7 @@ import { ruleLabel } from "../../grammarConfig";
 import { sectionsOf } from "../../outline";
 import { titleOf, wordCount } from "../../text";
 import { checkGrammar, type GrammarReport } from "../grammarCheck";
-import { entry, entryIdProp, excerpt, findSection, int, manuscript, oneOf, rangeProps, str, tool } from "./core";
+import { entry, entryIdProp, excerpt, findSection, int, manuscript, oneOf, outlineRows, rangeProps, str, tool } from "./core";
 import { versionText } from "./versions";
 
 // Reading the manuscript: its outline, its text, searching it, checking it.
@@ -22,11 +22,7 @@ function formatOutline(markdown: string) {
     const avg = Math.round(chapters.reduce((n, c) => n + c.words, 0) / chapters.length);
     head.push(`Average chapter: ${avg.toLocaleString("en")} words`);
   }
-  const rows = sections.map((s) => {
-    const indent = "  ".repeat(Math.max(0, s.level - 1));
-    const name = s.label ? `${s.label}: ${s.text}` : s.text;
-    return `${indent}${name}  (lines ${s.line}–${s.end}, ${s.words.toLocaleString("en")} words)`;
-  });
+  const rows = outlineRows(sections, true);
   return [...head, "", ...(rows.length ? rows : ["(no headings yet)"])].join("\n");
 }
 
@@ -87,7 +83,7 @@ export const manuscriptTools = [
   tool({
     name: "read_manuscript",
     description:
-      "Read the manuscript (markdown), with line numbers. Give a heading (\"Chapter 3\", \"Part II\", or part of a heading's text) to read one section, and/or a line range. Without either, returns the whole text.",
+      "Read the manuscript (markdown), with line numbers. Give a heading (\"Chapter 3\", \"Part II\", or part of a heading's text) to read one section, and/or offset and limit for a run of lines. One read returns at most 2000 lines (fewer if they're long) and says the offset to continue from: read a long book in pages, or better, only the sections you need (see outline).",
     properties: rangeProps,
     readOnly: true,
     run: async (args, ctx) => excerpt(await manuscript(ctx.projectId), args),
