@@ -26,6 +26,7 @@ const inGlobal = (i: Record<string, string>) => i.global === "true";
 
 /** What each of pen's tools did, from the bits of its input the session keeps (`brief`). */
 const TOOL_TEXT: Record<ToolName, (i: Record<string, string>, lines: string) => ToolText> = {
+  list_books: () => ({ text: "Looked through the books" }),
   outline: (i) => ({ text: i.version ? `Read the outline of ${versionName(i.version)}` : "Read the outline" }),
   read_manuscript: (i, lines) => ({ text: `Read ${i.heading ?? "the manuscript"}${lines}` }),
   search: (i) => ({ text: i.query ? `Searched for “${i.query}”` : "Searched" }),
@@ -69,7 +70,10 @@ function describeTool(item: Extract<ChatItem, { type: "tool" }>): ToolText {
   const i = item.input ?? {};
   const lines = linesOf(i);
   const describe = item.name && Object.hasOwn(TOOL_TEXT, item.name) ? TOOL_TEXT[item.name as ToolName] : null;
-  return describe ? describe(i, lines) : { text: item.title };
+  if (!describe) return { text: item.title };
+  // Another book's: said so, and not linked (an entry link opens this book's Codex).
+  if (i.book) return { text: `${describe(i, lines).text} · in ${i.book}` };
+  return describe(i, lines);
 }
 
 export default function ConstructItem({ item, onOpenEntry }: { item: ChatItem; onOpenEntry: (entry: string, global: boolean) => void }) {

@@ -3,11 +3,12 @@ import { listVersions, readVersion } from "../../docs";
 import { type Section, sectionsOf } from "../../outline";
 import { straightQuotes } from "../../text";
 import { alignBlocks, blockKey, countWords, wordDiff } from "../../textdiff";
-import { excerpt, findSection, manuscript, rangeProps, str, ToolError, tool } from "./core";
+import { book, bookOf, excerpt, findSection, manuscript, rangeProps, str, ToolError, tool } from "./core";
 
-// The manuscript's saved versions: listing, reading and comparing them. Read-only.
+// The manuscript's saved versions: listing, reading and comparing them, in
+// this book or (with `book`) another. Read-only.
 
-const stamp = (t: number) => new Date(t).toISOString().slice(0, 16).replace("T", " ");
+export const stamp =(t: number) => new Date(t).toISOString().slice(0, 16).replace("T", " ");
 
 export async function versionText(projectId: string, vid: string) {
   const content = await readVersion(projectId, vid);
@@ -143,10 +144,10 @@ export const versionTools = [
     name: "list_versions",
     description:
       "Saved versions of the manuscript, newest first: named ones the writer saved, and automatic ones (session starts, before restores).",
-    properties: {},
+    properties: { book },
     readOnly: true,
-    run: async (_args, ctx) => {
-      const list = await listVersions(ctx.projectId);
+    run: async (args, ctx) => {
+      const list = await listVersions(await bookOf(ctx, args.book));
       if (!list.length) return "No saved versions yet.";
       return list
         .map((v) => `${v.id}  ${stamp(v.created)}  ${v.kind}  ${v.words.toLocaleString("en")} words  ${v.label || "(unnamed)"}`)
@@ -157,10 +158,10 @@ export const versionTools = [
     name: "read_version",
     description:
       "Read a saved version of the manuscript, with line numbers. Like read_manuscript: give a heading and/or offset and limit; a long text comes in pages. Line numbers are the version's own (see outline with version).",
-    properties: { id: str("Version id from list_versions."), ...rangeProps },
+    properties: { id: str("Version id from list_versions."), ...rangeProps, book },
     required: ["id"],
     readOnly: true,
-    run: async (args, ctx) => excerpt(await versionText(ctx.projectId, args.id), args),
+    run: async (args, ctx) => excerpt(await versionText(await bookOf(ctx, args.book), args.id), args),
   }),
   tool({
     name: "diff_versions",
@@ -170,15 +171,17 @@ export const versionTools = [
       from: str("The older side: a version id from list_versions."),
       to: str("The newer side: another version id. Omit to compare with the current manuscript."),
       heading: str("Only this section (\"Chapter 3\", \"Part II\", or text from the heading), found in each text."),
+      book,
     },
     required: ["from"],
     readOnly: true,
-    run: async ({ from, to, heading }, ctx) => {
-      const before = await versionText(ctx.projectId, from);
-      const after = to ? await versionText(ctx.projectId, to) : await manuscript(ctx.projectId);
+    run: async ({ from, to, heading, book: id }, ctx) => {
+      const pid = await bookOf(ctx, id);
+      const before = await versionText(pid, from);
+      const after = to ? await versionText(pid, to) : await manuscript(pid);
       const header = [
-        `From: ${await versionName(ctx.projectId, from)}`,
-        `To: ${to ? await versionName(ctx.projectId, to) : "the current manuscript"}`,
+        `From: ${await versionName(pid, from)}`,
+        `To: ${to ? await versionName(pid, to) : "the current manuscript"}`,
       ];
       return diffMarkdown(before, after, heading, header);
     },

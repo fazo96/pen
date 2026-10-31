@@ -5,6 +5,7 @@ import type { AgentId } from "./agentInfo.ts";
 
 /** pen's tools, as Construct's agent calls them (served by ./tools/, described in the panel by Construct.tsx). */
 export type ToolName =
+  | "list_books"
   | "outline"
   | "read_manuscript"
   | "search"

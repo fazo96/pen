@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createDoc, createEntry, GLOBAL, readEntry } from "../lib/docs.ts";
+import { createDoc, createEntry, GLOBAL, readEntry, saveVersion } from "../lib/docs.ts";
 import { handleMcp } from "../lib/construct/mcp.ts";
 import { callTool, type CodexChange, listTools } from "../lib/construct/tools/index.ts";
 
@@ -171,9 +171,67 @@ test("a book's Construct reaches the Global Codex with global: true; the Global 
   assert.ok("global" in (book.find((t) => t.name === "read_codex_entry")?.inputSchema.properties ?? {}));
   assert.deepEqual(
     global.map((t) => t.name),
-    ["list_codex", "read_codex_entry", "outline_codex_entry", "create_codex_entry", "edit_codex_entry", "write_codex_entry", "rename_codex_entry", "delete_codex_entry"],
+    [
+      "list_books",
+      "outline",
+      "read_manuscript",
+      "search",
+      "list_versions",
+      "read_version",
+      "diff_versions",
+      "list_codex",
+      "read_codex_entry",
+      "outline_codex_entry",
+      "create_codex_entry",
+      "edit_codex_entry",
+      "write_codex_entry",
+      "rename_codex_entry",
+      "delete_codex_entry",
+    ],
   );
   for (const t of global) assert.ok(!("global" in t.inputSchema.properties), t.name);
+});
+
+test("the reading tools read another book with book, and nothing writes it", async () => {
+  const { id: here } = await createDoc("# Home Book\n\nHome line.");
+  const { id: there } = await createDoc("# Away Book\n\n## Part One\n\n### The Harbour\n\nThe gulls cried.");
+  await createEntry(there, "# Ilse\n\nA harbour pilot.");
+  await saveVersion(there, "first draft");
+  const call = (name: string, args: Record<string, unknown>, pid = here) => callTool(name, args, ctx(pid));
+
+  const books = (await call("list_books", {})).text;
+  assert.match(books, new RegExp(`^${here} {2}"Home Book" .* {2}\\(this book\\)$`, "m"));
+  assert.match(books, new RegExp(`^${there} {2}"Away Book" {2}\\d+ words {2}last written \\d{4}-`, "m"));
+
+  assert.match((await call("outline", { book: there })).text, /^Title: Away Book/);
+  assert.match((await call("read_manuscript", { book: there, heading: "The Harbour" })).text, /\tThe gulls cried\./);
+  assert.match((await call("read_manuscript", {})).text, /Home line\./, "without book: this one");
+  assert.match((await call("search", { query: "pilot", book: there })).text, /^codex\/ilse:3 {2}A harbour pilot\.$/);
+  assert.match((await call("list_codex", { book: there })).text, new RegExp(`^The Codex of ${there} .*\\nilse {2}"Ilse"`));
+  assert.match((await call("read_codex_entry", { id: "ilse", book: there })).text, /3\tA harbour pilot\./);
+  assert.match((await call("outline_codex_entry", { id: "ilse", book: there })).text, /^Entry: ilse "Ilse"/);
+  assert.equal((await call("read_codex_entry", { id: "ilse" })).isError, true, "not in this book's Codex");
+  const [version] = (await call("list_versions", { book: there })).text.split("  ");
+  assert.match((await call("read_version", { id: version, book: there })).text, /The gulls cried\./);
+  assert.match((await call("diff_versions", { from: version, book: there })).text, /No differences\./);
+
+  // Mistakes: no such book, not a book, both book and global.
+  assert.deepEqual(await call("outline", { book: "no-such-book" }), { text: 'No book "no-such-book". Use list_books to see them.', isError: true });
+  assert.deepEqual(await call("outline", { book: GLOBAL }), { text: `"${GLOBAL}" is not a book id. Use list_books to see them.`, isError: true });
+  assert.equal((await call("read_codex_entry", { id: "ilse", book: there, global: true })).isError, true);
+
+  // The tools that write have no book: they can't reach another book's Codex.
+  for (const t of listTools(here).filter((t) => !t.annotations.readOnlyHint)) assert.ok(!("book" in t.inputSchema.properties), t.name);
+  for (const t of listTools(here).filter((t) => "book" in t.inputSchema.properties)) assert.ok(t.annotations.readOnlyHint, t.name);
+  await call("edit_codex_entry", { id: "ilse", old_text: "pilot", new_text: "thief", book: there });
+  assert.equal((await readEntry(there, "ilse"))?.content, "# Ilse\n\nA harbour pilot.");
+
+  // The Global Codex's chats read a book by naming one, and need to for a manuscript.
+  assert.match((await call("read_manuscript", { book: there }, GLOBAL)).text, /The gulls cried\./);
+  assert.match((await call("read_codex_entry", { id: "ilse", book: there }, GLOBAL)).text, /A harbour pilot\./);
+  assert.match((await call("outline", {}, GLOBAL)).text, /has no manuscript: give a book's id/);
+  assert.doesNotMatch((await call("list_codex", {}, GLOBAL)).text, /ilse/);
+  assert.equal((await call("grammar_check", { book: there }, GLOBAL)).isError, true, "a book's own");
 });
 
 test("move_codex_entry moves between a book's Codex and the Global Codex, and only in a book", async () => {

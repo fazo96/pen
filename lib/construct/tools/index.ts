@@ -9,24 +9,30 @@ import { versionTools } from "./versions";
 // and web tools are switched off; these are served to it over MCP (see
 // ../mcp.ts). The manuscript and its versions are read-only by construction:
 // there is no tool here that writes them. One file per area; each tool's
-// schema is also what its arguments are checked against (core.ts). The Global
-// Codex has no manuscript: its chats get the Codex tools alone.
+// schema is also what its arguments are checked against (core.ts). The
+// reading tools also read the writer's other books (`book`), never write them.
+// The Global Codex has no manuscript: its chats get its Codex tools, and read
+// the books by naming one; grammar_check and move_codex_entry are a book's.
 
 export type { CodexChange, ToolContext } from "./core";
 
 const TOOLS: Tool[] = [...manuscriptTools, ...versionTools, ...codexTools, moveTool];
+const GLOBAL_TOOLS: Tool[] = TOOLS.filter((t) => t !== moveTool && t.name !== "grammar_check");
 
 /** The tools a chat of `projectId` gets. */
 function toolsFor(projectId: string): Tool[] {
-  return projectId === GLOBAL ? codexTools : TOOLS;
+  return projectId === GLOBAL ? GLOBAL_TOOLS : TOOLS;
 }
 
-/** As the agent sees them; in the Global Codex, without the `global` flag, which is moot there. */
+const GLOBAL_BOOK = "A book's id from list_books: needed to read a manuscript or its versions; for the Codex tools, omit it for the Global Codex.";
+
+/** As the agent sees them; in the Global Codex, without the `global` flag, which is moot there, and with `book` reworded. */
 export function listTools(projectId: string) {
   return toolsFor(projectId).map(({ name, description, inputSchema, readOnly }) => {
     let schema = inputSchema;
-    if (projectId === GLOBAL && "global" in inputSchema.properties) {
+    if (projectId === GLOBAL) {
       const { global: _, ...properties } = inputSchema.properties;
+      if (properties.book) properties.book = { ...properties.book, description: GLOBAL_BOOK };
       schema = { ...inputSchema, properties };
     }
     return {

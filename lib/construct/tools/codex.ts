@@ -4,6 +4,8 @@ import { sectionsOf } from "../../outline";
 import { titleOf, wordCount } from "../../text";
 import { createdEntry } from "../transcript";
 import {
+  book,
+  bookOf,
   bool,
   type CodexChange,
   checkSize,
@@ -22,12 +24,20 @@ import {
 // The Codex, the writer's notes beside the manuscript: the only thing
 // Construct can write. In a book, `global` turns each tool to the Global
 // Codex, the notes every book shares; the Global Codex's own chats get these
-// tools without it (listTools strips it), and always work there.
+// tools without it (listTools strips it), and always work there. The tools
+// that only read also take `book`, to read another book's Codex.
 
 const global = bool("Use the Global Codex (the notes every book shares) instead of this book's.");
 
 /** Whose Codex a call is about. */
 const ownerOf = (ctx: ToolContext, args: { global?: boolean }) => (args.global || ctx.projectId === GLOBAL ? GLOBAL : ctx.projectId);
+
+/** Whose Codex a reading tool is about: as ownerOf, or another book's with `book`. */
+async function readerOf(ctx: ToolContext, args: { global?: boolean; book?: string }) {
+  if (!args.book) return ownerOf(ctx, args);
+  if (args.global) throw new ToolError("Give book or global, not both.");
+  return bookOf(ctx, args.book);
+}
 
 /** Tell open views, saying which Codex changed. */
 const changed = (ctx: ToolContext, owner: string, change: Omit<CodexChange, "global">) =>
@@ -40,10 +50,15 @@ export const codexTools = [
   tool({
     name: "list_codex",
     description:
-      "The Codex: the writer's notes beside the manuscript (characters, places, plot, research), one markdown entry each; then the Global Codex, the notes every book shares.",
-    properties: {},
+      "The Codex: the writer's notes beside the manuscript (characters, places, plot, research), one markdown entry each; then the Global Codex, the notes every book shares. Give book to list another book's Codex instead.",
+    properties: { book },
     readOnly: true,
-    run: async (_args, ctx) => {
+    run: async (args, ctx) => {
+      if (args.book && args.book !== ctx.projectId) {
+        const pid = await bookOf(ctx, args.book);
+        const theirs = (await listCodex(pid)) ?? [];
+        return theirs.length ? `The Codex of ${pid} (read-only; pass book: "${pid}" to read these):\n${lines(theirs)}` : `The Codex of ${pid} is empty.`;
+      }
       const shared = (await listCodex(GLOBAL)) ?? [];
       if (ctx.projectId === GLOBAL) return shared.length ? lines(shared) : "The Global Codex is empty.";
       const own = (await listCodex(ctx.projectId)) ?? [];
@@ -57,19 +72,19 @@ export const codexTools = [
     name: "read_codex_entry",
     description:
       "Read a Codex entry's markdown, with line numbers (a number and a tab before each line: they aren't part of the text, so leave them out of edit_codex_entry's old_text). Give a heading to read one section, and/or offset and limit for a run of lines. One read returns at most 2000 lines (fewer if they're long) and says the offset to continue from; outline_codex_entry shows a long entry's headings.",
-    properties: { id: entryIdProp("Entry id from list_codex."), ...rangeProps, global },
+    properties: { id: entryIdProp("Entry id from list_codex."), ...rangeProps, global, book },
     required: ["id"],
     readOnly: true,
-    run: async (args, ctx) => excerpt((await entry(ownerOf(ctx, args), args.id)).content, args),
+    run: async (args, ctx) => excerpt((await entry(await readerOf(ctx, args), args.id)).content, args),
   }),
   tool({
     name: "outline_codex_entry",
     description: "A Codex entry's headings, with their line ranges and word counts, plus its totals: to find your way around a long entry before reading part of it.",
-    properties: { id: entryIdProp("Entry id from list_codex."), global },
+    properties: { id: entryIdProp("Entry id from list_codex."), global, book },
     required: ["id"],
     readOnly: true,
     run: async (args, ctx) => {
-      const { content } = await entry(ownerOf(ctx, args), args.id);
+      const { content } = await entry(await readerOf(ctx, args), args.id);
       const rows = outlineRows(sectionsOf(content), false);
       const head = [
         `Entry: ${args.id} "${titleOf(content, args.id)}"`,

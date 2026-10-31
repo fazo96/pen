@@ -62,7 +62,9 @@ test("the Global Codex: its entries named in a message's context, its own prompt
   assert.deepEqual(promptContextFrom({ entry: "style", global: true }), { entry: "style", global: true });
   assert.deepEqual(promptContextFrom({ global: true }), {}, "no entry, nothing global about it");
   assert.match(describeContext({ entry: "style", global: true }), /^\[The writer is looking at the Global Codex entry "style"\.\]$/);
-  assert.doesNotMatch(globalSystemPrompt(), /read_manuscript|standing instructions/);
+  assert.doesNotMatch(globalSystemPrompt(), /standing instructions/);
+  assert.match(globalSystemPrompt(), /read the writer's books, read-only: list_books/);
+  assert.match(systemPrompt("Book"), /Read the writer's other books: list_books/);
   assert.match(globalSystemPrompt("Be blunt."), /theirs win:\n"""\nBe blunt\.\n"""$/);
   assert.match(quickPrompt(null), /a passage of the writer's notes/);
 });

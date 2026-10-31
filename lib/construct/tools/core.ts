@@ -1,5 +1,5 @@
 import "server-only";
-import { isValidId, MAX_BYTES, readDoc, readEntry } from "../../docs";
+import { GLOBAL, isValidId, MAX_BYTES, readDoc, readEntry } from "../../docs";
 import { type Section, sectionsOf } from "../../outline";
 import type { ToolName } from "../types";
 
@@ -26,8 +26,10 @@ export class ToolError extends Error {}
 const EMPTY_OK = Symbol("empty ok");
 /** A Codex entry id, checked with isValidId. */
 const ENTRY_ID = Symbol("entry id");
+/** A book's id, checked with isValidId (which also turns away GLOBAL). */
+const BOOK_ID = Symbol("book id");
 
-type StringProp = { type: "string"; description: string; enum?: readonly string[]; [EMPTY_OK]?: true; [ENTRY_ID]?: true };
+type StringProp = { type: "string"; description: string; enum?: readonly string[]; [EMPTY_OK]?: true; [ENTRY_ID]?: true; [BOOK_ID]?: true };
 type IntProp = { type: "integer"; minimum: 1; description: string };
 type BoolProp = { type: "boolean"; description: string };
 type Prop = StringProp | IntProp | BoolProp;
@@ -36,6 +38,7 @@ export type Props = Record<string, Prop>;
 export const str = (description: string): StringProp => ({ type: "string", description });
 export const text = (description: string): StringProp => ({ type: "string", description, [EMPTY_OK]: true });
 export const entryIdProp = (description: string): StringProp => ({ type: "string", description, [ENTRY_ID]: true });
+export const bookIdProp = (description: string): StringProp => ({ type: "string", description, [BOOK_ID]: true });
 export const oneOf = <const E extends readonly string[]>(values: E, description: string) =>
   ({ type: "string", enum: values, description }) as const;
 export const int = (description: string): IntProp => ({ type: "integer", minimum: 1, description });
@@ -71,6 +74,7 @@ function readArg(key: string, prop: Prop, v: unknown): unknown {
   if (v === "" && !prop[EMPTY_OK]) return undefined;
   if (prop.enum && !prop.enum.includes(v)) throw new ToolError(`"${key}" must be one of: ${prop.enum.join(", ")}.`);
   if (prop[ENTRY_ID] && !isValidId(v)) throw new ToolError(`"${v}" is not a valid entry id (lowercase letters, digits and dashes).`);
+  if (prop[BOOK_ID] && !isValidId(v)) throw new ToolError(`"${v}" is not a book id. Use list_books to see them.`);
   return v;
 }
 
@@ -109,6 +113,22 @@ export async function manuscript(projectId: string) {
   const doc = await readDoc(projectId);
   if (!doc) throw new ToolError("The manuscript is missing.");
   return doc.content;
+}
+
+/** The reading tools' `book`: another of the writer's books, read-only. listTools rewords it in the Global Codex. */
+export const book = bookIdProp("Read another of the writer's books (read-only): its id from list_books. Omit for this book.");
+
+/**
+ * The book a reading tool works on: `book` if given, else the chat's own.
+ * The Global Codex's chats have no book of their own, so they must name one.
+ */
+export async function bookOf(ctx: ToolContext, id: string | undefined) {
+  if (!id || id === ctx.projectId) {
+    if (ctx.projectId === GLOBAL) throw new ToolError("The Global Codex has no manuscript: give a book's id (see list_books).");
+    return ctx.projectId;
+  }
+  if (!(await readDoc(id))) throw new ToolError(`No book "${id}". Use list_books to see them.`);
+  return id;
 }
 
 export async function entry(projectId: string, eid: string) {

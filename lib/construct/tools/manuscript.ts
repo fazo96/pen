@@ -1,14 +1,15 @@
 import "server-only";
-import { listCodex, readEntry } from "../../docs";
+import { listCodex, listDocs, readEntry } from "../../docs";
 import { ruleLabel } from "../../grammarConfig";
 import { sectionsOf } from "../../outline";
 import { titleOf, wordCount } from "../../text";
 import { checkGrammar, type GrammarReport } from "../grammarCheck";
-import { entry, entryIdProp, excerpt, findSection, int, manuscript, oneOf, outlineRows, rangeProps, str, tool } from "./core";
-import { versionText } from "./versions";
+import { book, bookOf, entry, entryIdProp, excerpt, findSection, int, manuscript, oneOf, outlineRows, rangeProps, str, tool } from "./core";
+import { stamp, versionText } from "./versions";
 
-// Reading the manuscript: its outline, its text, searching it, checking it.
-// Read-only: no tool writes the manuscript.
+// Reading the manuscript: its outline, its text, searching it, checking it;
+// and the writer's other books, which the reading tools reach with `book`.
+// Read-only: no tool writes a manuscript.
 
 function formatOutline(markdown: string) {
   const sections = sectionsOf(markdown);
@@ -72,21 +73,37 @@ function formatGrammar(report: GrammarReport, where: string, kind: string, citab
 
 export const manuscriptTools = [
   tool({
+    name: "list_books",
+    description:
+      "The writer's books: id, title, words and when each was last written. Give a book's id as book to outline, read_manuscript, search and the version and Codex reading tools to read that book; other books are read-only.",
+    properties: {},
+    readOnly: true,
+    run: async (_args, ctx) => {
+      const books = await listDocs();
+      if (!books.length) return "No books yet.";
+      return books
+        .map((b) => `${b.id}  "${b.title}"  ${b.words.toLocaleString("en")} words  last written ${stamp(b.modified)}${b.id === ctx.projectId ? "  (this book)" : ""}`)
+        .join("\n");
+    },
+  }),
+  tool({
     name: "outline",
     description:
       "The manuscript's structure: title, parts and chapters with their line ranges and word counts, plus totals. Start here. Give a version id for a saved version's outline (its line numbers differ from today's).",
-    properties: { version: str("Optional version id from list_versions; omit for the current manuscript.") },
+    properties: { version: str("Optional version id from list_versions; omit for the current manuscript."), book },
     readOnly: true,
-    run: async ({ version }, ctx) =>
-      formatOutline(version ? await versionText(ctx.projectId, version) : await manuscript(ctx.projectId)),
+    run: async ({ version, book: id }, ctx) => {
+      const pid = await bookOf(ctx, id);
+      return formatOutline(version ? await versionText(pid, version) : await manuscript(pid));
+    },
   }),
   tool({
     name: "read_manuscript",
     description:
       "Read the manuscript (markdown), with line numbers. Give a heading (\"Chapter 3\", \"Part II\", or part of a heading's text) to read one section, and/or offset and limit for a run of lines. One read returns at most 2000 lines (fewer if they're long) and says the offset to continue from: read a long book in pages, or better, only the sections you need (see outline).",
-    properties: rangeProps,
+    properties: { ...rangeProps, book },
     readOnly: true,
-    run: async (args, ctx) => excerpt(await manuscript(ctx.projectId), args),
+    run: async (args, ctx) => excerpt(await manuscript(await bookOf(ctx, args.book)), args),
   }),
   tool({
     name: "search",
@@ -95,10 +112,12 @@ export const manuscriptTools = [
     properties: {
       query: str("Text to look for."),
       scope: oneOf(["all", "manuscript", "codex"], "Where to look (default all)."),
+      book,
     },
     required: ["query"],
     readOnly: true,
     run: async (args, ctx) => {
+      const pid = await bookOf(ctx, args.book);
       const query = args.query.toLowerCase();
       const scope = args.scope ?? "all";
       const LIMIT = 80;
@@ -111,10 +130,10 @@ export const manuscriptTools = [
           hits.push(`${name}:${i + 1}${where}  ${l.length > 240 ? `${l.slice(0, 240)}…` : l}`);
         });
       };
-      if (scope !== "codex") scan("manuscript", await manuscript(ctx.projectId));
+      if (scope !== "codex") scan("manuscript", await manuscript(pid));
       if (scope !== "manuscript") {
-        for (const e of (await listCodex(ctx.projectId)) ?? []) {
-          const doc = await readEntry(ctx.projectId, e.id);
+        for (const e of (await listCodex(pid)) ?? []) {
+          const doc = await readEntry(pid, e.id);
           if (doc) scan(`codex/${e.id}`, doc.content, []);
         }
       }
