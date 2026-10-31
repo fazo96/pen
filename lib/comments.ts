@@ -200,11 +200,13 @@ export const CommentExtensions = [CommentBlock, Comment];
 
 /** A node's text without its comments (for word counts and heading titles). */
 export function textWithoutComments(node: PMNode): string {
+  if (node.type.name === "commentBlock") return "";
   let out = "";
   node.descendants((n) => {
     if (n.type.name === "commentBlock") return false;
     if (n.isText) {
-      if (!n.marks.some((m) => m.type.name === "comment")) out += n.text;
+      // A space for an inline comment, as stripComments leaves: "foo%%x%%bar" is two words.
+      out += n.marks.some((m) => m.type.name === "comment") ? " " : n.text;
     } else if (n.isBlock || n.isLeaf) {
       out += " ";
     }
