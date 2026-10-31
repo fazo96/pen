@@ -6,6 +6,7 @@ import {
   bookAgents,
   describeContext,
   globalSystemPrompt,
+  modeUpdate,
   promptContextFrom,
   quickPrompt,
   quickQuestion,
@@ -65,6 +66,14 @@ test("the Global Codex: its entries named in a message's context, its own prompt
   assert.doesNotMatch(globalSystemPrompt(), /standing instructions/);
   assert.match(globalSystemPrompt(), /read the writer's books, read-only: list_books/);
   assert.match(systemPrompt("Book"), /Read the writer's other books: list_books/);
+});
+
+test("the system prompt says how far the writer lets Construct change the manuscript, and so does an update", () => {
+  assert.match(systemPrompt("Book"), /left Construct's manuscript editing off: you can't change it/);
+  assert.match(systemPrompt("Book", null, "comments"), /add_comment, edit_comment and remove_comment[^\n]*edit_manuscript and insert_manuscript refuse/);
+  assert.match(systemPrompt("Book", null, "full"), /editing on\. edit_manuscript replaces exact text, insert_manuscript adds a passage/);
+  assert.match(modeUpdate("full"), /^\[The writer changed Construct's Manuscript setting to Full, replacing what you were told before\. Now: Read the manuscript/);
+  assert.match(modeUpdate("off"), /setting to Off/);
   assert.match(globalSystemPrompt("Be blunt."), /theirs win:\n"""\nBe blunt\.\n"""$/);
   assert.match(quickPrompt(null), /a passage of the writer's notes/);
 });

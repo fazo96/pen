@@ -2,6 +2,7 @@
 
 import type { SessionConfigOption } from "@agentclientprotocol/sdk";
 import type { AgentId } from "./agentInfo.ts";
+import type { EditMode } from "./editMode.ts";
 
 /** pen's tools, as Construct's agent calls them (served by ./tools/, described in the panel by Construct.tsx). */
 export type ToolName =
@@ -10,6 +11,11 @@ export type ToolName =
   | "read_manuscript"
   | "search"
   | "grammar_check"
+  | "add_comment"
+  | "edit_comment"
+  | "remove_comment"
+  | "edit_manuscript"
+  | "insert_manuscript"
   | "list_versions"
   | "read_version"
   | "diff_versions"
@@ -76,6 +82,8 @@ export type ConstructState = {
   config: SessionConfigOption[];
   /** The agent's latest reading for the chat shown, once there is one. */
   context?: ContextUsage;
+  /** How far Construct may change the book's manuscript; absent in the Global Codex, which has none. */
+  manuscript?: EditMode;
 };
 
 export type ConstructEvent =
@@ -84,7 +92,9 @@ export type ConstructEvent =
   | { t: "append"; id: string; text: string }
   | { t: "state"; state: ConstructState }
   /** `global`: the entry is in the Global Codex (always, in the Global Codex's own chats). */
-  | { t: "codex"; change: { entry: string; action: string; to?: string; global?: boolean } };
+  | { t: "codex"; change: { entry: string; action: string; to?: string; global?: boolean } }
+  /** Construct changed the manuscript: an open editor takes it. */
+  | { t: "manuscript" };
 
 /** What the panel asks of the session (POST /api/docs/<id>/construct); replies come over the event stream. */
 export type ConstructAction =
@@ -97,7 +107,8 @@ export type ConstructAction =
   | { action: "open-chat"; chatId: string }
   | { action: "delete-chat"; chatId: string }
   | { action: "rename-chat"; chatId: string; title: string }
-  | { action: "config"; configId: string; value: string };
+  | { action: "config"; configId: string; value: string }
+  | { action: "edit-mode"; mode: string };
 
 /** A quick question's answer (POST /api/docs/<id>/construct/quick), as JSON lines. */
 export type QuickLine = { t: "text"; text: string } | { t: "done" } | { t: "error"; error: string };

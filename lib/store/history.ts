@@ -1,6 +1,6 @@
 import "server-only";
 import { writeAtomic } from "../files";
-import type { Doc } from "../types";
+import type { Doc, VersionKind } from "../types";
 import * as versions from "../versions";
 import { dirOf, fileOf, projectExists, readDoc, ready, serialize, versionOf } from "./core";
 
@@ -17,12 +17,12 @@ export async function readVersion(id: string, vid: string) {
   return versions.readVersion(dirOf(id), vid);
 }
 
-/** Snapshot the manuscript as it is on disk now. Null if the project is missing. */
-export function saveVersion(id: string, label: string) {
+/** Snapshot the manuscript as it is on disk now (`auto`: one pen took, not the writer). Null if the project is missing. */
+export function saveVersion(id: string, label: string, kind: VersionKind = "named") {
   return serialize(async () => {
     const current = await readDoc(id);
     if (!current) return null;
-    return versions.addVersion(dirOf(id), current.content, "named", label);
+    return versions.addVersion(dirOf(id), current.content, kind, label);
   });
 }
 

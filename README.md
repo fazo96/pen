@@ -210,7 +210,7 @@ panel ──SSE/POST──▶ pen server ──ACP (stdio)──▶ agent (Claud
   - other books, read-only: `list_books`, and `book` on every reading tool
   - Codex, read-write: `list_codex`, `read_codex_entry`, `create_codex_entry`, `edit_codex_entry`, `write_codex_entry`, `rename_codex_entry`, `delete_codex_entry`
 
-  There is deliberately no tool that writes the manuscript.
+  - manuscript, only as far as the book's Manuscript setting allows (Off by default; Only comments; Full): `add_comment`, `edit_comment`, `remove_comment`, and in Full `edit_manuscript`, `insert_manuscript`. A version is saved before Construct's first change in each turn.
 - **The brief** (`lib/construct/agents.ts`): the system prompt sets the rules. The prose belongs to the writer; feedback means pointing at passages, not rewriting them; drafting only happens on explicit request; and Codex notes stick to what the writer has established.
 - **Context.** Each message tells the agent what you're looking at (the manuscript or a Codex entry) and any text you have selected.
 - **Memory across restarts.** Conversations are saved with the agent's session id and resumed through ACP `session/resume`, so a chat picks up where it left off.

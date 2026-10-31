@@ -8,7 +8,12 @@ import { callTool, type CodexChange, listTools } from "../lib/construct/tools/in
 // them (lib/construct/mcp.ts), on the scratch library.
 
 const changes: CodexChange[] = [];
-const ctx = (projectId: string) => ({ projectId, onCodexChange: (c: CodexChange) => void changes.push(c) });
+const ctx = (projectId: string) => ({
+  projectId,
+  onCodexChange: (c: CodexChange) => void changes.push(c),
+  beforeManuscriptEdit: async () => {},
+  onManuscriptChange: () => {},
+});
 
 test("edit_codex_entry replaces text found once, and refuses none or several unless asked", async () => {
   const { id } = await createDoc("# Tools Book");

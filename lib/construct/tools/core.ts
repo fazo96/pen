@@ -15,6 +15,10 @@ export type ToolContext = {
   projectId: string;
   /** Called after every change to the Codex, so open views can refresh. */
   onCodexChange: (change: CodexChange) => void;
+  /** Called before each change to the manuscript: the session saves a version before a turn's first. */
+  beforeManuscriptEdit: () => Promise<void>;
+  /** Called after every change to the manuscript, so an open editor can take it. */
+  onManuscriptChange: () => void;
 };
 
 /** A failure the agent should see and can act on. */

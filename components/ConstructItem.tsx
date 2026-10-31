@@ -34,6 +34,11 @@ const TOOL_TEXT: Record<ToolName, (i: Record<string, string>, lines: string) => 
     i.entry
       ? { text: `Checked the grammar of Codex · ${i.entry}${lines}`, entry: i.entry }
       : { text: `Checked the grammar of ${i.heading ?? "the manuscript"}${lines}` },
+  add_comment: (i) => ({ text: i.line ? `Added a comment at line ${i.line}` : "Added a comment" }),
+  edit_comment: (i) => ({ text: i.line ? `Edited the comment at line ${i.line}` : "Edited a comment" }),
+  remove_comment: (i) => ({ text: i.line ? `Removed the comment at line ${i.line}` : "Removed a comment" }),
+  edit_manuscript: () => ({ text: "Edited the manuscript" }),
+  insert_manuscript: (i) => ({ text: i.after_line ? `Added a passage after line ${i.after_line}` : "Added a passage" }),
   list_versions: () => ({ text: "Looked through the history" }),
   read_version: (i, lines) => ({ text: `Read ${versionName(i.id)}${i.heading ? `: ${i.heading}` : ""}${lines}` }),
   diff_versions: (i) => ({

@@ -63,6 +63,35 @@ test("the AGENTS entry is in the system prompt, and an edit to it reaches the ch
   expect(await send("Third")).not.toContain("standing instructions");
 });
 
+test("the Manuscript setting starts Off, is kept per book, and reaches the chat once when changed", async ({ page, request }) => {
+  const id = await makeBook(request, uniqueId("edit-mode"));
+  await openBook(page, id);
+  await page.getByRole("button", { name: "Construct", exact: true }).click();
+  await expect(input(page)).toBeVisible({ timeout: 30_000 });
+  const picker = construct(page).getByLabel("Manuscript");
+  await expect(picker).toHaveValue("off");
+  const send = async (text: string) => {
+    await input(page).fill(text);
+    await page.keyboard.press("Enter");
+    await expect(replies(page).last()).toContainText(text, { timeout: 30_000 });
+    return (await replies(page).last().textContent()) ?? "";
+  };
+
+  expect(await send("First")).not.toContain("Manuscript setting");
+  await picker.selectOption("full");
+  const second = await send("Second");
+  expect(second).toContain("changed Construct's Manuscript setting to Full");
+  expect(await send("Third")).not.toContain("Manuscript setting");
+
+  await page.reload();
+  await page.getByRole("button", { name: "Construct", exact: true }).click();
+  await expect(construct(page).getByLabel("Manuscript")).toHaveValue("full", { timeout: 30_000 });
+  const other = await makeBook(request, uniqueId("edit-mode-other"));
+  await openBook(page, other);
+  await page.getByRole("button", { name: "Construct", exact: true }).click();
+  await expect(construct(page).getByLabel("Manuscript")).toHaveValue("off", { timeout: 30_000 });
+});
+
 test("the Chats list opens, renames and deletes chats", async ({ page, request }) => {
   const id = await makeBook(request, uniqueId("chats"));
   await openBook(page, id);

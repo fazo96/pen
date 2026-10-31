@@ -82,6 +82,29 @@
   position: relative;
   min-width: 0;
 }
+/* The Manuscript setting: in the accent once Construct may change the text. */
+.construct-mode {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.construct-mode select {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink-soft);
+  background: transparent;
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.construct-mode select option {
+  background: var(--paper-raised);
+  color: var(--ink);
+}
+.construct-mode.is-on select {
+  color: var(--accent);
+}
 .construct-model-btn {
   display: flex;
   align-items: center;

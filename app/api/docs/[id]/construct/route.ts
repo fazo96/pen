@@ -1,4 +1,5 @@
 import { aiEnabled, aiOffResponse, isAgentId } from "@/lib/construct/agents";
+import { isEditMode } from "@/lib/construct/editMode";
 import { getSession } from "@/lib/construct/session";
 import { promptContextFrom } from "@/lib/construct/prompts";
 import type { ConstructAction, ConstructEvent } from "@/lib/construct/types";
@@ -98,6 +99,10 @@ export const POST = route<{ id: string }>(async (req, { id }) => {
       case "config":
         if (typeof body.configId !== "string" || typeof body.value !== "string") return badRequest("configId and value required");
         await session.setConfig(body.configId, body.value);
+        break;
+      case "edit-mode":
+        if (!isEditMode(body.mode)) return badRequest("unknown mode");
+        await session.setEditMode(body.mode);
         break;
       default:
         return badRequest("unknown action");

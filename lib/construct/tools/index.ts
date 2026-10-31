@@ -2,22 +2,25 @@ import "server-only";
 import { GLOBAL } from "../../ids";
 import { codexTools, moveTool } from "./codex";
 import { type Tool, type ToolContext, ToolError } from "./core";
+import { editTools } from "./edit";
 import { manuscriptTools } from "./manuscript";
 import { versionTools } from "./versions";
 
 // Everything Construct can do, and nothing more. The agent's own file, shell
 // and web tools are switched off; these are served to it over MCP (see
-// ../mcp.ts). The manuscript and its versions are read-only by construction:
-// there is no tool here that writes them. One file per area; each tool's
-// schema is also what its arguments are checked against (core.ts). The
-// reading tools also read the writer's other books (`book`), never write them.
-// The Global Codex has no manuscript: its chats get its Codex tools, and read
-// the books by naming one; grammar_check and move_codex_entry are a book's.
+// ../mcp.ts). The versions are read-only by construction: no tool here writes
+// them. The manuscript is changed only by edit.ts's tools, and only as far as
+// the writer's Manuscript setting allows (Off by default). One file per area;
+// each tool's schema is also what its arguments are checked against (core.ts).
+// The reading tools also read the writer's other books (`book`), never write
+// them. The Global Codex has no manuscript: its chats get its Codex tools, and
+// read the books by naming one; grammar_check, the editing tools and
+// move_codex_entry are a book's.
 
 export type { CodexChange, ToolContext } from "./core";
 
-const TOOLS: Tool[] = [...manuscriptTools, ...versionTools, ...codexTools, moveTool];
-const GLOBAL_TOOLS: Tool[] = TOOLS.filter((t) => t !== moveTool && t.name !== "grammar_check");
+const TOOLS: Tool[] = [...manuscriptTools, ...editTools, ...versionTools, ...codexTools, moveTool];
+const GLOBAL_TOOLS: Tool[] = TOOLS.filter((t) => t !== moveTool && t.name !== "grammar_check" && !editTools.includes(t));
 
 /** The tools a chat of `projectId` gets. */
 function toolsFor(projectId: string): Tool[] {

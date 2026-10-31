@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
+import type { EditMode } from "./construct/editMode";
 import type { ChatItem, ConstructAction, ConstructEvent, ConstructState, PromptContext } from "./construct/types";
 
 type CodexChange = Extract<ConstructEvent, { t: "codex" }>["change"];
@@ -11,13 +12,20 @@ type CodexChange = Extract<ConstructEvent, { t: "codex" }>["change"];
  * survives reloads and is shared between tabs) and send it messages.
  * Connects only once `enabled` turns true, and stays connected after.
  */
-export function useConstruct(projectId: string, enabled: boolean, onCodexChange: (c: CodexChange) => void) {
+export function useConstruct(
+  projectId: string,
+  enabled: boolean,
+  onCodexChange: (c: CodexChange) => void,
+  onManuscriptChange: () => void,
+) {
   const [items, setItems] = useState<ChatItem[]>([]);
   const [state, setState] = useState<ConstructState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const codexRef = useRef(onCodexChange);
   codexRef.current = onCodexChange;
+  const manuscriptRef = useRef(onManuscriptChange);
+  manuscriptRef.current = onManuscriptChange;
   const url = `/api/docs/${projectId}/construct`;
   const [active, setActive] = useState(enabled);
   if (enabled && !active) setActive(true);
@@ -53,6 +61,9 @@ export function useConstruct(projectId: string, enabled: boolean, onCodexChange:
           break;
         case "codex":
           codexRef.current(e.change);
+          break;
+        case "manuscript":
+          manuscriptRef.current();
           break;
       }
     };
@@ -91,5 +102,6 @@ export function useConstruct(projectId: string, enabled: boolean, onCodexChange:
     deleteChat: (chatId: string) => post({ action: "delete-chat", chatId }),
     renameChat: (chatId: string, title: string) => post({ action: "rename-chat", chatId, title }),
     setConfig: (configId: string, value: string) => post({ action: "config", configId, value }),
+    setEditMode: (mode: EditMode) => post({ action: "edit-mode", mode }),
   };
 }

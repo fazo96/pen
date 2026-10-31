@@ -445,6 +445,10 @@ export default function Pen({
     if (action === "renamed" && to) router.replace(entryHref(projectId, to));
     if (moved) router.replace(entryHref(moved.owner, moved.id));
   };
+  // Construct changed the manuscript: take it, if it's this page's (skipped over unsaved typing, as above).
+  const onManuscriptChange = () => {
+    if (!isEntry) void pull();
+  };
   /** Move an entry between the book's Codex and the Global Codex, following it if it's the one shown. */
   const moveTo = async (from: EntryRef, to: string) => {
     const shown = shownEntry?.owner === from.owner && shownEntry.id === from.id;
@@ -883,6 +887,7 @@ export default function Pen({
           getContext={constructContext}
           beforeSend={beforeConstruct}
           onCodexChange={onCodexChange}
+          onManuscriptChange={onManuscriptChange}
           onOpen={open}
           onCite={cite}
           handle={construct}

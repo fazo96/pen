@@ -6,6 +6,7 @@ import { entryHref } from "@/lib/entryRef";
 import { GLOBAL } from "@/lib/ids";
 import { matches, TOUCH } from "@/lib/media";
 import { agentName, DEFAULT_AGENT } from "@/lib/construct/agentInfo";
+import { EDIT_MODE_NAMES, EDIT_MODES, isEditMode } from "@/lib/construct/editMode";
 import type { ConstructEvent, PromptContext } from "@/lib/construct/types";
 import { useConstruct } from "@/lib/useConstruct";
 import { useModels } from "@/lib/useModels";
@@ -25,6 +26,8 @@ type Props = {
   /** Save the open document first, so Construct reads the latest words. */
   beforeSend: () => Promise<void>;
   onCodexChange: (change: CodexChange) => void;
+  /** Construct changed the manuscript. */
+  onManuscriptChange: () => void;
   /** Navigate (saving first). */
   onOpen: (href: string) => void;
   /** Jump to a passage Construct cited; false if it can't be found any more. */
@@ -65,12 +68,14 @@ export default function Construct({
   getContext,
   beforeSend,
   onCodexChange,
+  onManuscriptChange,
   onOpen,
   onCite,
   handle,
   onEscape,
 }: Props) {
-  const c = useConstruct(projectId, open, onCodexChange);
+  const c = useConstruct(projectId, open, onCodexChange, onManuscriptChange);
+  const mode = c.state?.manuscript;
   const models = useModels(open);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -226,7 +231,7 @@ export default function Construct({
           </div>
         </div>
 
-        {(config.length > 0 || context) && (
+        {(config.length > 0 || context || mode) && (
           <div className="construct-config">
             {config.length > 0 && (
               <ConstructModelMenu
@@ -240,6 +245,19 @@ export default function Construct({
                   void c.switchAgent(agent, model);
                 }}
               />
+            )}
+            {mode && (
+              // Changeable mid-answer: the tools check it at every call.
+              <label className={`construct-mode ${mode !== "off" ? "is-on" : ""}`} title="How far Construct may change the manuscript">
+                <span>Manuscript</span>
+                <select value={mode} onChange={(e) => isEditMode(e.target.value) && void c.setEditMode(e.target.value)}>
+                  {EDIT_MODES.map((m) => (
+                    <option key={m} value={m}>
+                      {EDIT_MODE_NAMES[m]}
+                    </option>
+                  ))}
+                </select>
+              </label>
             )}
             {context && (
               <div className={`construct-context ${filled >= 0.8 ? "is-full" : ""}`}>

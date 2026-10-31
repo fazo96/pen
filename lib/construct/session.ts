@@ -12,7 +12,7 @@ import type {
   SessionNotification,
 } from "@agentclientprotocol/sdk";
 import { anchorCitations } from "../cite";
-import { agentHome, GLOBAL, readChats, readDoc, readEntry, readVersion, trashChat, writeChat } from "../docs";
+import { agentHome, GLOBAL, readChats, readDoc, readEntry, readVersion, saveVersion, trashChat, writeChat } from "../docs";
 import { type AgentLaunch, type AgentProcess, initialize, modelOption, optionValues, spawnAgent, startupInfoOf } from "../acp";
 import { titleOf } from "../text";
 import { type CodexChange, listTools, type ToolContext } from "./tools";
@@ -20,7 +20,9 @@ import { DEFAULT_AGENT } from "./agentInfo";
 import { type AgentId, type AgentPreset, AGENTS, fallbackAgent, isAgentId, launchFor, MCP_NAME, penToolName, toolNameOf } from "./agents";
 import { type ChatNames, chatTitle, cleanChatName, isStoredChat, metaOf, newChatId, type StoredChat } from "./chats";
 import { modelFor } from "./ask";
-import { AGENTS_ENTRY, agentsText, agentsUpdate, bookAgents, describeContext, globalSystemPrompt, systemPrompt } from "./prompts";
+import type { EditMode } from "./editMode";
+import { AGENTS_ENTRY, agentsText, agentsUpdate, bookAgents, describeContext, globalSystemPrompt, modeUpdate, systemPrompt } from "./prompts";
+import { getEditMode, setEditMode } from "./settings";
 import { type Change, settled, Transcript, visibleConfig } from "./transcript";
 import type { ChatItem, ChatMeta, ConstructEvent, ConstructState, PromptContext } from "./types";
 
@@ -52,6 +54,11 @@ class ConstructSession {
   /** The AGENTS entry's text in the system prompt, and as the agent last saw it (an update can follow). */
   private agentsLaunched: string | null = null;
   private agentsSeen: string | null = null;
+  /** The Manuscript setting in the system prompt, and as the agent last saw it (likewise). */
+  private modeLaunched: EditMode = "off";
+  private modeSeen: EditMode = "off";
+  /** This turn saved its "Before Construct" version already. */
+  private snapshotted = false;
   private running = false;
   /** The turn running is the writer's Compact, not a message. */
   private compacting = false;
@@ -89,6 +96,7 @@ class ConstructSession {
   private async load() {
     const chats = await this.stored();
     this.state = { ...this.state, chats: chats.map(metaOf) };
+    if (this.projectId !== GLOBAL) this.state.manuscript = await getEditMode(this.projectId);
     if (chats[0]) this.adopt(chats[0]);
     else await this.fresh();
   }
@@ -237,7 +245,19 @@ class ConstructSession {
     return {
       projectId: this.projectId,
       onCodexChange: (change: CodexChange) => this.emit({ t: "codex", change }),
+      beforeManuscriptEdit: async () => {
+        if (this.snapshotted) return;
+        await saveVersion(this.projectId, "Before Construct", "auto");
+        this.snapshotted = true;
+      },
+      onManuscriptChange: () => this.emit({ t: "manuscript" }),
     };
+  }
+
+  /** The writer's Manuscript setting: how far Construct may change the manuscript. The agent hears of it with the next message. */
+  async setEditMode(mode: EditMode) {
+    if (this.projectId === GLOBAL) return;
+    this.setState({ manuscript: await setEditMode(this.projectId, mode) });
   }
 
   subscribe(fn: (e: ConstructEvent) => void) {
@@ -306,13 +326,15 @@ class ConstructSession {
       const doc = await readDoc(this.projectId);
       const agents = await this.readAgents();
       this.agentsLaunched = this.agentsSeen = agents;
+      const mode = await getEditMode(this.projectId);
+      this.modeLaunched = this.modeSeen = mode;
       const mcpUrl = `${this.baseUrl}/api/construct/mcp`;
       const launch = await launchFor(agent, {
         cwd: path.join(os.tmpdir(), "pen-construct", await agentHome(this.projectId)),
         systemPrompt:
           this.projectId === GLOBAL
             ? globalSystemPrompt(agents)
-            : systemPrompt(doc ? titleOf(doc.content, this.projectId) : this.projectId, agents),
+            : systemPrompt(doc ? titleOf(doc.content, this.projectId) : this.projectId, agents, mode),
         mcp: { url: mcpUrl, token: this.token, tools: listTools(this.projectId).map((t) => t.name) },
       });
       this.launched = { ...launch, mcpUrl };
@@ -443,6 +465,7 @@ class ConstructSession {
       async () => [
         // After the agent started, which read AGENTS into its system prompt.
         ...(await this.agentsChange()),
+        ...(await this.modeChange()),
         { type: "text", text: describeContext(context) },
         { type: "text", text },
       ],
@@ -469,6 +492,15 @@ class ConstructSession {
     return [{ type: "text", text: agentsUpdate(agents) }];
   }
 
+  /** The Manuscript setting, if it changed since the agent last saw it: as a block to send ahead of a message. */
+  private async modeChange(): Promise<ContentBlock[]> {
+    if (this.projectId === GLOBAL) return [];
+    const mode = await getEditMode(this.projectId);
+    if (mode === this.modeSeen) return [];
+    this.modeSeen = mode;
+    return [{ type: "text", text: modeUpdate(mode) }];
+  }
+
   /** The standing instructions: a book's are the Global Codex's AGENTS and its own. */
   private async readAgents() {
     const global = (await readEntry(GLOBAL, AGENTS_ENTRY))?.content;
@@ -482,6 +514,7 @@ class ConstructSession {
     opts: { compacting?: boolean; failure: string; after?: () => Promise<void> },
   ) {
     this.running = true;
+    this.snapshotted = false;
     this.compacting = !!opts.compacting;
     try {
       await this.start();
@@ -576,7 +609,10 @@ class ConstructSession {
     });
     for (const change of changes) this.tell(change);
     // A compaction may drop an AGENTS update sent with a message; the system prompt's version stays.
-    if (u.sessionUpdate === "compaction_update") this.agentsSeen = this.agentsLaunched;
+    if (u.sessionUpdate === "compaction_update") {
+      this.agentsSeen = this.agentsLaunched;
+      this.modeSeen = this.modeLaunched;
+    }
   }
 }
 
