@@ -86,6 +86,61 @@ export function withMarks(phones: readonly string[], marks: string): string[] {
   return phones.map((p) => (isVowel(p) ? bare(p) + (digit[marks[i++]] ?? "0") : p));
 }
 
+const IPA: Record<string, string> = {
+  AA: "ɑ",
+  AE: "æ",
+  AH: "ʌ",
+  AO: "ɔ",
+  AW: "aʊ",
+  AY: "aɪ",
+  EH: "ɛ",
+  ER: "ɝ",
+  EY: "eɪ",
+  IH: "ɪ",
+  IY: "i",
+  OW: "oʊ",
+  OY: "ɔɪ",
+  UH: "ʊ",
+  UW: "u",
+  B: "b",
+  CH: "tʃ",
+  D: "d",
+  DH: "ð",
+  F: "f",
+  G: "ɡ",
+  HH: "h",
+  JH: "dʒ",
+  K: "k",
+  L: "l",
+  M: "m",
+  N: "n",
+  NG: "ŋ",
+  P: "p",
+  R: "ɹ",
+  S: "s",
+  SH: "ʃ",
+  T: "t",
+  TH: "θ",
+  V: "v",
+  W: "w",
+  Y: "j",
+  Z: "z",
+  ZH: "ʒ",
+};
+
+/** The phonemes in IPA, as a dictionary prints them: "ˈsaɪ.ləns". Light "uh" and "er" are schwas. */
+export function ipa(phones: readonly string[]): string {
+  const ipaOf = (p: string, light: boolean) => (light && p === "AH" ? "ə" : light && p === "ER" ? "ɚ" : (IPA[p] ?? p.toLowerCase()));
+  const syls = syllables(phones);
+  return syls
+    .map((s, i) => {
+      // A word of one syllable goes unmarked, as dictionaries print it.
+      const mark = syls.length === 1 ? "" : s.stress === 1 ? "ˈ" : s.stress === 2 ? "ˌ" : i ? "." : "";
+      return mark + [...s.onset.map((p) => ipaOf(p, false)), ipaOf(s.vowel, s.stress === 0), ...s.coda.map((p) => ipaOf(p, false))].join("");
+    })
+    .join("");
+}
+
 // How a phoneme reads to someone who doesn't know ARPAbet.
 const NAMES: Record<string, string> = {
   AA: "ah (father)",

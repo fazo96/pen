@@ -16,6 +16,7 @@ import "./styles/drawer.css";
 import "./styles/lock.css";
 import "./styles/page-states.css";
 import "./styles/construct.css";
+import "./styles/cadence.css";
 import "./styles/settings.css";
 import "./styles/tools.css";
 import "./styles/stats.css";

@@ -115,6 +115,7 @@ const commands = (over: Partial<CommandsContext> = {}) =>
     constructOpen: false,
     grammarOn: false,
     grammarList: true,
+    cadenceOpen: false,
     focus: false,
     steady: false,
     nextTheme: "Light",
@@ -145,6 +146,7 @@ test("commands follow the page: AI, selection, entry page, panel, preview", () =
   assert.ok(commands({ grammarOn: true }).includes("grammar-list"));
   assert.ok(!commands({ grammarOn: true, grammarList: false }).includes("grammar-list"));
   assert.ok(commands({ constructOpen: true }).includes("construct"));
+  assert.ok(base.includes("cadence") && !entryPage.includes("cadence"));
 });
 
 test("command labels say what they'll do", () => {
@@ -157,6 +159,7 @@ test("command labels say what they'll do", () => {
     constructOpen: false,
     grammarOn: true,
     grammarList: true,
+    cadenceOpen: false,
     focus: true,
     steady: true,
     nextTheme: "Dark",

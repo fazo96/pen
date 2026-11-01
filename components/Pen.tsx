@@ -33,6 +33,7 @@ import { useTheme, THEME_LABEL, type Theme } from "@/lib/useTheme";
 import { useVersionPreview } from "@/lib/useVersionPreview";
 import { useWindowKeys } from "@/lib/useWindowKeys";
 import { askDraft, constructPrompt, pickedWords, type QuickKind, requestLookUp } from "@/lib/wordTools";
+import CadencePanel, { CadenceView } from "./Cadence";
 import Codex from "./Codex";
 import CodexPanel from "./CodexPanel";
 import ConflictBanner from "./ConflictBanner";
@@ -48,7 +49,7 @@ import CommentsPane, { CommentsCount } from "./CommentsPane";
 import GrammarPopover from "./GrammarPopover";
 import QuickAnswer, { type Quick } from "./QuickAnswer";
 import WordTools from "./WordTools";
-import { IconBack, IconCodex, IconComment, IconGrammar, IconHistory, IconOutline } from "./icons";
+import { IconBack, IconCadence, IconCodex, IconComment, IconGrammar, IconHistory, IconOutline } from "./icons";
 import History from "./History";
 import Outline, { type Heading } from "./Outline";
 import Palette, { type PaletteMode, usePaletteLists } from "./Palette";
@@ -64,8 +65,12 @@ const DRAWER_TABS: Record<DrawerTab, { name: string; Icon: (p: React.SVGProps<SV
   codex: { name: "Codex", Icon: IconCodex },
   history: { name: "History", Icon: IconHistory },
   grammar: { name: "Grammar", Icon: IconGrammar },
+  cadence: { name: "Cadence", Icon: IconCadence },
   comments: { name: "Comments", Icon: IconComment },
 };
+
+/** localStorage: Cadence was open beside the manuscript, so it opens again. */
+const CADENCE_OPEN = "pen:cadence";
 
 /** A question about some text in `editor`, for Construct: a quick answer (`send`), or left in the chat's input. */
 type AskConstruct = (text: string, range: { from: number; to: number }, send: boolean, kind?: QuickKind) => void;
@@ -317,9 +322,39 @@ export default function Pen({
   // ─── Codex entry beside the manuscript ─────────────────────
   const openEntry = async (eid: string) => {
     setOutlineOpen(false);
+    closeCadence(); // they share the slot
     if ((await panel.open(eid)) && !matches(ROOMY)) setConstructOpen(false);
   };
   const closeEntry = panel.close;
+
+  // ─── Cadence: in the Codex entry's slot, else the drawer's tab ───
+  const [cadenceOpen, setCadenceOpen] = useState(false);
+  const closeCadence = () => {
+    setCadenceOpen(false);
+    local.set(CADENCE_OPEN, null);
+  };
+  const openCadence = async () => {
+    setOutlineOpen(false);
+    if (!matches(WIDE)) return showTab("cadence");
+    await closeEntry();
+    if (!matches(ROOMY)) setConstructOpen(false);
+    setCadenceOpen(true);
+    local.set(CADENCE_OPEN, "1");
+  };
+  const toggleCadence = () => void (cadenceOpen ? closeCadence() : openCadence());
+  // Opens again where it was left open (unless an entry came with the address),
+  // and when there's room again; with no room it goes.
+  const wide = useMedia(WIDE);
+  useEffect(() => {
+    if (wide === false) setCadenceOpen(false);
+    else if (wide && !isEntry && !panelEntry && local.get(CADENCE_OPEN)) setCadenceOpen(true);
+    // Only when the width changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wide]);
+  /** Something in the Codex entry's slot: an entry, or Cadence. */
+  const slotOpen = !!panelEntry || cadenceOpen;
+  /** Make room for Construct. */
+  const closeSlot = () => (cadenceOpen ? closeCadence() : void closeEntry());
   // Drop the panel without saving: its file is gone.
   const dropEntry = () => {
     panel.drop();
@@ -417,7 +452,7 @@ export default function Pen({
   const askChat = (ed: Editor, text: string, range: { from: number; to: number }, send: boolean) => {
     construct.current?.ask({ text, context: contextIn(ed, range), send });
     setOutlineOpen(false);
-    if (!constructOpen && panelEntry && ed !== panelEditor && !matches(ROOMY)) void closeEntry();
+    if (!constructOpen && slotOpen && ed !== panelEditor && !matches(ROOMY)) closeSlot();
     setConstructOpen(true);
   };
   const beforeConstruct = async () => {
@@ -477,7 +512,7 @@ export default function Pen({
   };
   const toggleConstruct = () => {
     setOutlineOpen(false);
-    if (!constructOpen && panelEntry && !matches(ROOMY)) void closeEntry();
+    if (!constructOpen && slotOpen && !matches(ROOMY)) closeSlot();
     setConstructOpen((o) => !o);
   };
 
@@ -675,6 +710,7 @@ export default function Pen({
       constructOpen,
       grammarOn,
       grammarList,
+      cadenceOpen,
       focus: focusMode.focus,
       steady,
       nextTheme: THEME_LABEL[nextTheme],
@@ -699,6 +735,7 @@ export default function Pen({
           construct.current?.compact();
         },
         toggleGrammar,
+        toggleCadence,
         saveVersion: (label) => void saveVersion(label),
         newEntry: () => void newEntry(),
         closeEntry: () => void closeEntry(),
@@ -716,7 +753,7 @@ export default function Pen({
 
   return (
     <div
-      className={`app app-editor ${typing ? "is-typing" : ""} ${focusMode.toolbarShown ? "toolbar-shown" : ""} ${constructOpen ? "construct-open" : ""} ${panelEntry ? "codex-open" : ""}`}
+      className={`app app-editor ${typing ? "is-typing" : ""} ${focusMode.toolbarShown ? "toolbar-shown" : ""} ${constructOpen ? "construct-open" : ""} ${slotOpen ? "codex-open" : ""}`}
     >
       <div className="progress" style={{ transform: `scaleX(${progress})` }} aria-hidden />
 
@@ -731,12 +768,14 @@ export default function Pen({
         words={words}
         outlineOpen={outlineOpen}
         panelOpen={!!panelEntry}
+        cadenceOpen={cadenceOpen}
         constructOpen={constructOpen}
         grammarOn={grammarOn}
         codexLabel={last ? `Codex: ${last.title}` : "Codex"}
         switchLabel={switchLabel}
         on={{
           codex: isEntry ? undefined : () => void (panelEntry ? closeEntry() : toCodex()),
+          cadence: isEntry ? undefined : toggleCadence,
           outline: () => setOutlineOpen((o) => !o),
           library: goLibrary,
           goTo: () => togglePalette("go"),
@@ -770,7 +809,14 @@ export default function Pen({
       >
         <div className="drawer-tabs" role="tablist">
           {(
-            ["contents", "codex", ...(isEntry ? [] : ["history"]), ...(grammarList ? ["grammar"] : []), "comments"] as DrawerTab[]
+            [
+              "contents",
+              "codex",
+              ...(isEntry ? [] : ["history"]),
+              ...(grammarList ? ["grammar"] : []),
+              ...(isEntry ? [] : ["cadence"]),
+              "comments",
+            ] as DrawerTab[]
           ).map((tab) => {
             const { name, Icon } = DRAWER_TABS[tab];
             return (
@@ -808,6 +854,7 @@ export default function Pen({
         {drawerTab === "grammar" && (
           <GrammarPane editor={editor} headings={headings} onShown={() => setOutlineOpen(false)} />
         )}
+        {drawerTab === "cadence" && !isEntry && <CadenceView editor={editor} onShown={() => setOutlineOpen(false)} />}
         {drawerTab === "comments" && (
           <CommentsPane editor={editor} headings={headings} onShown={() => setOutlineOpen(false)} />
         )}
@@ -869,6 +916,8 @@ export default function Pen({
           {findBar(panelEditor)}
         </CodexPanel>
       )}
+
+      {cadenceOpen && !isEntry && <CadencePanel editor={editor} onClose={closeCadence} />}
 
       {toolEditor && (!preview || inPanel) && (
         <Toolbar

@@ -9,7 +9,7 @@ import type { DocMeta, EntryMeta } from "./types.ts";
 
 type Heading = { pos: number; level: number; text: string };
 type Entry = { id: string; title: string };
-export type DrawerTab = "contents" | "codex" | "history" | "grammar" | "comments";
+export type DrawerTab = "contents" | "codex" | "history" | "grammar" | "cadence" | "comments";
 export type AskKind = "synonyms" | "meaning" | "ask";
 
 /** What both lists need to know. */
@@ -133,6 +133,8 @@ export type CommandsContext = Shared & {
   grammarOn: boolean;
   /** This page's editor is grammar-checked, so its list of flags means something (not a Codex entry's page). */
   grammarList: boolean;
+  /** Cadence is open beside the manuscript. */
+  cadenceOpen: boolean;
   focus: boolean;
   steady: boolean;
   /** What the theme button would switch to. */
@@ -153,6 +155,8 @@ export type CommandsContext = Shared & {
     newChat: () => void;
     compactChat: () => void;
     toggleGrammar: () => void;
+    /** Beside the manuscript where there's room, else the drawer's tab. */
+    toggleCadence: () => void;
     saveVersion: (label: string) => void;
     newEntry: () => void;
     closeEntry: () => void;
@@ -306,6 +310,14 @@ export function buildCommands(c: CommandsContext): PaletteItem[] {
       label: "Show grammar flags",
       keywords: "spelling list problems",
       run: () => run.showTab("grammar"),
+    },
+
+    !isEntry && {
+      key: "cadence",
+      section: "Cadence",
+      label: c.cadenceOpen ? "Close Cadence" : "Show Cadence",
+      keywords: "rhythm meter stress sound prose verse poetry alliteration rhyme syllables",
+      run: run.toggleCadence,
     },
 
     !isEntry && {

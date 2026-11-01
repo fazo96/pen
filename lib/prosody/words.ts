@@ -183,7 +183,7 @@ function inContext(key: string, p: Pron): { stress: string; light: boolean } {
 
 /** What separates a word from the next: a sentence's end, a clause's, or nothing. */
 function pauseIn(gap: string, before: string, next: string | undefined): Word["pause"] {
-  if (next === undefined) return "sentence";
+  if (next === undefined || gap.includes("\n")) return "sentence"; // a paragraph's end ends it, punctuated or not
   const ends = /[!?…]/.test(gap) || (gap.includes(".") && !(gap.startsWith(".") && ABBREVIATIONS.has(before)));
   // Unless a lowercase word follows: "Why?" he asked; and then… it went on.
   if (ends && !/^\p{Ll}/u.test(next)) return "sentence";

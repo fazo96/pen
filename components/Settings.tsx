@@ -3,6 +3,7 @@ import type { LibraryStats } from "@/lib/library";
 import SettingsHead from "./SettingsHead";
 import ConstructSettings from "./ConstructSettings";
 import EditorSettings from "./EditorSettings";
+import CadenceSettings from "./CadenceSettings";
 import GrammarSettings from "./GrammarSettings";
 import KeySettings from "./KeySettings";
 import { IconBack, IconBooks, IconChart, IconExport } from "./icons";
@@ -63,6 +64,7 @@ export default function Settings({
           </section>
           <EditorSettings />
           <GrammarSettings />
+          <CadenceSettings />
           <ConstructSettings agents={agents} switchedOff={aiSwitchedOff} />
           <KeySettings />
           <LockSettings locked={locked} />

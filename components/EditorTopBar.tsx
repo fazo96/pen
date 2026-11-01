@@ -3,7 +3,7 @@
 import { STATUS_LABEL, type SaveStatus as Status } from "@/lib/useAutosave";
 import { useKeys } from "@/lib/useKeys";
 import EditorMenu from "./EditorMenu";
-import { IconCodex, IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconOutline, IconSearch } from "./icons";
+import { IconCadence, IconCodex, IconConstruct, IconExport, IconFocus, IconGear, IconGrammar, IconOutline, IconSearch } from "./icons";
 import Logo from "./Logo";
 import SaveStatus from "./SaveStatus";
 import ThemeButton from "./ThemeButton";
@@ -18,6 +18,8 @@ export type TopBarActions = {
   exportMarkdown: () => void;
   /** Open the Codex entry viewed last, or close the one open; none on an entry's own page. */
   codex?: () => void;
+  /** Open or close Cadence; none on an entry's own page. */
+  cadence?: () => void;
   /** None when AI is off. */
   construct?: () => void;
   settings: () => void;
@@ -40,6 +42,8 @@ type Props = {
   outlineOpen: boolean;
   /** A Codex entry is open beside the manuscript. */
   panelOpen: boolean;
+  /** Cadence is open beside the manuscript. */
+  cadenceOpen: boolean;
   constructOpen: boolean;
   grammarOn: boolean;
   /** Where the Codex button goes, for its tooltip. */
@@ -61,6 +65,7 @@ export default function EditorTopBar({
   words,
   outlineOpen,
   panelOpen,
+  cadenceOpen,
   constructOpen,
   grammarOn,
   codexLabel,
@@ -143,6 +148,18 @@ export default function EditorTopBar({
               title={keys.title("Construct", "construct")}
             >
               <IconConstruct />
+            </button>
+          )}
+          {on.cadence && (
+            <button
+              type="button"
+              className={`icon-btn ${cadenceOpen ? "is-on" : ""}`}
+              onClick={on.cadence}
+              aria-label="Cadence"
+              aria-pressed={cadenceOpen}
+              title={cadenceOpen ? "Close Cadence" : "Cadence: how this paragraph sounds"}
+            >
+              <IconCadence />
             </button>
           )}
           {on.codex && (
