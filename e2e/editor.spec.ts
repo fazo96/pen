@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { type EditorElement, makeBook, openBook, uniqueId } from "./helpers";
+import { type EditorElement, makeBook, openBook, response, uniqueId } from "./helpers";
 
 // The editor page's own behaviour: find and replace, the switcher, jumping
 // between the manuscript and the Codex panel, focus mode, export.
@@ -137,7 +137,10 @@ test("the Comments tab lists the comments and goes to one", async ({ page }) => 
 test("the top bar's Codex button opens the entry viewed last, and closes it", async ({ page }) => {
   const id = await makeBook(page.request, uniqueId("codex-btn"), "Manuscript text here.");
   const entry = await makeEntry(page, id, "Mara Voss");
+  // The page records the entry as viewed last once it's running: wait for that before leaving.
+  const viewed = response(page, "PUT", new RegExp(`/api/docs/${id}/spot$`));
   await page.goto(`/d/${id}/codex/${entry}`);
+  await viewed;
   await expect(page.locator(".ProseMirror")).toContainText("Notes about Mara Voss.");
   await expect(page.getByRole("button", { name: "Codex entry" })).toHaveCount(0);
 
@@ -363,18 +366,20 @@ test("a click on the page around a short text focuses the editor", async ({ page
       return state.selection.from === state.doc.content.size - 1;
     });
 
-  // Well below the text, on the page: the end of the document.
+  // Well below the text, on the page: the end of the document. (Tiptap
+  // focuses on the next frame, hence the polls.)
   await page.mouse.click(box.x + box.width / 2, box.y + box.height + 200);
-  expect(await cursor(page)).toEqual({ where: "manuscript", block: "Second line." });
-  expect(await atEnd()).toBe(true);
+  await expect.poll(() => cursor(page)).toEqual({ where: "manuscript", block: "Second line." });
+  await expect.poll(atEnd).toBe(true);
 
   // Beside the first line, just right of the text column: that line.
   const first = (await editor.locator("p").first().boundingBox())!;
   await page.mouse.click(box.x + box.width + 12, first.y + first.height / 2);
-  expect(await cursor(page)).toEqual({ where: "manuscript", block: "Short." });
+  await expect.poll(() => cursor(page)).toEqual({ where: "manuscript", block: "Short." });
 
   // Typing goes where the cursor went.
   await page.mouse.click(box.x + box.width / 2, box.y + box.height + 200);
+  await expect.poll(() => cursor(page)).toEqual({ where: "manuscript", block: "Second line." });
   await page.keyboard.type(" More.");
   await expect(editor.locator("p").last()).toHaveText("Second line. More.");
 });

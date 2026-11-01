@@ -69,6 +69,8 @@ test("in a book, Global Codex entries open beside the manuscript, and entries mo
   await expect(global.locator(".library-item", { hasText: shared })).toBeVisible();
   await page.keyboard.press("Control+o");
   await page.keyboard.type(shared);
+  // The switcher fetches the Global Codex as it opens.
+  await expect(page.getByRole("dialog", { name: "Go to" }).getByRole("option", { name: new RegExp(shared) })).toBeVisible();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(new RegExp(`\\?entry=global%2F${theirs.id}$`));
   await expect(page.locator(".codex-panel-title")).toHaveText(`Global Codex · ${shared}`);
