@@ -68,6 +68,13 @@ class CadenceService {
     return this.loading;
   }
 
+  /** Fetch the writer's words again: Construct changed them. Nothing if they haven't been loaded here. */
+  async reloadOwn(): Promise<void> {
+    if (!this.state.own) return;
+    const own = await api<ProsodyConfig>("/api/prosody").catch(() => null);
+    if (own) this.set({ own });
+  }
+
   /** The writer's words alone, without the dictionary (for /settings). */
   loadOwn(): Promise<void> {
     if (this.state.own) return Promise.resolve();

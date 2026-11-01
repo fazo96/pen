@@ -9,7 +9,10 @@ import type { Ending } from "@/lib/prosody/cadence";
 import { soundName } from "@/lib/prosody/phones";
 import { MIN_FEET, type RunKind } from "@/lib/prosody/rhythm";
 import type { SoundKind } from "@/lib/prosody/sounds";
+import { explainPrompt, MAX_QUESTION, rewritePrompt } from "@/lib/cadenceAsk";
+import { passageReport } from "@/lib/prosody/report";
 import { focusText } from "@/lib/useCodexPanel";
+import CadenceAsk, { type CadenceQuestion } from "./CadenceAsk";
 import CadenceWord from "./CadenceWord";
 import { IconClose } from "./icons";
 
@@ -76,7 +79,10 @@ function usePassage(editor: Editor | null): Passage | null {
 /** The next stress a tap on a syllable tries. */
 const flipped = (m: string) => (m === "/" ? "x" : "/");
 
-export function CadenceView({ editor, onShown }: { editor: Editor | null; onShown?: () => void }) {
+/** Asking Construct from Cadence, when AI is on: the book, and the way into the chat. */
+export type CadenceAsking = { projectId: string; onContinue: (prompt: string) => void };
+
+export function CadenceView({ editor, onShown, ask }: { editor: Editor | null; onShown?: () => void; ask?: CadenceAsking }) {
   const { status, error, dict, own } = useCadence();
   const passage = usePassage(editor);
   const text = passage?.text ?? "";
@@ -88,6 +94,8 @@ export function CadenceView({ editor, onShown }: { editor: Editor | null; onShow
   const a = useMemo(() => (dict && text ? analyze(text, dict, marks) : null), [dict, text, marks]);
   const shownLit = lit?.text === text ? lit : null;
   const pickedWord = picked?.text === text && a ? a.words[picked.index] : null;
+  // Construct's answer stays until closed, whatever the cursor does meanwhile.
+  const [question, setQuestion] = useState<CadenceQuestion | null>(null);
 
   const flip = (i: number, k: number) => {
     if (!a) return;
@@ -96,6 +104,29 @@ export function CadenceView({ editor, onShown }: { editor: Editor | null; onShow
   };
   const tryStress = (i: number, stress: string) => setFlips({ text, marks: { ...marks, [i]: stress } });
   const toggleLit = (l: Lit) => setLit(shownLit?.kind === l.kind && shownLit.index === l.index ? null : { ...l, text });
+  const explain = () => {
+    if (!a) return;
+    const report = passageReport(passage!.blocks === 1 ? "The paragraph" : "The passage", text, a).slice(0, MAX_QUESTION - 2000);
+    setQuestion({ id: Date.now(), kind: "explain", ask: { prompt: explainPrompt(report), context: {} } });
+  };
+  const rewrite = (i: number) => {
+    const s = a?.sentences[i];
+    if (!a || !s || !dict || !passage) return;
+    const start = a.words[s.from].start;
+    // Through its closing punctuation and quotes, up to the space after it.
+    const end = a.words[s.to].end + (/^\S*/.exec(text.slice(a.words[s.to].end))?.[0].length ?? 0);
+    const sentence = text.slice(start, end);
+    const range = passage.range(start, end);
+    if (!range) return;
+    const paragraph = text.slice(text.lastIndexOf("\n\n", start) + 1, text.indexOf("\n\n", end) < 0 ? undefined : text.indexOf("\n\n", end)).trim();
+    const report = passageReport("The sentence", sentence, analyze(sentence, dict));
+    setQuestion({
+      id: Date.now(),
+      kind: "rewrite",
+      ask: { prompt: rewritePrompt(sentence, report), context: { selection: sentence, paragraph } },
+      sentence: { text: sentence, ...range },
+    });
+  };
   const showInText = (i: number) => {
     const w = a?.words[i];
     const r = w && passage?.range(w.start, w.end);
@@ -142,6 +173,11 @@ export function CadenceView({ editor, onShown }: { editor: Editor | null; onShow
       <p className="cadence-status label" role="status">
         {passage.blocks === 1 ? "This paragraph" : `${passage.blocks} paragraphs`}
         {passage.cut && " (the first of the selection)"} · {a.syllables.length} syllables
+        {ask && (
+          <button type="button" className="cadence-reset" onClick={explain}>
+            Explain how it sounds
+          </button>
+        )}
       </p>
 
       <PassageView a={a} text={text} marks={marks} lit={shownLit} picked={picked?.text === text ? picked.index : null} onFlip={flip} onPick={(index) => setPicked(picked?.text === text && picked.index === index ? null : { text, index })} />
@@ -156,6 +192,20 @@ export function CadenceView({ editor, onShown }: { editor: Editor | null; onShow
           <span className="cadence-hint"> · tap a mark to try another stress, a word for more</span>
         )}
       </p>
+
+      {question && ask && (
+        <CadenceAsk
+          key={question.id}
+          projectId={ask.projectId}
+          question={question}
+          editor={editor}
+          onClose={() => setQuestion(null)}
+          onContinue={(prompt) => {
+            setQuestion(null);
+            ask.onContinue(prompt);
+          }}
+        />
+      )}
 
       {pickedWord && (
         <CadenceWord
@@ -232,6 +282,11 @@ export function CadenceView({ editor, onShown }: { editor: Editor | null; onShow
                     <span className="cadence-why">“{tailOf(a, s.from, s.to)}”</span>
                   </span>
                 </button>
+                {ask && shownLit?.kind === "sentence" && shownLit.index === i && (
+                  <button type="button" className="btn btn-quiet cadence-rewrite-ask" onClick={() => rewrite(i)}>
+                    Rewrite for rhythm
+                  </button>
+                )}
               </li>
             );
           })}
@@ -352,7 +407,7 @@ function PassageView({ a, text, marks, lit, picked, onFlip, onPick }: PassagePro
 }
 
 /** Cadence in the Codex panel's slot, beside the manuscript. */
-export default function CadencePanel({ editor, onClose }: { editor: Editor | null; onClose: () => void }) {
+export default function CadencePanel({ editor, onClose, ask }: { editor: Editor | null; onClose: () => void; ask?: CadenceAsking }) {
   return (
     <aside className="codex-panel cadence-panel" aria-label="Cadence">
       <div className="codex-panel-head">
@@ -364,7 +419,7 @@ export default function CadencePanel({ editor, onClose }: { editor: Editor | nul
         </div>
       </div>
       <div className="cadence-body">
-        <CadenceView editor={editor} />
+        <CadenceView editor={editor} ask={ask} />
       </div>
     </aside>
   );

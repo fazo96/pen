@@ -19,6 +19,7 @@ function harness(projectId: string) {
     onCodexChange: () => {},
     beforeManuscriptEdit: async () => void seen.before++,
     onManuscriptChange: () => void seen.changed++,
+    onProsodyChange: () => {},
   };
   const call = (name: string, args: Record<string, unknown>) => callTool(name, args, ctx);
   const text = async () => (await readDoc(projectId))!.content;

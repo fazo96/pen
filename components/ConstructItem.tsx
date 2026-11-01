@@ -34,6 +34,10 @@ const TOOL_TEXT: Record<ToolName, (i: Record<string, string>, lines: string) => 
     i.entry
       ? { text: `Checked the grammar of Codex · ${i.entry}${lines}`, entry: i.entry }
       : { text: `Checked the grammar of ${i.heading ?? "the manuscript"}${lines}` },
+  scan_prose: (i, lines) => ({ text: i.heading ? `Read the sound of ${i.heading}${lines}` : lines ? `Read the sound of the manuscript${lines}` : "Read the sound of some prose" }),
+  list_pronunciations: () => ({ text: "Looked through your pronunciations" }),
+  set_pronunciation: (i) => ({ text: i.word ? `Set how “${i.word}” is said` : "Set a pronunciation" }),
+  remove_pronunciation: (i) => ({ text: i.word ? `Forgot how “${i.word}” is said` : "Forgot a pronunciation" }),
   add_comment: (i) => ({ text: i.line ? `Added a comment at line ${i.line}` : "Added a comment" }),
   edit_comment: (i) => ({ text: i.line ? `Edited the comment at line ${i.line}` : "Edited a comment" }),
   remove_comment: (i) => ({ text: i.line ? `Removed the comment at line ${i.line}` : "Removed a comment" }),

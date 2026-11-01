@@ -3,9 +3,11 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { gzip } from "node:zlib";
+import { gunzip, gzip } from "node:zlib";
 import { buildCmudict, CMUDICT_FILE, compactCmu } from "./cmudictBuild";
 import { CACHE_DIR } from "./paths";
+import { type Dict, parseCompact } from "./prosody";
+import { getProsody } from "./prosodyStore";
 
 // Cadence's pronouncing dictionary (the CMU Pronouncing Dictionary, BSD
 // 2-clause), kept gzipped in the cache folder: made by lib/cmudictBuild.ts the
@@ -57,4 +59,18 @@ export function getPronunciations(): Promise<Pronunciations> {
   loading ??= make().then((gz) => ({ gz, etag: `"${createHash("sha1").update(gz).digest("hex").slice(0, 16)}"` }));
   loading.catch(() => (loading = null)); // try again next time
   return loading;
+}
+
+let table: Promise<Map<string, string[]>> | null = null;
+
+/**
+ * The dictionary for reading prose on the server (Construct's scan_prose),
+ * with the writer's words as they are now. Parsed on first use and kept
+ * (about 18 MB, 0.1 s).
+ */
+export async function serverDict(): Promise<Dict> {
+  table ??= getPronunciations().then(async ({ gz }) => parseCompact((await promisify(gunzip)(gz)).toString("utf8")));
+  table.catch(() => (table = null));
+  const [t, own] = await Promise.all([table, getProsody()]);
+  return { lookup: (k) => t.get(k), own: own.words };
 }

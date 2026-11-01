@@ -1,3 +1,4 @@
+import { MAX_QUESTION } from "@/lib/cadenceAsk";
 import { aiEnabled, aiOffResponse } from "@/lib/construct/agents";
 import { askOnce } from "@/lib/construct/ask";
 import { AGENTS_ENTRY, agentsText, bookAgents, promptContextFrom, quickPrompt, quickQuestion } from "@/lib/construct/prompts";
@@ -21,7 +22,7 @@ export const POST = route<{ id: string }>(
     const doc = id === GLOBAL ? null : await readDoc(id);
     if (id !== GLOBAL && !doc) return notFound();
     const body = (await readJson(req)) as { text?: unknown; context?: unknown } | undefined;
-    const text = typeof body?.text === "string" ? body.text.trim().slice(0, 4000) : "";
+    const text = typeof body?.text === "string" ? body.text.trim().slice(0, MAX_QUESTION) : "";
     if (!text) return badRequest("empty question");
     const context = promptContextFrom(body?.context);
     const global = (await readEntry(GLOBAL, AGENTS_ENTRY))?.content;

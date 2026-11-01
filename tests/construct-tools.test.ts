@@ -13,6 +13,7 @@ const ctx = (projectId: string) => ({
   onCodexChange: (c: CodexChange) => void changes.push(c),
   beforeManuscriptEdit: async () => {},
   onManuscriptChange: () => {},
+  onProsodyChange: () => {},
 });
 
 test("edit_codex_entry replaces text found once, and refuses none or several unless asked", async () => {
@@ -181,6 +182,9 @@ test("a book's Construct reaches the Global Codex with global: true; the Global 
       "outline",
       "read_manuscript",
       "search",
+      "list_pronunciations",
+      "set_pronunciation",
+      "remove_pronunciation",
       "list_versions",
       "read_version",
       "diff_versions",

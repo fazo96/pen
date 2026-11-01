@@ -300,3 +300,59 @@
   font-size: 11px;
   color: var(--accent);
 }
+
+/* Construct's answer to a question asked from Cadence (components/CadenceAsk.tsx). */
+.cadence-ask {
+  margin: 4px 14px 10px;
+  padding: 10px 12px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--rule));
+  border-radius: 10px;
+  background: var(--paper-raised);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+.cadence-ask .cadence-word-head .label {
+  flex: 1;
+  color: var(--ink-soft);
+}
+.cadence-ask .cadence-list {
+  margin-top: 6px;
+}
+.cadence-rewrite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 0;
+  border-top: 1px solid var(--rule);
+}
+.cadence-rewrite.is-original {
+  border-top: 0;
+  padding-top: 6px;
+}
+.cadence-rewrite .btn {
+  min-height: 32px;
+  padding: 0 10px;
+}
+.cad-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+.cad-line-word {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--font-body);
+}
+.cad-line-marks {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+}
+.cadence-rewrite-ask {
+  min-height: 32px;
+  margin: 0 0 6px 20px;
+  padding: 0 10px;
+}

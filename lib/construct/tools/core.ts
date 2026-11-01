@@ -19,6 +19,8 @@ export type ToolContext = {
   beforeManuscriptEdit: () => Promise<void>;
   /** Called after every change to the manuscript, so an open editor can take it. */
   onManuscriptChange: () => void;
+  /** Called after every change to the writer's pronunciations, so an open Cadence can take it. */
+  onProsodyChange: () => void;
 };
 
 /** A failure the agent should see and can act on. */

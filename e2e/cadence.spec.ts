@@ -65,3 +65,38 @@ test("on a narrow screen Cadence is the drawer's tab", async ({ page, request })
   await expect(page.locator(".cadence-panel")).toHaveCount(0);
   await expect(drawer.locator(".cad-word")).toHaveCount(9);
 });
+
+test("Construct explains the paragraph from Cadence's reading, and a rewrite of a sentence can be used", async ({ page, request }) => {
+  const id = await makeBook(request, uniqueId("cadence-ask"), BODY);
+  await openBook(page, id);
+  await cursorInText(page);
+  await page.getByRole("button", { name: "Cadence", exact: true }).click();
+  const panel = page.locator(".cadence-panel");
+
+  // The stub agent echoes the question: Cadence's reading went with it.
+  await panel.getByRole("button", { name: "Explain how it sounds" }).click();
+  const answer = panel.locator(".cadence-ask");
+  await expect(answer).toContainText("Echo:");
+  await expect(answer).toContainText("river(/x)");
+  await answer.getByRole("button", { name: "Close" }).click();
+  await expect(answer).toHaveCount(0);
+
+  // A rewrite, answered here as a model would, scanned by Cadence and used.
+  let asked: { text: string; context: { selection?: string } } | null = null;
+  await page.route(`**/api/docs/${id}/construct/quick`, async (route) => {
+    asked = route.request().postDataJSON();
+    const lines = [{ t: "text", text: "1. Beneath the broken stone the river ran. — it rises now\n" }, { t: "done" }];
+    await route.fulfill({ contentType: "application/x-ndjson", body: `${lines.map((l) => JSON.stringify(l)).join("\n")}\n` });
+  });
+  await panel.locator(".cadence-sentence").first().click();
+  await panel.getByRole("button", { name: "Rewrite for rhythm" }).click();
+  await expect(answer.locator(".cadence-rewrite.is-original")).toContainText("river");
+  const row = answer.locator("li.cadence-rewrite");
+  await expect(row).toContainText("Beneath");
+  await expect(row).toContainText("Construct: it rises now");
+  expect(asked!.text).toContain("Rewrite this sentence for rhythm");
+  expect(asked!.context.selection).toBe("The river ran beneath the broken stone.");
+  await row.getByRole("button", { name: "Use this" }).click();
+  await expect(page.locator("main .ProseMirror p").first()).toHaveText("Beneath the broken stone the river ran. Kvothe fell.");
+  await expect(answer).toHaveCount(0);
+});

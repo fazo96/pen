@@ -2,11 +2,11 @@
 
 import { TextSelection } from "@tiptap/pm/state";
 import type { Editor } from "@tiptap/react";
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { PromptContext, QuickLine } from "@/lib/construct/types";
-import { readNdjson } from "@/lib/ndjson";
+import type { PromptContext } from "@/lib/construct/types";
 import { useAnchored, useCloseOnEdit } from "@/lib/useAnchored";
+import { useQuickAnswer } from "@/lib/useQuickAnswer";
 import { alternativesIn, matchCase, type QuickKind } from "@/lib/wordTools";
 import { Markdown } from "./ConstructMarkdown";
 import { IconClose, IconConstruct } from "./icons";
@@ -23,9 +23,6 @@ export type Quick = {
   context: PromptContext;
   kind?: QuickKind;
 };
-
-// A self-hosted model may be loading: say so if nothing has come by then.
-const SLOW_MS = 10_000;
 
 /**
  * A look-up or grammar button's question, answered once by the quick-action
@@ -45,53 +42,10 @@ export default function QuickAnswer({
   onContinue: () => void;
 }) {
   const { editor } = quick;
-  const [answer, setAnswer] = useState("");
-  const [status, setStatus] = useState<"asking" | "slow" | "done" | "error">("asking");
-  const [error, setError] = useState<string | null>(null);
+  const { answer, status, error } = useQuickAnswer(projectId, useMemo(() => ({ prompt: quick.prompt, context: quick.context }), [quick]));
   const box = useRef<HTMLDivElement>(null);
   const [range] = useState(() => ({ from: quick.from, to: quick.to }));
   const pos = useAnchored(editor, range, box, { onOutside: onClose });
-
-  useEffect(() => {
-    const ctrl = new AbortController();
-    const slow = setTimeout(() => setStatus((s) => (s === "asking" ? "slow" : s)), SLOW_MS);
-    (async () => {
-      const res = await fetch(`/api/docs/${projectId}/construct/quick`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: quick.prompt, context: quick.context }),
-        signal: ctrl.signal,
-      });
-      if (res.status === 401) throw new Error("Locked. Unlock pen to ask Construct.");
-      if (!res.ok) throw new Error(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn’t ask Construct.");
-      let ended = false;
-      await readNdjson<QuickLine>(res, (line) => {
-        if (line.t === "text") {
-          clearTimeout(slow);
-          setAnswer((a) => a + line.text);
-          setStatus((s) => (s === "slow" ? "asking" : s));
-        } else if (line.t === "done") {
-          ended = true;
-          setStatus("done");
-        } else if (line.t === "error") {
-          ended = true;
-          setError(line.error);
-          setStatus("error");
-        }
-      });
-      if (!ended) throw new Error("The answer was cut off.");
-    })()
-      .catch((err) => {
-        if ((err as Error).name === "AbortError") return;
-        setError((err as Error).message || "Couldn’t reach pen.");
-        setStatus("error");
-      })
-      .finally(() => clearTimeout(slow));
-    return () => {
-      ctrl.abort();
-      clearTimeout(slow);
-    };
-  }, [projectId, quick]);
 
   useCloseOnEdit(editor, onClose, range);
 

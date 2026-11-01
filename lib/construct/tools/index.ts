@@ -1,5 +1,6 @@
 import "server-only";
 import { GLOBAL } from "../../ids";
+import { pronunciationTools, scanTool } from "./cadence";
 import { codexTools, moveTool } from "./codex";
 import { type Tool, type ToolContext, ToolError } from "./core";
 import { editTools } from "./edit";
@@ -14,13 +15,14 @@ import { versionTools } from "./versions";
 // each tool's schema is also what its arguments are checked against (core.ts).
 // The reading tools also read the writer's other books (`book`), never write
 // them. The Global Codex has no manuscript: its chats get its Codex tools, and
-// read the books by naming one; grammar_check, the editing tools and
-// move_codex_entry are a book's.
+// read the books by naming one; grammar_check, scan_prose, the editing tools
+// and move_codex_entry are a book's. The writer's pronunciations (cadence.ts)
+// are the library's: every chat keeps them.
 
 export type { CodexChange, ToolContext } from "./core";
 
-const TOOLS: Tool[] = [...manuscriptTools, ...editTools, ...versionTools, ...codexTools, moveTool];
-const GLOBAL_TOOLS: Tool[] = TOOLS.filter((t) => t !== moveTool && t.name !== "grammar_check" && !editTools.includes(t));
+const TOOLS: Tool[] = [...manuscriptTools, scanTool, ...pronunciationTools, ...editTools, ...versionTools, ...codexTools, moveTool];
+const GLOBAL_TOOLS: Tool[] = TOOLS.filter((t) => t !== moveTool && t !== scanTool && t.name !== "grammar_check" && !editTools.includes(t));
 
 /** The tools a chat of `projectId` gets. */
 function toolsFor(projectId: string): Tool[] {

@@ -455,6 +455,18 @@ export default function Pen({
     if (!constructOpen && slotOpen && ed !== panelEditor && !matches(ROOMY)) closeSlot();
     setConstructOpen(true);
   };
+  /** Cadence's questions, when AI is on: answered in Cadence, or carried on in the chat. */
+  const cadenceAsk = ai
+    ? {
+        projectId,
+        onContinue: (text: string) => {
+          construct.current?.ask({ text, context: {}, send: true });
+          setOutlineOpen(false);
+          if (!constructOpen && slotOpen && !matches(ROOMY)) closeSlot();
+          setConstructOpen(true);
+        },
+      }
+    : undefined;
   const beforeConstruct = async () => {
     await Promise.all([leave(), panel.leave()]);
   };
@@ -854,7 +866,7 @@ export default function Pen({
         {drawerTab === "grammar" && (
           <GrammarPane editor={editor} headings={headings} onShown={() => setOutlineOpen(false)} />
         )}
-        {drawerTab === "cadence" && !isEntry && <CadenceView editor={editor} onShown={() => setOutlineOpen(false)} />}
+        {drawerTab === "cadence" && !isEntry && <CadenceView editor={editor} onShown={() => setOutlineOpen(false)} ask={cadenceAsk} />}
         {drawerTab === "comments" && (
           <CommentsPane editor={editor} headings={headings} onShown={() => setOutlineOpen(false)} />
         )}
@@ -917,7 +929,7 @@ export default function Pen({
         </CodexPanel>
       )}
 
-      {cadenceOpen && !isEntry && <CadencePanel editor={editor} onClose={closeCadence} />}
+      {cadenceOpen && !isEntry && <CadencePanel editor={editor} onClose={closeCadence} ask={cadenceAsk} />}
 
       {toolEditor && (!preview || inPanel) && (
         <Toolbar

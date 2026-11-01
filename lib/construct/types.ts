@@ -11,6 +11,10 @@ export type ToolName =
   | "read_manuscript"
   | "search"
   | "grammar_check"
+  | "scan_prose"
+  | "list_pronunciations"
+  | "set_pronunciation"
+  | "remove_pronunciation"
   | "add_comment"
   | "edit_comment"
   | "remove_comment"
@@ -94,7 +98,9 @@ export type ConstructEvent =
   /** `global`: the entry is in the Global Codex (always, in the Global Codex's own chats). */
   | { t: "codex"; change: { entry: string; action: string; to?: string; global?: boolean } }
   /** Construct changed the manuscript: an open editor takes it. */
-  | { t: "manuscript" };
+  | { t: "manuscript" }
+  /** The writer's pronunciations changed (Cadence's). */
+  | { t: "prosody" };
 
 /** What the panel asks of the session (POST /api/docs/<id>/construct); replies come over the event stream. */
 export type ConstructAction =

@@ -251,6 +251,7 @@ class ConstructSession {
         this.snapshotted = true;
       },
       onManuscriptChange: () => this.emit({ t: "manuscript" }),
+      onProsodyChange: () => this.emit({ t: "prosody" }),
     };
   }
 

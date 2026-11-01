@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "./api";
+import { cadence } from "./cadenceClient";
 import type { EditMode } from "./construct/editMode";
 import type { ChatItem, ConstructAction, ConstructEvent, ConstructState, PromptContext } from "./construct/types";
 
@@ -64,6 +65,9 @@ export function useConstruct(
           break;
         case "manuscript":
           manuscriptRef.current();
+          break;
+        case "prosody":
+          void cadence.reloadOwn();
           break;
       }
     };
