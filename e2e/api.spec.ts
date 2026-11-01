@@ -170,7 +170,7 @@ test("AI routes work, on the stub agent", async ({ request }) => {
   expect((await request.post(`/api/construct/mcp`, { data: {} })).status()).toBe(401);
 });
 
-test("library-wide settings: Construct, grammar, dictionary, shelves", async ({ request }) => {
+test("library-wide settings: Construct, grammar, dictionaries, pronunciations, shelves", async ({ request }) => {
   expect((await request.get("/api/construct/settings")).status()).toBe(200);
   expect((await request.patch("/api/construct/settings", { data: {} })).status()).toBe(200);
   expect((await request.patch("/api/construct/settings", { data: Buffer.from("x"), headers: { "Content-Type": "application/json" } })).status()).toBe(400);
@@ -184,6 +184,17 @@ test("library-wide settings: Construct, grammar, dictionary, shelves", async ({ 
   expect(((await check.json()) as { flags: unknown[][] }).flags[0].length).toBeGreaterThan(0);
 
   expect((await request.get("/api/dictionary?word=")).status()).toBe(400);
+
+  const prons = await request.get("/api/pronunciations");
+  expect(prons.status()).toBe(200);
+  expect(await prons.text()).toContain("silent\tS AY1 L AH0 N T");
+  const etag = prons.headers().etag;
+  expect((await request.get("/api/pronunciations", { headers: { "If-None-Match": etag } })).status()).toBe(304);
+  expect((await request.patch("/api/prosody", { data: { set: { word: "Marabel" } } })).status()).toBe(400);
+  const set = await request.patch("/api/prosody", { data: { set: { word: "Marabel", stress: "/xx" } } });
+  expect(((await set.json()) as { words: Record<string, unknown> }).words.marabel).toEqual({ stress: "/xx" });
+  expect(((await (await request.get("/api/prosody")).json()) as { words: Record<string, unknown> }).words.marabel).toBeTruthy();
+  await request.patch("/api/prosody", { data: { remove: "Marabel" } });
   expect((await request.put("/api/shelves", { data: Buffer.from("x"), headers: { "Content-Type": "application/json" } })).status()).toBe(400);
   expect((await request.get("/api/auth")).status()).toBe(200);
 });

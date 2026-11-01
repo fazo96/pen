@@ -54,6 +54,8 @@ export default defineConfig({
           ANTHROPIC_API_KEY: "e2e-stub",
           CLAUDE_CONFIG_DIR: path.join(library, "claude"),
           PEN_PI: "pen-e2e-no-pi",
+          // Cadence's dictionary: a few words, so nothing is downloaded.
+          PEN_PRONUNCIATIONS: path.resolve("tests/fixtures/cmudict-mini.dict"),
         },
       },
 });
